@@ -219,6 +219,37 @@ def test_sreads_without_skera_pg_warns_and_records_null_version(test_bams, tmp_p
     assert summary["skera_version"] is None
 
 
+@_IGNORE_FORK_WARNING
+def test_summary_artifacts_and_junctions_match_the_molecules_frame(test_bams, tmp_path):
+    hifi, _ = test_bams
+    out = tmp_path / "out"
+    r = _run("--hifi", str(hifi), "--out", str(out), "--fraction", "1", "--threads", "2", check=True)
+    assert r.returncode == 0
+    summary = json.loads((out / "summary.json").read_text())
+
+    _, molecules, _ = runner.annotate(hifi, KINNEX8_SC3, 1.0, 2)
+    tso_tso = molecules.filter(pl.col("end_class") == "tso_tso").height
+    assert summary["artifacts"]["tso_tso_per_1000"] == 1000 * tso_tso / molecules.height
+    assert summary["junctions"] == [
+        {"letter": "B", "molecule": "R1-R1", "junctions": 1},
+        {"letter": "H", "molecule": "TSO-TSO", "junctions": 2},
+    ]
+
+
+def test_summary_has_every_metrics_key_and_null_skera_pass_share_without_sreads(test_bams, tmp_path):
+    hifi, _ = test_bams
+    out = tmp_path / "out"
+    r = _run("--hifi", str(hifi), "--out", str(out), "--fraction", "1", "--threads", "2", check=True)
+    assert r.returncode == 0
+    summary = json.loads((out / "summary.json").read_text())
+
+    for key in ("patterns", "fractions", "artifacts", "mirror_junction_shares", "junctions",
+                "junction_composition", "mirror_size_rule"):
+        assert key in summary
+    assert summary["junction_composition"]
+    assert all(row["skera_pass_share"] is None for row in summary["junction_composition"])
+
+
 def test_threads_1_and_3_give_the_same_output(test_bams, tmp_path):
     hifi, _ = test_bams
     outs = []

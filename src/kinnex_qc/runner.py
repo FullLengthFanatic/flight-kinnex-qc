@@ -7,6 +7,7 @@ it as a library without argparse.
 import functools
 import gzip
 import json
+import math
 import shlex
 import sys
 import time
@@ -21,6 +22,7 @@ from . import __version__
 from .annotate import adapter_chain, annotate_read, chain_flags, primary_pattern, segment_hits, split_segments
 from .classify import call_from_hits
 from .io import iter_bam
+from .metrics import artifact_rates, junction_composition, junction_table, mirror_junction_shares, mirror_size_rule, pattern_shares, read_fractions
 from .parallel import batched, bounded_imap, process_pool
 from .patterns import Chemistry, FAIL_MAX_EDITS, HIFI_MAX_EDITS, KINNEX8_SC3, MAS_ORDER, all_patterns
 from .sampling import in_hash_sample
@@ -149,6 +151,18 @@ def annotate(hifi, chem: Chemistry, fraction: float, threads: int,
     return read_summary, molecules, features
 
 
+def _json_safe(value):
+    """summary.json's floats go out as plain Python floats, unrounded; a NaN one goes out as null,
+    since json.dumps would otherwise write the bare (invalid-JSON) token NaN."""
+    if isinstance(value, float):
+        return None if math.isnan(value) else value
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    return value
+
+
 def skera_version(sreads: Path) -> Optional[str]:
     """VN of the first @PG line in the S-read BAM's header whose ID or PN names skera (case-insensitive),
     or None when the header has no such line."""
@@ -197,13 +211,17 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
             log(f"warning: no @PG line names skera in {sreads}")
 
     counts: dict = {}
-    read_summary, _molecules, _features = annotate(hifi, chem, fraction, threads, counts=counts)
+    read_summary, molecules, _features = annotate(hifi, chem, fraction, threads, counts=counts)
     hifi_reads_in_file = counts["hifi_reads_in_file"]
 
     csv_text = read_summary.select("zm", "read_len", "chain", "chain_flipped", "primary_pattern",
                                     "n_mas").write_csv(separator="\t")
     with gzip.open(out / "reads.tsv.gz", "wb") as f:
         f.write(csv_text.encode())
+
+    # skera's pass/fail verdict per read is Task 9's job (it needs --sreads); here there is none
+    # yet, so junction_composition's skera_pass_share is null rather than a guessed True or False.
+    read_summary_for_junctions = read_summary.with_columns(pl.lit(None, dtype=pl.Boolean).alias("skera_passing"))
 
     summary = {
         "version": __version__,
@@ -224,8 +242,15 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
         "hifi_reads_in_file": hifi_reads_in_file,
         "hifi_reads": read_summary.height,
         "skera_version": skv,
+        "patterns": pattern_shares(read_summary).to_dicts(),
+        "fractions": read_fractions(read_summary),
+        "artifacts": artifact_rates(molecules),
+        "mirror_junction_shares": mirror_junction_shares(molecules),
+        "junctions": junction_table(molecules).to_dicts(),
+        "junction_composition": junction_composition(molecules, read_summary_for_junctions).to_dicts(),
+        "mirror_size_rule": mirror_size_rule(molecules, read_summary, order=chem.order).to_dicts(),
     }
-    (out / "summary.json").write_text(json.dumps(summary, indent=1))
+    (out / "summary.json").write_text(json.dumps(_json_safe(summary), indent=1))
 
     log(f"records: hifi_reads_in_file={hifi_reads_in_file} hifi_reads={read_summary.height}")
     log(f"run time: {time.time() - t0:.1f} s")
