@@ -57,19 +57,19 @@ def adapter_chain(hits: list[Hit]) -> tuple[list[str], bool]:
     return tokens, False
 
 
-def chain_flags(tokens: list[str]) -> set[str]:
+def chain_flags(tokens: list[str], order=MAS_ORDER) -> set[str]:
     """Flags of a normalised chain."""
     if not tokens:
         return {"unresolved"}
     letter = [t.rstrip("'") for t in tokens]
     minus = [t.endswith("'") for t in tokens]
-    idx = [MAS_ORDER.index(x) for x in letter]
+    idx = [order.index(x) for x in letter]
     pairs = list(zip(range(len(tokens) - 1), range(1, len(tokens))))
     flags = set()
-    if tokens == MAS_ORDER:
+    if tokens == list(order):
         flags.add("complete")
     ordered = not any(minus) and all(idx[j] == idx[i] + 1 for i, j in pairs)
-    if ordered and tokens != MAS_ORDER:
+    if ordered and tokens != list(order):
         flags.add("truncated")
     # a "+" run reads A to Q, a "-" run reads Q' down to A'
     if any(minus[i] == minus[j] and (idx[i] - idx[j] if minus[i] else idx[j] - idx[i]) > 1 for i, j in pairs):
