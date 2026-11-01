@@ -265,6 +265,25 @@ def test_hash_sample_of_zero_reads_writes_null_fractions_not_a_crash(test_bams, 
 
 
 @_IGNORE_FORK_WARNING
+def test_hash_sample_of_zero_reads_with_sreads_writes_null_budget_not_a_crash(test_bams, tmp_path):
+    """Task 9 fix round 1: the same zero-sampled-reads case as above, but with --sreads, must not
+    crash in skera.budget_stats (budget_stats' per-column mean() of an empty frame is None, and
+    float(None) used to raise TypeError; every budget value must come out null instead)."""
+    hifi, sreads = test_bams
+    out = tmp_path / "out"
+    r = _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--fraction", "0.000001",
+              "--threads", "1", check=True)
+    assert r.returncode == 0, r.stderr
+    summary = json.loads((out / "summary.json").read_text())
+    assert summary["hifi_reads"] == 0
+    assert summary["skera"]["budget"] == {
+        "molecules": None, "unfilled_slots": None, "artifact_tso_tso": None, "artifact_r1_r1": None,
+        "artifact_one_primer_or_none": None, "artifact_fused": None, "artifact": None, "usable": None,
+        "usable_clean": None, "usable_not_clean": None,
+    }
+
+
+@_IGNORE_FORK_WARNING
 def test_skera_summary_false_cut_and_mirror_arms(test_bams, tmp_path):
     """Step 1 of Task 9: the test BAM's one false cut (around D, skera letter D, skipped adapter D)
     and its mirror arms (after CLEAN 1.0, before CLEAN 0.0) show up in summary.json["skera"]."""

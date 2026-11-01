@@ -269,7 +269,7 @@ def budget_stats(read_summary: pl.DataFrame, cls: pl.DataFrame, order_len: int =
                             + pl.col("artifact_fused")).alias("artifact")))
     cols = ["molecules", "unfilled_slots", "artifact_tso_tso", "artifact_r1_r1", "artifact_one_primer_or_none",
             "artifact_fused", "artifact", "usable", "usable_clean", "usable_not_clean"]
-    return {c: float(reads[c].mean()) for c in cols}
+    return {c: (float(reads[c].mean()) if reads.height else float("nan")) for c in cols}
 
 
 def double_mirrors(molecules: pl.DataFrame) -> pl.Series:
