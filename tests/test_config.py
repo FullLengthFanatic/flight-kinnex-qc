@@ -44,12 +44,12 @@ def test_load_samples_missing_column_raises_clear_error(tmp_path):
 
 def test_load_config_overlays_local_file(tmp_path):
     (tmp_path / "study.toml").write_text('fraction = 0.18\npbtools_env = "kinnex-qc-pbtools"\nout_root = "<out>"\n')
-    (tmp_path / "study.local.toml").write_text('pbtools_env = "kcqc-pbtools"\nout_root = "overridden/out_root"\n')
+    (tmp_path / "study.local.toml").write_text('pbtools_env = "other-pbtools"\nout_root = "overridden/out_root"\n')
 
     config = load_config(tmp_path / "study.toml")
 
     assert config["fraction"] == 0.18
-    assert config["pbtools_env"] == "kcqc-pbtools"
+    assert config["pbtools_env"] == "other-pbtools"
     assert config["out_root"] == "overridden/out_root"
 
 
