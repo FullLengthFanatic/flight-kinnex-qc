@@ -23,7 +23,14 @@
 
 set -uo pipefail
 
-MIN_FREE_GB=400
+MIN_FREE_GB="${MIN_FREE_GB:-400}"
+# MIN_FREE_GB (default 400) sets the free-space floor.
+
+# Size of a member in a `tar -tvv` or `tar -xvv` listing: mode, owner/group, size, date, time, name.
+# The name is everything after the fifth field, so names with spaces match; ENVIRON keeps backslashes as they are.
+member_size() {
+    M="$2" awk '$1 ~ /^-/ { name = $0; sub(/^[^ ]+ +[^ ]+ +[^ ]+ +[^ ]+ +[^ ]+ /, "", name); if (name == ENVIRON["M"]) { print $3; exit } }' "$1"
+}
 
 usage() {
     echo "Usage: $0 MEMBER_TABLE OUT_DIR" >&2
@@ -89,7 +96,7 @@ extract_tar() {
     for pair in "${pairs[@]}"; do
         member="${pair%%:*}"
         final="${pair#*:}"
-        expected_size=$(awk -v p="$member" '$1 ~ /^-/ && $NF == p {print $3; exit}' "$list_log")
+        expected_size=$(member_size "$list_log" "$member")
         if [ -z "$expected_size" ]; then
             echo "[$sample] error: member not found in $tar_path: $member" >&2
             rm -f "$list_log"
@@ -128,7 +135,7 @@ extract_tar() {
         done
         [ "$was_needed" -eq 1 ] || continue
 
-        expected_size=$(awk -v p="$member" '$1 ~ /^-/ && $NF == p {print $3; exit}' "$log_path")
+        expected_size=$(member_size "$log_path" "$member")
         staged="$staging_dir/$member"
         if [ -z "$expected_size" ] || [ ! -f "$staged" ]; then
             echo "[$sample] error: extracted file missing: $staged" >&2
