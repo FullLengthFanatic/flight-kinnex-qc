@@ -176,8 +176,9 @@ def skera_version(sreads: Path) -> Optional[str]:
 
 def read_sreads(sreads: Path, threads: int, keep=None) -> pl.DataFrame:
     """S-read tags (zm, qs, qe, dl, dr) from skera's S-read BAM, with di set to each record's 0-based
-    index within its ZMW (S-reads of one ZMW are consecutive in the file, as iter_bam's own keep
-    filter relies on). keep: as iter_bam's, the same hash-sample filter the HiFi pass used."""
+    index within its ZMW (observed in skera 26.1.0 output: the S-reads of one ZMW are consecutive in
+    the file, which iter_bam's own keep filter relies on). keep: as iter_bam's, the same hash-sample
+    filter the HiFi pass used."""
     cols = {"zm": [], "di": [], "qs": [], "qe": [], "dl": [], "dr": []}
     last_zm, di = None, -1
     for r in iter_bam(sreads, threads=threads, keep=keep):
@@ -249,13 +250,16 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
         passing = skera.passing_from_labels(sreads_df, order_len=order_len)
         fc_all = skera.false_cuts(sreads_df, features)
         budget_cls = skera.budget_classes(molecules, sreads_df)
+        usable_not_clean = skera.budget_per_read(budget_cls).select("zm", "usable_not_clean")
 
+        # reads.tsv.gz's false_cuts (below) is every false cut found in a ZMW with S-reads, any read
+        # pattern; false_cut_stats' summary false_cuts (below) counts only false cuts in complete,
+        # derived-passing ZMWs, so the two numbers are not expected to agree.
         per_read = (read_summary.select("zm")
                     .join(sreads_df.group_by("zm").len().rename({"len": "n_sreads"}), on="zm", how="left")
                     .join(passing, on="zm", how="left")
                     .join(fc_all.group_by("zm").len().rename({"len": "false_cuts"}), on="zm", how="left")
-                    .join(budget_cls.filter(pl.col("usable") & (pl.col("cls") != "CLEAN"))
-                          .group_by("zm").len().rename({"len": "usable_not_clean"}), on="zm", how="left")
+                    .join(usable_not_clean, on="zm", how="left")
                     .with_columns(pl.col("n_sreads", "false_cuts", "usable_not_clean").fill_null(0),
                                   pl.col("passing").fill_null(False)))
         reads_out = reads_out.join(per_read, on="zm", how="left")
@@ -265,7 +269,7 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
         ).with_columns(pl.col("skera_passing").fill_null(False))
 
         skera_summary = {
-            **skera.false_cut_stats(read_summary, features, sreads_df, order=chem.order),
+            **skera.false_cut_stats(read_summary, features, sreads_df, passing=passing, fc=fc_all, order=chem.order),
             "mirror_arms": skera.mirror_arm_stats(molecules, sreads_df),
             "budget": skera.budget_stats(read_summary, budget_cls, order_len=order_len),
         }

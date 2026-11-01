@@ -81,6 +81,24 @@ def test_skipped_adapters_matches_false_cut():
     assert sk.select("zm", "cut_start", "missed", "in_sread", "dist").rows() == [(1, 1500, "D", 1, 490)]
 
 
+def test_false_cut_stats_uses_the_passed_in_passing_and_fc():
+    """Fix round 2, finding 1: false_cut_stats must take its counts from the passing/fc frames it is
+    given, not recompute passing_from_labels/false_cuts itself (the runner now computes both once and
+    passes them in). A caller-supplied fc with the one real false cut duplicated must show up as 2
+    false cuts: if false_cut_stats instead recomputed false_cuts(s, f) internally and ignored the fc
+    argument, this would still read 1."""
+    f, m, s = frames(complete_with_false_cut())
+    read_summary = pl.DataFrame({"zm": [1], "primary_pattern": ["complete"]}, schema={"zm": pl.UInt32, "primary_pattern": pl.Utf8})
+    # passing is given directly (zm 1's two partial S-reads would not derive True on their own; the
+    # point here is only that false_cut_stats must use the frame it is given, not re-derive it).
+    passing = pl.DataFrame({"zm": [1], "passing": [True]}, schema={"zm": pl.UInt32, "passing": pl.Boolean})
+    fc = skera.false_cuts(s, f)
+    stats = skera.false_cut_stats(read_summary, f, s, passing=passing, fc=fc, order=MAS_ORDER)
+    assert stats["false_cuts"] == 1
+    stats_dup = skera.false_cut_stats(read_summary, f, s, passing=passing, fc=pl.concat([fc, fc]), order=MAS_ORDER)
+    assert stats_dup["false_cuts"] == 2
+
+
 def test_mirror_arm_classes_regions():
     f, m, s = frames(tso_tso_mirror())
     arm = skera.mirror_arm_classes(m, s).sort("region")
@@ -123,7 +141,9 @@ def test_false_cut_letters_and_skipped_adapter_letters_match_v10(local):
         .filter((pl.col("source") == "hifi") & pl.col("zm").is_in(complete_zm))
     s = pl.read_parquet(KIN / "segments.parquet", columns=["zm", "di", "qs", "qe", "dl", "dr"]).filter(pl.col("zm").is_in(complete_zm))
     rs_complete = rs.filter(pl.col("primary_pattern") == "complete").select("zm", "primary_pattern")
-    stats = skera.false_cut_stats(rs_complete, f, s, order=MAS_ORDER)
+    passing = skera.passing_from_labels(s, order_len=len(MAS_ORDER))
+    fc = skera.false_cuts(s, f)
+    stats = skera.false_cut_stats(rs_complete, f, s, passing=passing, fc=fc, order=MAS_ORDER)
     gold = json.loads((GOLD / "false_cut_anatomy" / "BD144_kin_false_cuts.json").read_text())
     assert stats["complete_passing_reads"] == 1_950_193
     assert stats["false_cuts"] == gold["false_cuts"]

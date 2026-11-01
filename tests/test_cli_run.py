@@ -9,7 +9,7 @@ import polars as pl
 import pysam
 import pytest
 
-from kinnex_qc import cli, runner, skera
+from kinnex_qc import cli, runner
 from kinnex_qc.annotate import FAIL_PATTERNS, HIFI_PATTERNS
 from kinnex_qc.patterns import KINNEX8_SC3
 from kinnex_qc.sampling import in_hash_sample
@@ -332,30 +332,71 @@ def test_reads_tsv_has_skera_columns_with_sreads(test_bams, tmp_path):
 
 
 @_IGNORE_FORK_WARNING
-def test_junction_composition_skera_pass_share_not_null_with_sreads(test_bams, tmp_path):
+def test_junction_composition_skera_pass_share_with_sreads(test_bams, tmp_path):
+    """The three mirror reads (zm 4, 5: TSO-TSO at H; zm 6: R1-R1 at B) each have exactly one S-read,
+    and each covers only the arm after the junction (dl, dr = 7, 8 for zm 4 and 5; 1, 0 for zm 6).
+    None reaches both ends of the array (forward needs dl == 0, backward needs dl == order_len - 1
+    == 8), so passing_from_labels calls all three failing and skera_pass_share must be exactly 0.0
+    for both junction_molecules rows, not merely non-null."""
     hifi, sreads = test_bams
     out = tmp_path / "out"
     r = _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--fraction", "1",
               "--threads", "2", check=True)
     assert r.returncode == 0
     summary = json.loads((out / "summary.json").read_text())
-    assert all(row["skera_pass_share"] is not None for row in summary["junction_composition"])
+    rows = {row["junction_molecules"]: row for row in summary["junction_composition"]}
+    assert rows["TSO-TSO only"]["reads"] == 2
+    assert rows["TSO-TSO only"]["skera_pass_share"] == 0.0
+    assert rows["R1-R1 only"]["reads"] == 1
+    assert rows["R1-R1 only"]["skera_pass_share"] == 0.0
 
 
 @_IGNORE_FORK_WARNING
-def test_skera_budget_matches_direct_library_call(test_bams, tmp_path):
+def test_skera_budget_matches_hand_derived_numbers(test_bams, tmp_path):
+    """Budget numbers worked out by hand from tests/make_test_bam.py's construction, not by calling
+    skera.budget_stats a second time (which only checks the CLI agrees with itself, not with the
+    fixture).
+
+    zm 1, 2, 3: complete arrays, 8 molecules each, all end_class "proper" and not internal, so all 8
+    are usable and none is an artifact. zm 2 and 3 have no false cut: their 8 S-reads match their 8
+    molecules' bounds exactly, so all 8 are CLEAN. zm 1's false cut (around D) replaces the C-D and
+    D-E S-reads: the C-D S-read now runs the FALSE_CUT_OFFSET (400 bp) into D-E as well as covering
+    all of C-D, so it touches two molecules and C-D comes out FUSED rather than CLEAN; no single
+    S-read then covers 80% of D-E, so D-E comes out PARTIAL. zm 1 is 6 CLEAN + 2 not-clean (1 FUSED,
+    1 PARTIAL) of its 8 usable molecules.
+
+    zm 4, 5 (TSO-TSO mirrors at H) and zm 6 (R1-R1 mirror at B): 3 molecules each, the middle one
+    being the junction molecule itself (tso_tso for zm 4/5, r1_r1 for zm 6: not usable, one artifact
+    each). Their single S-read covers exactly the arm after the junction (CLEAN); the arm before the
+    junction has no S-read at all (NOT_WRITTEN). So 2 usable molecules each, 1 CLEAN / 1 not clean.
+
+    molecules per read (1..6): 8, 8, 8, 3, 3, 3 -> mean 33 / 6
+    unfilled_slots (order_len - 1 - molecules, order_len 9): 0, 0, 0, 5, 5, 5 -> mean 15 / 6
+    artifact_tso_tso: 0, 0, 0, 1, 1, 0 -> mean 2 / 6
+    artifact_r1_r1: 0, 0, 0, 0, 0, 1 -> mean 1 / 6
+    artifact_one_primer_or_none, artifact_fused: 0 for every read -> mean 0.0 each
+    artifact (the four artifact_* summed per read, then meaned): 0, 0, 0, 1, 1, 1 -> mean 3 / 6
+    usable (proper, not internal): 8, 8, 8, 2, 2, 2 -> mean 30 / 6
+    usable_clean: 6, 8, 8, 1, 1, 1 -> mean 25 / 6
+    usable_not_clean: 2, 0, 0, 1, 1, 1 -> mean 5 / 6
+    """
     hifi, sreads = test_bams
     out = tmp_path / "out"
     r = _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--fraction", "1",
               "--threads", "2", check=True)
     assert r.returncode == 0
     summary = json.loads((out / "summary.json").read_text())
-
-    read_summary, molecules, features = runner.annotate(hifi, KINNEX8_SC3, 1.0, 2)
-    sreads_df = runner.read_sreads(sreads, 2)
-    cls = skera.budget_classes(molecules, sreads_df)
-    expected = skera.budget_stats(read_summary, cls, order_len=len(KINNEX8_SC3.order))
-    assert summary["skera"]["budget"] == expected
+    budget = summary["skera"]["budget"]
+    assert budget["molecules"] == pytest.approx(33 / 6)
+    assert budget["unfilled_slots"] == pytest.approx(15 / 6)
+    assert budget["artifact_tso_tso"] == pytest.approx(2 / 6)
+    assert budget["artifact_r1_r1"] == pytest.approx(1 / 6)
+    assert budget["artifact_one_primer_or_none"] == pytest.approx(0.0)
+    assert budget["artifact_fused"] == pytest.approx(0.0)
+    assert budget["artifact"] == pytest.approx(3 / 6)
+    assert budget["usable"] == pytest.approx(30 / 6)
+    assert budget["usable_clean"] == pytest.approx(25 / 6)
+    assert budget["usable_not_clean"] == pytest.approx(5 / 6)
 
 
 def test_threads_1_and_3_give_the_same_output(test_bams, tmp_path):

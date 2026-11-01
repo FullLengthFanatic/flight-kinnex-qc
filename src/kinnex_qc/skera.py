@@ -120,8 +120,11 @@ def passing_from_labels(sreads: pl.DataFrame, order_len: int = 9) -> pl.DataFram
     order (S-reads sorted by qs), its labels (dl, dr) chain from the first adapter to the last, either
     forwards (dl[0] == 0, dr[-1] == order_len - 1, dr == dl + 1 for every S-read) or backwards when the
     first S-read has dl > dr (dl[0] == order_len - 1, dr[-1] == 0, dr == dl - 1), with every S-read's dr
-    equal to the next one's dl either way. Coordinates play no part: a false cut keeps the label chain
-    intact, since skera calls the letter it skipped, so a complete read with a false cut still passes.
+    equal to the next one's dl either way. Coordinates play no part, so a complete read with a false cut
+    still passes this check: observed in BD144 kin, the letter skera calls at a false cut equals the
+    adapter it skipped in 99.0% of false cuts (missed_same_letter_as_skera_call 0.9904 in
+    tests/golden/v10_inputs/false_cut_anatomy/BD144_kin_false_cuts.json), so the label chain stays
+    intact at almost every false cut.
     ZMWs without S-reads are not in the result (the caller treats them as failing).
 
     Measured against skera's own verdict (segmented.non_passing.bam) on BD144: agreement on complete
@@ -152,7 +155,9 @@ def skipped_adapters(fc: pl.DataFrame, sreads: pl.DataFrame, features: pl.DataFr
     inside the S-read before or after it, with the inclusive rule of skera.adapters_inside_sreads
     (strict=False): cut = (cut_start + cut_end) // 2, nearest by |start - cut| with start as the
     tie-break. Columns zm, cut_start, missed, in_sread (1 before, 2 after), dist; null missed when
-    neither S-read holds one. Port of the study's false_cut_anatomy.py (the "ins" block)."""
+    neither S-read holds one. The rule: the adapter skera's call skipped at a false cut is the one of
+    ours, among those still inside a flanking S-read, closest to the cut. study/analyses/false_cut_anatomy.py
+    will use this same rule in this repo's layout."""
     base = fc.with_row_index("gid").with_columns(((pl.col("cut_start") + pl.col("cut_end")) // 2).alias("cut"))
     inside = adapters_inside_sreads(sreads, features, tol=tol, strict=False).select("zm", "di", "name", "start")
     before = base.select("gid", "zm", pl.col("di_before").alias("di"), "cut").join(inside, on=["zm", "di"]) \
@@ -167,23 +172,30 @@ def skipped_adapters(fc: pl.DataFrame, sreads: pl.DataFrame, features: pl.DataFr
     return out.sort("zm", "cut_start")
 
 
-def false_cut_stats(read_summary: pl.DataFrame, features: pl.DataFrame, sreads: pl.DataFrame, order=MAS_ORDER) -> dict:
+def false_cut_stats(read_summary: pl.DataFrame, features: pl.DataFrame, sreads: pl.DataFrame, *,
+                     passing: pl.DataFrame, fc: pl.DataFrame, order=MAS_ORDER) -> dict:
     """summary.json["skera"]'s false-cut numbers: complete_reads (our complete pattern),
     complete_passing_reads (derived via passing_from_labels), false_cuts, false_cut_reads_share
     (reads with at least one false cut / complete_passing_reads), false_cuts_per_read,
     false_cut_letters (letter skera called -> count) and skipped_adapter_letters (letter of ours
-    skera skipped -> count, "none" for false cuts without one)."""
+    skera skipped -> count, "none" for false cuts without one).
+
+    passing and fc are passing_from_labels' and false_cuts' output over the full sreads/features
+    (every ZMW, not just this function's target), taken as arguments so the caller computes each
+    once: false_cuts groups entirely by zm (.over("zm")), so filtering its output down to this
+    function's target ZMWs gives the same rows as running it on sreads/features pre-filtered to
+    that target."""
     complete = read_summary.filter(pl.col("primary_pattern") == "complete").select("zm")
-    passing = passing_from_labels(sreads, order_len=len(order)).filter(pl.col("passing")).select("zm")
-    target = complete.join(passing, on="zm")["zm"]
+    pass_zm = passing.filter(pl.col("passing")).select("zm")
+    target = complete.join(pass_zm, on="zm")["zm"]
     s = sreads.filter(pl.col("zm").is_in(target))
     f = features.filter(pl.col("zm").is_in(target))
-    fc = false_cuts(s, f)
-    sk = skipped_adapters(fc, s, f)
+    fc_t = fc.filter(pl.col("zm").is_in(target))
+    sk = skipped_adapters(fc_t, s, f)
     n = target.len()
 
     letter_of = dict(enumerate(order))
-    letters = (fc.with_columns(pl.col("dr_before").cast(pl.Int64).replace_strict(letter_of, return_dtype=pl.Utf8).alias("letter"))
+    letters = (fc_t.with_columns(pl.col("dr_before").cast(pl.Int64).replace_strict(letter_of, return_dtype=pl.Utf8).alias("letter"))
                .group_by("letter").agg(pl.len().alias("n")).sort("letter"))
     false_cut_letters = dict(zip(letters["letter"].to_list(), letters["n"].to_list()))
     missed = (sk.with_columns(pl.col("missed").fill_null("none"))
@@ -193,9 +205,9 @@ def false_cut_stats(read_summary: pl.DataFrame, features: pl.DataFrame, sreads: 
     return {
         "complete_reads": complete.height,
         "complete_passing_reads": n,
-        "false_cuts": fc.height,
-        "false_cut_reads_share": (fc["zm"].n_unique() / n) if n else float("nan"),
-        "false_cuts_per_read": (fc.height / n) if n else float("nan"),
+        "false_cuts": fc_t.height,
+        "false_cut_reads_share": (fc_t["zm"].n_unique() / n) if n else float("nan"),
+        "false_cuts_per_read": (fc_t.height / n) if n else float("nan"),
         "false_cut_letters": false_cut_letters,
         "skipped_adapter_letters": skipped_adapter_letters,
     }
@@ -204,8 +216,9 @@ def false_cut_stats(read_summary: pl.DataFrame, features: pl.DataFrame, sreads: 
 def mirror_arm_classes(molecules: pl.DataFrame, sreads: pl.DataFrame) -> pl.DataFrame:
     """Every proper, non-internal molecule of a single TSO-TSO mirror read (skera.single_tso_tso_mirrors),
     with its region before (end <= js) or after (start >= je) the junction, and its class under
-    molecule_coverage computed on all molecules of that read. Port of the study's skera_mirror_arms.py
-    (lines 96 to 104: the region rule)."""
+    molecule_coverage computed on all molecules of that read. The region rule: a molecule lies before
+    the junction when it ends at or before the junction's start, after when it starts at or after the
+    junction's end. study/analyses/mirror_arms.py will use this same rule in this repo's layout."""
     st = single_tso_tso_mirrors(molecules)
     mols = molecules.join(st.select("zm", "js", "je"), on="zm")
     sr = sreads.filter(pl.col("zm").is_in(st["zm"]))
@@ -219,8 +232,9 @@ def mirror_arm_classes(molecules: pl.DataFrame, sreads: pl.DataFrame) -> pl.Data
 
 def mirror_arm_stats(molecules: pl.DataFrame, sreads: pl.DataFrame) -> dict:
     """summary.json["skera"]'s mirror_arms: CLEAN shares (and counts by class) on the arm after and
-    before a single TSO-TSO mirror junction. Port of the study's skera_mirror_arms.py (lines 96 to
-    104 and 135 to 141: the region rule and shares)."""
+    before a single TSO-TSO mirror junction (mirror_arm_classes' before/after region rule), as the
+    share of each arm's molecules that molecule_coverage classifies CLEAN, plus the raw counts per
+    class. study/analyses/mirror_arms.py will use this same rule in this repo's layout."""
     arm = mirror_arm_classes(molecules, sreads)
     out = {}
     for region in ("after", "before"):
@@ -234,17 +248,18 @@ def mirror_arm_stats(molecules: pl.DataFrame, sreads: pl.DataFrame) -> dict:
 
 def budget_classes(molecules: pl.DataFrame, sreads: pl.DataFrame) -> pl.DataFrame:
     """Every molecule's slot-budget role: usable (proper, not internal) and, from molecule_coverage
-    computed on all molecules of the read, its class (CLEAN/FUSED/PARTIAL/NOT_WRITTEN). Port of the
-    study's molecule_budget.py (the usable rule and chunk_budget, lines 50 to 81), without the lima,
-    refine or mapping columns (no lima, refine or mapping run here)."""
+    computed on all molecules of the read, its class (CLEAN/FUSED/PARTIAL/NOT_WRITTEN). The usable
+    rule: a molecule is usable when its end_class is proper and it is not internal (fused).
+    study/analyses/molecule_budget.py will use this same rule, without the lima, refine or mapping
+    columns (no lima, refine or mapping run here)."""
     return molecule_coverage(molecules, sreads).with_columns(
         ((pl.col("end_class") == "proper") & ~pl.col("internal")).alias("usable"))
 
 
 def budget_per_read(cls: pl.DataFrame) -> pl.DataFrame:
     """Per ZMW with at least one molecule in `cls` (skera.budget_classes' output): molecule count, the
-    four artifact kinds, usable molecules and their clean/not-clean split. Port of the study's
-    molecule_budget.py (per_read, lines 66 to 77)."""
+    four artifact kinds, usable molecules and their clean/not-clean split, one row per ZMW.
+    study/analyses/molecule_budget.py will use this same per-read aggregation."""
     return (cls.group_by("zm", maintain_order=True).agg(
         pl.len().alias("molecules"),
         (~pl.col("usable") & (pl.col("end_class") == "tso_tso")).sum().alias("artifact_tso_tso"),
