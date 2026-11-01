@@ -16,7 +16,9 @@ def test_bams(tmp_path_factory) -> tuple[Path, Path]:
 
 @pytest.fixture(scope="session")
 def local() -> dict:
-    """This machine's data paths, from the git-ignored TOML named by KINNEX_QC_LOCAL."""
+    """This machine's data paths, from the git-ignored TOML named by KINNEX_QC_LOCAL. Every value is
+    wrapped in Path, including non-path ones (pbtools_env: the conda environment lima and isoseq run
+    in; str() of it is the plain name)."""
     path = os.environ.get("KINNEX_QC_LOCAL")
     if not path:
         pytest.skip("KINNEX_QC_LOCAL not set")

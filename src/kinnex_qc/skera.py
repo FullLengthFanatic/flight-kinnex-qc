@@ -1,6 +1,7 @@
 """Shared rules for skera's S-reads: false cuts, adapters left inside an S-read, molecule coverage, and mirror junctions."""
 import polars as pl
 
+from .molecules import USABLE
 from .patterns import MAS_ORDER
 
 COVER = 0.8
@@ -252,8 +253,7 @@ def budget_classes(molecules: pl.DataFrame, sreads: pl.DataFrame) -> pl.DataFram
     rule: a molecule is usable when its end_class is proper and it is not internal (fused).
     study/analyses/molecule_budget.py will use this same rule, without the lima, refine or mapping
     columns (no lima, refine or mapping run here)."""
-    return molecule_coverage(molecules, sreads).with_columns(
-        ((pl.col("end_class") == "proper") & ~pl.col("internal")).alias("usable"))
+    return molecule_coverage(molecules, sreads).with_columns(USABLE.alias("usable"))
 
 
 def budget_per_read(cls: pl.DataFrame) -> pl.DataFrame:

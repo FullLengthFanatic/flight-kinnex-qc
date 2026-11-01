@@ -399,6 +399,25 @@ def test_skera_budget_matches_hand_derived_numbers(test_bams, tmp_path):
     assert budget["usable_not_clean"] == pytest.approx(5 / 6)
 
 
+@_IGNORE_FORK_WARNING
+def test_write_molecules_writes_molecules_bam_and_records_count(test_bams, tmp_path):
+    """30 usable molecules in the fixture (hand-derived in test_skera_budget_matches_hand_derived_numbers:
+    8 each for the three complete arrays, 2 each for the three mirrors)."""
+    hifi, sreads = test_bams
+    out = tmp_path / "out"
+    r = _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--write-molecules",
+              "--threads", "2", check=True)
+    assert r.returncode == 0, r.stderr
+
+    mol_bam = out / "molecules.bam"
+    assert mol_bam.exists()
+    assert sum(1 for _ in pysam.AlignmentFile(str(mol_bam), "rb", check_sq=False)) == 30
+
+    summary = json.loads((out / "summary.json").read_text())
+    assert summary["molecules_written"] == 30
+    assert "molecules written: 30" in (out / "run.log").read_text()
+
+
 def test_threads_1_and_3_give_the_same_output(test_bams, tmp_path):
     hifi, _ = test_bams
     outs = []

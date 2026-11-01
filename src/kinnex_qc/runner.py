@@ -23,6 +23,7 @@ from .annotate import adapter_chain, annotate_read, chain_flags, primary_pattern
 from .classify import call_from_hits
 from .io import iter_bam
 from .metrics import artifact_rates, junction_composition, junction_table, mirror_junction_shares, mirror_size_rule, pattern_shares, read_fractions
+from .molecules import write_molecules as write_molecules_bam
 from .parallel import batched, bounded_imap, process_pool
 from .patterns import Chemistry, FAIL_MAX_EDITS, HIFI_MAX_EDITS, KINNEX8_SC3, MAS_ORDER, all_patterns
 from .sampling import in_hash_sample
@@ -235,6 +236,11 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
     read_summary, molecules, features = annotate(hifi, chem, fraction, threads, counts=counts)
     hifi_reads_in_file = counts["hifi_reads_in_file"]
 
+    molecules_written = None
+    if write_molecules:
+        molecules_written = write_molecules_bam(hifi, molecules, template, out / "molecules.bam")
+        log(f"molecules written: {molecules_written}")
+
     # The S-read BAM is read only after annotate()'s process pool has been created and shut down
     # (fork safety: a pysam file opened with threads > 1 before a fork can leave the child with a
     # half-copied reader), and only for the ZMWs in the sample, with the same hash keep function
@@ -307,6 +313,8 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
     }
     if skera_summary is not None:
         summary["skera"] = skera_summary
+    if molecules_written is not None:
+        summary["molecules_written"] = molecules_written
     (out / "summary.json").write_text(json.dumps(_json_safe(summary), indent=1))
 
     log(f"records: hifi_reads_in_file={hifi_reads_in_file} hifi_reads={read_summary.height}")
