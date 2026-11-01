@@ -1,0 +1,7 @@
+name: kinnex-qc-pbtools
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - lima=2.13.0
+  - isoseq=4.3.0

@@ -1,0 +1,33 @@
+[project]
+name = "kinnex-qc"
+version = "0.1.0"
+description = "QC of PacBio Kinnex arrays of single-cell cDNA: mirror arrays, TSO-TSO molecules and skera's cutting errors"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Simone Picelli" }]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pysam==0.22.1", "edlib==1.3.9.post1", "numpy==1.26.0", "scipy==1.14.1",
+    "polars==1.5.0", "pyarrow==17.0.0", "plotly==5.24.1", "kaleido==0.2.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.1.1", "ruff==0.7.4"]
+
+[project.scripts]
+kinnex-qc = "kinnex_qc.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["real: needs the BD144 or ArgenTag data on this machine (set KINNEX_QC_REAL=1)"]
+
+[tool.ruff]
+line-length = 160
+target-version = "py312"
