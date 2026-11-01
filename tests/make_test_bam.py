@@ -1,6 +1,8 @@
 """Builds the small synthetic HiFi and S-read BAMs `tests/test_cli_run.py` runs `kinnex-qc run` against:
 three complete arrays (one with a false cut around D), two TSO-TSO mirrors at H and one R1-R1 mirror at
-B. Sequences come from tests/synth.py's array()/molecule()/rand(), on synth.rng (fixed seed).
+B. Sequences come from tests/synth.py's array()/molecule()/rand(), on the shared synth.rng; build() seeds
+it with a fixed constant and restores its prior state afterward, so the BAM content is the same regardless
+of what other tests drew from synth.rng first, and this call leaves their own draws undisturbed.
 """
 from pathlib import Path
 
@@ -13,6 +15,7 @@ CDNA_RANGE = (400, 900)          # cDNA length range for every molecule (brief: 
 MAS_LEN = {a: (14 if a == "Q" else 17) for a in MAS_ORDER}
 FALSE_CUT_OFFSET = 400            # bp into the D-E molecule where the first replacement S-read ends
 FALSE_CUT_GAP = 14                # bp between the two replacement S-reads (skera's false cut)
+SEED = 11                         # fixed seed for the BAM content, independent of synth.rng's session state
 
 
 def tso_tso_molecule(n):
@@ -72,32 +75,39 @@ def _complete_array_sreads(zm, seq, starts, false_cut):
 
 
 def build(out_dir: Path) -> tuple[Path, Path]:
-    """Writes hifi.bam and sreads.bam into out_dir; returns their paths."""
+    """Writes hifi.bam and sreads.bam into out_dir; returns their paths. Draws from synth.rng under a fixed
+    seed, saving and restoring its state, so the BAM content does not depend on draws other tests made on
+    the shared rng before this ran (and this call does not disturb those tests' own draws)."""
     hifi_path, sreads_path = out_dir / "hifi.bam", out_dir / "sreads.bam"
     hifi_records, sread_records = [], []
 
-    for zm in (1, 2, 3):                                 # three complete arrays A..Q
-        seq, starts = array(MAS_ORDER, mols=_cdna_mols(len(MAS_ORDER) - 1))
-        hifi_records.append(_hifi_record(zm, seq))
-        sread_records += _complete_array_sreads(zm, seq, starts, false_cut=(zm == 1))
+    state = rng.getstate()
+    rng.seed(SEED)
+    try:
+        for zm in (1, 2, 3):                                 # three complete arrays A..Q
+            seq, starts = array(MAS_ORDER, mols=_cdna_mols(len(MAS_ORDER) - 1))
+            hifi_records.append(_hifi_record(zm, seq))
+            sread_records += _complete_array_sreads(zm, seq, starts, false_cut=(zm == 1))
 
-    for zm in (4, 5):                                    # two TSO-TSO mirrors at H: Q' H' H Q
-        order = ["Q'", "H'", "H", "Q"]
-        mols = [molecule(rng.randint(*CDNA_RANGE)), tso_tso_molecule(rng.randint(*CDNA_RANGE)),
+        for zm in (4, 5):                                    # two TSO-TSO mirrors at H: Q' H' H Q
+            order = ["Q'", "H'", "H", "Q"]
+            mols = [molecule(rng.randint(*CDNA_RANGE)), tso_tso_molecule(rng.randint(*CDNA_RANGE)),
+                    molecule(rng.randint(*CDNA_RANGE))]
+            seq, starts = array(order, mols=mols)
+            hifi_records.append(_hifi_record(zm, seq))
+            qs, qe = starts[2] + MAS_LEN["H"], starts[3]     # the arm after the junction: H to Q
+            sread_records.append(_sread_record(zm, qs, qe, MAS_ORDER.index("H"), MAS_ORDER.index("Q"), seq[qs:qe]))
+
+        zm = 6                                               # one R1-R1 mirror at B: A B B' A'
+        order = ["A", "B", "B'", "A'"]
+        mols = [molecule(rng.randint(*CDNA_RANGE)), r1_r1_molecule(rng.randint(*CDNA_RANGE)),
                 molecule(rng.randint(*CDNA_RANGE))]
         seq, starts = array(order, mols=mols)
         hifi_records.append(_hifi_record(zm, seq))
-        qs, qe = starts[2] + MAS_LEN["H"], starts[3]     # the arm after the junction: H to Q
-        sread_records.append(_sread_record(zm, qs, qe, MAS_ORDER.index("H"), MAS_ORDER.index("Q"), seq[qs:qe]))
-
-    zm = 6                                               # one R1-R1 mirror at B: A B B' A'
-    order = ["A", "B", "B'", "A'"]
-    mols = [molecule(rng.randint(*CDNA_RANGE)), r1_r1_molecule(rng.randint(*CDNA_RANGE)),
-            molecule(rng.randint(*CDNA_RANGE))]
-    seq, starts = array(order, mols=mols)
-    hifi_records.append(_hifi_record(zm, seq))
-    qs, qe = starts[2] + MAS_LEN["B"], starts[3]         # the arm after the junction: B' to A'
-    sread_records.append(_sread_record(zm, qs, qe, MAS_ORDER.index("B"), MAS_ORDER.index("A"), seq[qs:qe]))
+        qs, qe = starts[2] + MAS_LEN["B"], starts[3]         # the arm after the junction: B' to A'
+        sread_records.append(_sread_record(zm, qs, qe, MAS_ORDER.index("B"), MAS_ORDER.index("A"), seq[qs:qe]))
+    finally:
+        rng.setstate(state)
 
     with pysam.AlignmentFile(str(hifi_path), "wb", header=_header([{"ID": "ccs", "PN": "ccs"}])) as bam:
         for r in hifi_records:
