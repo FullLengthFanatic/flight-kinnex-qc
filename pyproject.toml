@@ -31,3 +31,8 @@ markers = ["real: needs the BD144 or ArgenTag data on this machine (set KINNEX_Q
 [tool.ruff]
 line-length = 160
 target-version = "py312"
+
+[tool.ruff.lint.per-file-ignores]
+# Pre-existing style in code ported verbatim from kinnex_concat_qc; not editing ported test logic.
+"tests/test_annotate.py" = ["E731"]
+"tests/test_scan.py" = ["F401"]
