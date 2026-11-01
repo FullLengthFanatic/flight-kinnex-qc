@@ -45,8 +45,8 @@ def _record(name, seq, tags, qual=None):
 
 
 def _hifi_record(zm, seq, np=20, rq=0.999):
-    # a fixed Phred 40 for every base: HiFi records need real quality values (Task 10's
-    # --write-molecules slices them), and a constant avoids drawing from synth.rng
+    # a fixed Phred 40 for every base: HiFi records need real quality values (--write-molecules
+    # slices them), and a constant avoids drawing from synth.rng
     return _record(f"movie/{zm}/ccs", seq, [("zm", zm, "i"), ("np", np, "i"), ("rq", rq, "f")], qual=[40] * len(seq))
 
 

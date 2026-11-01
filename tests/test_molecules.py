@@ -12,6 +12,10 @@ from kinnex_qc.patterns import KINNEX8_SC3
 
 PRIMERS = Path(__file__).resolve().parent.parent / "resources" / "primers_FlashBD.fasta"
 
+# every test in this module calls runner.annotate, which forks its pool workers in-process; same
+# warning text as tests/test_cli_run.py's _IGNORE_FORK_WARNING
+pytestmark = pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
+
 
 def _annotated(hifi):
     _, mols, _ = runner.annotate(hifi, KINNEX8_SC3, 1.0, 2)
@@ -44,16 +48,25 @@ def test_write_molecules_header_and_rg_match_the_template(test_bams, tmp_path):
 
 
 def test_write_molecules_sequences_and_qualities_equal_the_slices(test_bams, tmp_path):
+    """The written (zm, qs, qe) set must be exactly the usable molecules of `mols`, and each record's
+    sequence and qualities must equal the HiFi read sliced at that molecule's own start:end, taken
+    from the molecules frame rather than the record's own qs/qe tags."""
     hifi, sreads = test_bams
     mols = _annotated(hifi)
     out = tmp_path / "molecules.bam"
     molecules.write_molecules(hifi, mols, sreads, out)
+
+    expected = set(mols.filter(molecules.USABLE).select("zm", "start", "end").iter_rows())
+    records = {(r.get_tag("zm"), r.get_tag("qs"), r.get_tag("qe")): r
+               for r in pysam.AlignmentFile(str(out), "rb", check_sq=False)}
+    assert set(records) == expected
+
     by_zm = {r.get_tag("zm"): (r.query_sequence, r.query_qualities) for r in pysam.AlignmentFile(str(hifi), "rb", check_sq=False)}
-    for r in pysam.AlignmentFile(str(out), "rb", check_sq=False):
-        s, e = r.get_tag("qs"), r.get_tag("qe")
-        seq, qual = by_zm[r.get_tag("zm")]
-        assert r.query_sequence == seq[s:e]
-        assert list(r.query_qualities) == list(qual[s:e])
+    for zm, start, end in expected:
+        r = records[(zm, start, end)]
+        seq, qual = by_zm[zm]
+        assert r.query_sequence == seq[start:end]
+        assert list(r.query_qualities) == list(qual[start:end])
 
 
 def test_write_molecules_names_parse_as_movie_zm_ccs_start_end(test_bams, tmp_path):

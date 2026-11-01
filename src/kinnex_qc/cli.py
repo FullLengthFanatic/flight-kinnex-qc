@@ -1,9 +1,11 @@
 """Command line entry point: `kinnex-qc`. Option parsing, the `run` rule checks and their one-line
 errors and exit codes live here; runner.py takes the already-validated values and writes the output,
-so it stays importable as a library (the study's stage 02, Task 14) without argparse."""
+so it stays importable as a library (the study's stage 02) without argparse."""
 import argparse
 import sys
 from pathlib import Path
+
+import pysam
 
 from . import __version__, runner
 from .patterns import chemistry_from
@@ -24,7 +26,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--fraction", type=float, default=None,
                       help="share of ZMWs to annotate, in (0, 1] (default: 0.1, or 1.0 with --write-molecules)")
     run.add_argument("--threads", type=int, default=4, help="worker processes (default: 4)")
-    run.add_argument("--write-molecules", action="store_true", help="write a per-molecule table")
+    run.add_argument("--write-molecules", action="store_true",
+                      help="write DIR/molecules.bam: one unaligned record per usable molecule, ready for lima --isoseq")
     run.add_argument("--template", help="BAM whose header to copy for --write-molecules (default: --sreads)")
     run.add_argument("--examples", type=int, default=2, help="example reads per pattern to keep (default: 2)")
 
@@ -56,6 +59,10 @@ def _run_cmd(args: argparse.Namespace, argv: list[str]) -> int:
 
     if args.write_molecules and sreads is None and template is None:
         return _fail("--write-molecules needs --sreads or --template")
+    if args.write_molecules:
+        with pysam.AlignmentFile(str(template), "rb", check_sq=False) as t:
+            if not t.header.to_dict().get("RG"):
+                return _fail(f"template {template} has no @RG read group")
 
     out = Path(args.out)
     if out.exists() and not out.is_dir():

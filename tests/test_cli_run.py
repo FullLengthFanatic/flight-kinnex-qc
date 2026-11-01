@@ -107,6 +107,15 @@ def test_write_molecules_without_sreads_or_template_exits_2(test_bams, tmp_path)
     assert r.stderr.startswith("kinnex-qc run: error:")
 
 
+def test_write_molecules_with_template_missing_rg_exits_2(test_bams, tmp_path):
+    hifi, _ = test_bams
+    template = _sreads_bam_without_skera_pg(tmp_path / "no_rg.bam")
+    r = _run("--hifi", str(hifi), "--out", str(tmp_path / "out"), "--write-molecules",
+             "--template", str(template), "--threads", "2")
+    assert r.returncode == 2
+    assert r.stderr == f"kinnex-qc run: error: template {template} has no @RG read group\n"
+
+
 def test_summary_records_skera_version_with_sreads(test_bams, tmp_path):
     hifi, sreads = test_bams
     out = tmp_path / "out"
@@ -184,7 +193,7 @@ def test_bad_primers_exits_2(test_bams, tmp_path):
 @_IGNORE_FORK_WARNING
 def test_command_line_logs_the_argv_main_received_not_sys_argv(test_bams, tmp_path, monkeypatch):
     """runner.run must log the argv cli.main actually parsed, shell-quoted, not sys.argv (which differs
-    for a library caller like Task 14's study that calls cli.main(argv) in-process)."""
+    for a library caller like the study's stage 02 that calls cli.main(argv) in-process)."""
     hifi, _ = test_bams
     out = tmp_path / "out with space"
     monkeypatch.setattr("sys.argv", ["pytest", "unrelated", "args"])
@@ -266,8 +275,8 @@ def test_hash_sample_of_zero_reads_writes_null_fractions_not_a_crash(test_bams, 
 
 @_IGNORE_FORK_WARNING
 def test_hash_sample_of_zero_reads_with_sreads_writes_null_budget_not_a_crash(test_bams, tmp_path):
-    """Task 9 fix round 1: the same zero-sampled-reads case as above, but with --sreads, must not
-    crash in skera.budget_stats (budget_stats' per-column mean() of an empty frame is None, and
+    """The same zero-sampled-reads case as above, but with --sreads, must not crash in
+    skera.budget_stats (budget_stats' per-column mean() of an empty frame is None, and
     float(None) used to raise TypeError; every budget value must come out null instead)."""
     hifi, sreads = test_bams
     out = tmp_path / "out"
@@ -285,8 +294,8 @@ def test_hash_sample_of_zero_reads_with_sreads_writes_null_budget_not_a_crash(te
 
 @_IGNORE_FORK_WARNING
 def test_skera_summary_false_cut_and_mirror_arms(test_bams, tmp_path):
-    """Step 1 of Task 9: the test BAM's one false cut (around D, skera letter D, skipped adapter D)
-    and its mirror arms (after CLEAN 1.0, before CLEAN 0.0) show up in summary.json["skera"]."""
+    """The test BAM's one false cut (around D, skera letter D, skipped adapter D) and its mirror
+    arms (after CLEAN 1.0, before CLEAN 0.0) show up in summary.json["skera"]."""
     hifi, sreads = test_bams
     out = tmp_path / "out"
     r = _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--fraction", "1",

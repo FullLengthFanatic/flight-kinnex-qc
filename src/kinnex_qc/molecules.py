@@ -23,8 +23,8 @@ def write_molecules(hifi: Path, molecules: pl.DataFrame, template: Path, out: Pa
     molecule's index among its read's written molecules sorted by start, qs and qe the slice bounds,
     RG the template's first read group. header is the template's header (to_dict()), unchanged.
 
-    `molecules` filters to usable molecules itself (end_class proper, not internal; callers pass
-    every molecule). keep(zm), when given, further restricts which reads are written. The HiFi BAM is
+    write_molecules keeps only the usable molecules of `molecules` itself (callers pass every
+    molecule). keep(zm), when given, further restricts which reads are written. The HiFi BAM is
     read once, in file order, so the output is in HiFi file order. Returns the number of records written.
     """
     usable = molecules.filter(USABLE)

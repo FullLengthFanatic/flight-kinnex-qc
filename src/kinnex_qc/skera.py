@@ -224,7 +224,7 @@ def mirror_arm_classes(molecules: pl.DataFrame, sreads: pl.DataFrame) -> pl.Data
     mols = molecules.join(st.select("zm", "js", "je"), on="zm")
     sr = sreads.filter(pl.col("zm").is_in(st["zm"]))
     cov = molecule_coverage(mols, sr)
-    return (cov.filter((pl.col("end_class") == "proper") & ~pl.col("internal"))
+    return (cov.filter(USABLE)
             .with_columns(pl.when(pl.col("end") <= pl.col("js")).then(pl.lit("before"))
                           .when(pl.col("start") >= pl.col("je")).then(pl.lit("after"))
                           .otherwise(pl.lit("other")).alias("region"))

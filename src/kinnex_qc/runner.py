@@ -1,7 +1,7 @@
 """`kinnex-qc run`: per-read annotation of a HiFi BAM, and the function that writes its outputs.
 
 Option parsing, the rule checks, the one-line stderr errors and the exit codes live in cli.py; this
-module takes plain, already-validated values, so other code (the study's stage 02, Task 14) can import
+module takes plain, already-validated values, so other code (the study's stage 02) can import
 it as a library without argparse.
 """
 import functools
