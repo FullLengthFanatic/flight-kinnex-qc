@@ -1,5 +1,50 @@
-"""Hand-built reads as the frames the pipeline writes, for tests with known answers."""
+"""Hand-built reads as the frames the pipeline writes, for tests with known answers, and random read/array
+builders shared by tests that need actual sequences (moved out of test_annotate.py so no builder is
+duplicated)."""
+import random
+
 import polars as pl
+
+from kinnex_qc.patterns import MAS, MAS_ORDER, R1, TSO_CORE, TSO_EXT, revcomp
+
+rng = random.Random(11)
+
+
+def rand(n):
+    return "".join(rng.choice("ACGT") for _ in range(n))
+
+
+def molecule(n):
+    """One cDNA molecule as it sits in an array: R1 + bead + polyT + cDNA + TSO'."""
+    return R1 + rand(43) + "T" * 20 + rand(n) + revcomp(TSO_CORE + TSO_EXT)
+
+
+def mutate(seq, rate):
+    out = []
+    for c in seq:
+        r = rng.random()
+        if r < rate / 3:
+            out.append(rng.choice("ACGT".replace(c, "")))
+        elif r < 2 * rate / 3:
+            continue
+        elif r < rate:
+            out.append(c + rng.choice("ACGT"))
+        else:
+            out.append(c)
+    return "".join(out)
+
+
+def array(order=MAS_ORDER, mols=None):
+    """Adapters in the given order with a molecule between each pair; returns (seq, adapter starts)."""
+    mols = mols or [molecule(rng.randint(300, 3000)) for _ in range(len(order) - 1)]
+    seq, starts = "", []
+    for i, a in enumerate(order):
+        name, minus = a.rstrip("'"), a.endswith("'")
+        starts.append(len(seq))
+        seq += revcomp(MAS[name]) if minus else MAS[name]
+        if i < len(order) - 1:
+            seq += mols[i]
+    return seq, starts
 
 
 def frames(reads: dict[int, dict]) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:

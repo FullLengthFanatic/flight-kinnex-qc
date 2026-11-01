@@ -4,6 +4,15 @@ from pathlib import Path
 
 import pytest
 
+import make_test_bam
+
+
+@pytest.fixture(scope="session")
+def test_bams(tmp_path_factory) -> tuple[Path, Path]:
+    """(hifi_bam, sreads_bam) for the synthetic test array: see make_test_bam.build. Written once per
+    session into tmp_path_factory, never into the repo."""
+    return make_test_bam.build(tmp_path_factory.mktemp("kinnex_qc_test_bam"))
+
 
 @pytest.fixture(scope="session")
 def local() -> dict:
