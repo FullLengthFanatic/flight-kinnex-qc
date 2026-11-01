@@ -135,10 +135,17 @@ def read_adapter_fasta(path) -> tuple[dict, tuple]:
     for line in open(path):
         line = line.strip()
         if line.startswith(">"):
-            name = line[1:].split()[0]
+            parts = line[1:].split()
+            if not parts:
+                raise ValueError(f"{path}: empty header (a '>' line with no name)")
+            name = parts[0]
+            if name in adapters:
+                raise ValueError(f"{path}: duplicate adapter name {name!r}")
             order.append(name)
             adapters[name] = ""
         elif line:
+            if name is None:
+                raise ValueError(f"{path}: sequence line before any '>' header")
             adapters[name] += line.upper()
     if not order or any(not s or set(s) - _DNA for s in adapters.values()):
         raise ValueError(f"{path}: not an adapter FASTA (names and A/C/G/T sequences)")

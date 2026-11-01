@@ -17,6 +17,27 @@ def test_read_adapter_fasta_keeps_order(tmp_path):
     assert order == ("X", "Y") and adapters["Y"] == "TTTTGGGGCCCCAAAAT"
 
 
+def test_read_adapter_fasta_rejects_empty_header(tmp_path):
+    f = tmp_path / "a.fasta"
+    f.write_text(">\nACGTACGTACGTACGTA\n")
+    with pytest.raises(ValueError, match="empty header"):
+        read_adapter_fasta(f)
+
+
+def test_read_adapter_fasta_rejects_sequence_before_header(tmp_path):
+    f = tmp_path / "a.fasta"
+    f.write_text("ACGTACGTACGTACGTA\n>X\nTTTTGGGGCCCCAAAAT\n")
+    with pytest.raises(ValueError, match="before any"):
+        read_adapter_fasta(f)
+
+
+def test_read_adapter_fasta_rejects_duplicate_name(tmp_path):
+    f = tmp_path / "a.fasta"
+    f.write_text(">X\nACGTACGTACGTACGTA\n>X\nTTTTGGGGCCCCAAAAT\n")
+    with pytest.raises(ValueError, match="duplicate"):
+        read_adapter_fasta(f)
+
+
 def test_chemistry_from_defaults():
     assert chemistry_from(None, "sc3") == KINNEX8_SC3
 
