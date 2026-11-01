@@ -1,0 +1,5 @@
+junction_molecules	reads	median_molecules	skera_pass_share
+TSO-TSO only	313852	3.0	0.0034602296623886418
+TSO-TSO and R1-R1	2930	11.0	0.9262798634812287
+other molecule	336	5.0	0.08333333333333333
+R1-R1 only	110	3.0	0.07272727272727272

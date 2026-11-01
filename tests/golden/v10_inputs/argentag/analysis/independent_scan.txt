@@ -1,0 +1,23 @@
+Reading BAM file...
+Total records: 180071
+Sample size: 5000
+Scanning adapters in sample...
+Loading reference results...
+
+Concordance (sample of 5000 reads):
+  Same call (mirror or not): 4992 (99.8%)
+  Mirror in this scan only: 1 (0.0%)
+  Mirror in the pipeline only: 7 (0.1%)
+
+Disagreement details (first 10):
+
+Mirror rate estimate:
+  Sample: 3292/5000 = 65.84%
+  Estimated mirror ZMWs in 180,071 non-passing: 118,558
+  95% CI: [116,191, 120,925]
+  95% CI as fraction: [64.53%, 67.15%]
+
+Reference (in our sample ZMs):
+  3298/5000 = 65.96%
+
+Script executed successfully.

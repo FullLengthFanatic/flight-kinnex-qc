@@ -1,0 +1,40 @@
+field	value	false_cuts
+frag_class	tso_only	120422
+frag_class	r1_only	52578
+frag_class	none	1548
+frag_class		731
+frag_class	other	40
+frag_pair	5p--5p	92262
+frag_pair	none	48714
+frag_pair	3p--3p	34343
+fragment	S2	172524
+fragment	S1	2064
+fragment		731
+fragment_keeps	TSO	122437
+fragment_keeps	R1	52151
+fragment_keeps		731
+fused_class	r1_only	116034
+fused_class	tso_only	47155
+fused_class	other	8802
+fused_class	none	2587
+fused_class		731
+fused_class	proper	10
+fused_pair	3p--3p	80189
+fused_pair	none	54152
+fused_pair	5p--5p	40975
+fused_pair	5p--3p	3
+missed	D	129073
+missed	C	21389
+missed	B	6662
+missed	E	5755
+missed	G	4891
+missed	H	4080
+missed	F	2738
+missed		731
+skera_letter	D	129038
+skera_letter	C	22209
+skera_letter	B	6712
+skera_letter	E	5632
+skera_letter	G	4896
+skera_letter	H	4090
+skera_letter	F	2742

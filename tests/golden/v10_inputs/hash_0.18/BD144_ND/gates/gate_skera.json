@@ -1,0 +1,12 @@
+{
+ "gate": "skera",
+ "passed": true,
+ "metrics": {
+  "compared_reads": 159966,
+  "agreeing_reads": 145623,
+  "agreement": 0.910337196654289
+ },
+ "threshold": {
+  "agreement": "reported only (spec 17)"
+ }
+}

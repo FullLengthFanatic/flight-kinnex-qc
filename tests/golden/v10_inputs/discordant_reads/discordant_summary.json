@@ -1,0 +1,9 @@
+{
+ "pool_skera_passing_reads": 40000,
+ "disagreeing_reads": 3582,
+ "one_shifted_cut": 3412,
+ "our_adapters_inside_sreads": 3880,
+ "inside_exact": 3736,
+ "inside_adapter_D": 2680,
+ "drawn_for_review": 30
+}

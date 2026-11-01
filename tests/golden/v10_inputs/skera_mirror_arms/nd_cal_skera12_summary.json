@@ -1,0 +1,16 @@
+{
+ "label": "nd_cal_skera12",
+ "single_tso_tso_mirror_reads": 26107,
+ "non_passing_records": 29562,
+ "non_passing_records_full_read_length": 29562,
+ "mirror_reads_non_passing": 25832,
+ "mirror_reads_non_passing_share": 0.9894664266288735,
+ "proper_molecules_in_mirror_reads": 153899,
+ "clean_share_mirror_reads": 0.47436955405818104,
+ "complete_reads_baseline": 170055,
+ "clean_share_complete_arrays": 0.9793106694229888,
+ "skera_found_entries": 111577,
+ "skera_found_at_none_of_our_adapters": 8797,
+ "ligations_same_letter": 0,
+ "ligations_total": 1469864
+}

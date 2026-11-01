@@ -1,0 +1,89 @@
+error_rate	truth	n	called_complete	junction_molecule_classes	called_mirror	called_truncated	called_skipped_slot	called_unresolved
+0.001	complete	200	200	{}	0	0	0	0
+0.001	tso_tso_mirror_B	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.001	tso_tso_mirror_C	200	0	"{""tso_tso"": 199, ""proper"": 1}"	200	0	0	0
+0.001	tso_tso_mirror_D	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.001	tso_tso_mirror_E	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.001	tso_tso_mirror_F	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.001	tso_tso_mirror_G	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.001	tso_tso_mirror_H	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.001	tso_tso_mirror_Q	200	0	"{""tso_tso"": 199, ""proper"": 1}"	200	0	0	0
+0.001	r1_r1_mirror_A	200	0	"{""r1_r1"": 196}"	196	4	0	0
+0.001	r1_r1_mirror_B	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.001	r1_r1_mirror_C	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.001	r1_r1_mirror_D	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.001	r1_r1_mirror_E	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.001	r1_r1_mirror_F	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.001	r1_r1_mirror_G	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.001	r1_r1_mirror_H	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.001	truncated_no_A	200	0	{}	0	200	0	0
+0.001	truncated_no_Q	200	0	{}	0	200	0	0
+0.001	adapter_destroyed	200	0	{}	0	0	200	0
+0.001	decoy_motif	200	197	{}	0	3	0	0
+0.001	opposite_join	200	0	{}	0	0	0	200
+0.005	complete	200	200	{}	0	0	0	0
+0.005	tso_tso_mirror_B	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.005	tso_tso_mirror_C	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.005	tso_tso_mirror_D	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.005	tso_tso_mirror_E	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.005	tso_tso_mirror_F	200	0	"{""tso_tso"": 199, ""proper"": 1}"	200	0	0	0
+0.005	tso_tso_mirror_G	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.005	tso_tso_mirror_H	200	0	"{""tso_tso"": 199, ""proper"": 1}"	200	0	0	0
+0.005	tso_tso_mirror_Q	200	0	"{""tso_tso"": 197}"	197	3	0	0
+0.005	r1_r1_mirror_A	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.005	r1_r1_mirror_B	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.005	r1_r1_mirror_C	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.005	r1_r1_mirror_D	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.005	r1_r1_mirror_E	200	0	"{""r1_r1"": 199}"	199	0	1	0
+0.005	r1_r1_mirror_F	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.005	r1_r1_mirror_G	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.005	r1_r1_mirror_H	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.005	truncated_no_A	200	0	{}	0	200	0	0
+0.005	truncated_no_Q	200	0	{}	0	200	0	0
+0.005	adapter_destroyed	200	0	{}	0	1	199	0
+0.005	decoy_motif	200	198	{}	0	1	1	0
+0.005	opposite_join	200	0	{}	0	0	0	200
+0.01	complete	200	199	{}	0	0	1	0
+0.01	tso_tso_mirror_B	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.01	tso_tso_mirror_C	200	0	"{""tso_tso"": 199}"	199	0	0	1
+0.01	tso_tso_mirror_D	200	0	"{""tso_tso"": 199, ""proper"": 1}"	200	0	0	0
+0.01	tso_tso_mirror_E	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.01	tso_tso_mirror_F	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.01	tso_tso_mirror_G	200	0	"{""tso_tso"": 199, ""proper"": 1}"	200	0	0	0
+0.01	tso_tso_mirror_H	200	0	"{""tso_tso"": 200}"	200	0	0	0
+0.01	tso_tso_mirror_Q	200	0	"{""tso_tso"": 199}"	199	1	0	0
+0.01	r1_r1_mirror_A	200	0	"{""r1_r1"": 197}"	197	2	1	0
+0.01	r1_r1_mirror_B	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.01	r1_r1_mirror_C	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.01	r1_r1_mirror_D	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.01	r1_r1_mirror_E	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.01	r1_r1_mirror_F	200	0	"{""r1_r1"": 199}"	199	0	0	1
+0.01	r1_r1_mirror_G	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.01	r1_r1_mirror_H	200	0	"{""r1_r1"": 200}"	200	0	0	0
+0.01	truncated_no_A	200	0	{}	0	199	1	0
+0.01	truncated_no_Q	200	0	{}	0	200	0	0
+0.01	adapter_destroyed	200	0	{}	0	0	200	0
+0.01	decoy_motif	200	199	{}	0	1	0	0
+0.01	opposite_join	200	0	{}	0	0	2	198
+0.05	complete	200	134	{}	0	13	53	0
+0.05	tso_tso_mirror_B	200	0	"{""tso_tso"": 169, ""tso_only"": 11}"	180	0	7	13
+0.05	tso_tso_mirror_C	200	0	"{""tso_tso"": 177, ""tso_only"": 12}"	189	0	4	7
+0.05	tso_tso_mirror_D	200	0	"{""tso_tso"": 171, ""tso_only"": 12}"	183	0	2	15
+0.05	tso_tso_mirror_E	200	0	"{""tso_tso"": 172, ""tso_only"": 11}"	183	0	3	14
+0.05	tso_tso_mirror_F	200	0	"{""tso_tso"": 180, ""tso_only"": 12}"	192	0	2	6
+0.05	tso_tso_mirror_G	200	0	"{""tso_tso"": 180, ""tso_only"": 8}"	188	0	1	11
+0.05	tso_tso_mirror_H	200	0	"{""tso_tso"": 171, ""tso_only"": 9}"	180	1	0	19
+0.05	tso_tso_mirror_Q	200	0	"{""tso_tso"": 178, ""tso_only"": 11}"	189	11	0	0
+0.05	r1_r1_mirror_A	200	0	"{""r1_r1"": 174}"	174	26	0	0
+0.05	r1_r1_mirror_B	200	0	"{""r1_r1"": 180, ""r1_only"": 5}"	185	0	0	15
+0.05	r1_r1_mirror_C	200	0	"{""r1_r1"": 175, ""r1_only"": 10}"	185	0	1	14
+0.05	r1_r1_mirror_D	200	0	"{""r1_r1"": 182, ""r1_only"": 5}"	187	0	1	12
+0.05	r1_r1_mirror_E	200	0	"{""r1_r1"": 179, ""r1_only"": 5}"	184	0	2	14
+0.05	r1_r1_mirror_F	200	0	"{""r1_r1"": 180, ""r1_only"": 4}"	184	0	1	15
+0.05	r1_r1_mirror_G	200	0	"{""r1_r1"": 185, ""r1_only"": 5}"	190	0	0	10
+0.05	r1_r1_mirror_H	200	0	"{""r1_r1"": 186, ""r1_only"": 3}"	189	0	4	7
+0.05	truncated_no_A	200	0	{}	0	156	44	0
+0.05	truncated_no_Q	200	0	{}	0	154	46	0
+0.05	adapter_destroyed	200	0	{}	0	1	199	0
+0.05	decoy_motif	200	126	{}	0	16	58	0
+0.05	opposite_join	200	0	{}	0	0	52	148

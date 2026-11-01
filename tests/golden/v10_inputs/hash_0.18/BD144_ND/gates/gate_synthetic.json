@@ -1,0 +1,179 @@
+{
+ "gate": "synthetic",
+ "passed": true,
+ "metrics": {
+  "n_clean_sreads": 2792,
+  "fail_max_edits": {
+   "MAS": 2,
+   "TSO": 4,
+   "R1": 3
+  },
+  "rates": {
+   "0.001": {
+    "MAS": {
+     "recall": 1.0,
+     "precision": 1.0,
+     "truth": 1800,
+     "found": 1800,
+     "called": 1800,
+     "correct": 1800
+    },
+    "TSO": {
+     "recall": 1.0,
+     "precision": 1.0,
+     "truth": 1600,
+     "found": 1600,
+     "called": 1600,
+     "correct": 1600
+    },
+    "R1": {
+     "recall": 1.0,
+     "precision": 1.0,
+     "truth": 1600,
+     "found": 1600,
+     "called": 1600,
+     "correct": 1600
+    }
+   },
+   "0.005": {
+    "MAS": {
+     "recall": 0.9988888888888889,
+     "precision": 1.0,
+     "truth": 1800,
+     "found": 1798,
+     "called": 1798,
+     "correct": 1798
+    },
+    "TSO": {
+     "recall": 1.0,
+     "precision": 1.0,
+     "truth": 1600,
+     "found": 1600,
+     "called": 1600,
+     "correct": 1600
+    },
+    "R1": {
+     "recall": 1.0,
+     "precision": 1.0,
+     "truth": 1600,
+     "found": 1600,
+     "called": 1600,
+     "correct": 1600
+    }
+   },
+   "0.01": {
+    "MAS": {
+     "recall": 0.9988888888888889,
+     "precision": 1.0,
+     "truth": 1800,
+     "found": 1798,
+     "called": 1798,
+     "correct": 1798
+    },
+    "TSO": {
+     "recall": 1.0,
+     "precision": 1.0,
+     "truth": 1600,
+     "found": 1600,
+     "called": 1600,
+     "correct": 1600
+    },
+    "R1": {
+     "recall": 1.0,
+     "precision": 1.0,
+     "truth": 1600,
+     "found": 1600,
+     "called": 1600,
+     "correct": 1600
+    }
+   },
+   "0.05": {
+    "MAS": {
+     "recall": 0.96,
+     "precision": 1.0,
+     "truth": 1800,
+     "found": 1728,
+     "called": 1728,
+     "correct": 1728
+    },
+    "TSO": {
+     "recall": 0.991875,
+     "precision": 0.9993702770780857,
+     "truth": 1600,
+     "found": 1587,
+     "called": 1588,
+     "correct": 1587
+    },
+    "R1": {
+     "recall": 0.98875,
+     "precision": 1.0,
+     "truth": 1600,
+     "found": 1582,
+     "called": 1582,
+     "correct": 1582
+    }
+   },
+   "0.08": {
+    "MAS": {
+     "recall": 0.8616666666666667,
+     "precision": 0.9987121699935608,
+     "truth": 1800,
+     "found": 1551,
+     "called": 1553,
+     "correct": 1551
+    },
+    "TSO": {
+     "recall": 0.96625,
+     "precision": 1.0,
+     "truth": 1600,
+     "found": 1546,
+     "called": 1546,
+     "correct": 1546
+    },
+    "R1": {
+     "recall": 0.94,
+     "precision": 1.0,
+     "truth": 1600,
+     "found": 1504,
+     "called": 1504,
+     "correct": 1504
+    }
+   },
+   "0.12": {
+    "MAS": {
+     "recall": 0.6827777777777778,
+     "precision": 1.0,
+     "truth": 1800,
+     "found": 1229,
+     "called": 1229,
+     "correct": 1229
+    },
+    "TSO": {
+     "recall": 0.858125,
+     "precision": 1.0,
+     "truth": 1600,
+     "found": 1373,
+     "called": 1373,
+     "correct": 1373
+    },
+    "R1": {
+     "recall": 0.8175,
+     "precision": 0.9992360580595875,
+     "truth": 1600,
+     "found": 1308,
+     "called": 1309,
+     "correct": 1308
+    }
+   }
+  },
+  "fused_internal_recall": {
+   "0.001": 1.0,
+   "0.005": 1.0,
+   "0.01": 1.0
+  }
+ },
+ "threshold": {
+  "hifi_rates": "MAS/TSO/R1 recall >= 0.99 and precision >= 0.999",
+  "fused_internal_recall": ">= 0.99"
+ }
+}

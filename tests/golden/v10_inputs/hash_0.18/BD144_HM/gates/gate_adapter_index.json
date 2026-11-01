@@ -1,0 +1,12 @@
+{
+ "gate": "adapter_index",
+ "passed": true,
+ "metrics": {
+  "checked_boundaries": 3266825,
+  "agreeing": 3266825,
+  "agreement": 1.0
+ },
+ "threshold": {
+  "agreement": ">= 0.99"
+ }
+}

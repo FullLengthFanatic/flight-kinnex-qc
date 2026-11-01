@@ -1,0 +1,10 @@
+{
+ "label": "nd_cal_skera26",
+ "single_tso_tso_mirror_reads": 26107,
+ "mirror_reads_non_passing": 25834,
+ "mirror_reads_non_passing_share": 0.989543034435209,
+ "proper_molecules_in_mirror_reads": 153899,
+ "clean_share_mirror_reads": 0.4740966478014802,
+ "complete_reads_baseline": 170055,
+ "clean_share_complete_arrays": 0.9786951300317771
+}

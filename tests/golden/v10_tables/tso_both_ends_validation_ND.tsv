@@ -1,0 +1,7 @@
+touches_tso_tso	primary_pattern	len	share_of_sreads_checked	sreads_checked
+true	mirror	510	0.00255	200000
+false	complete	279	0.0013950000000000002	200000
+false	mirror	18	0.00009	200000
+false	truncated	12	0.00006000000000000001	200000
+true	unresolved	2	0.00001	200000
+false	skipped_slot	1	5e-6	200000

@@ -1,0 +1,10 @@
+{
+ "label": "nd_hash_skera26",
+ "single_tso_tso_mirror_reads": 313734,
+ "mirror_reads_non_passing": 312721,
+ "mirror_reads_non_passing_share": 0.996771150082554,
+ "proper_molecules_in_mirror_reads": 1155204,
+ "clean_share_mirror_reads": 0.4709462571112981,
+ "complete_reads_baseline": 89705,
+ "clean_share_complete_arrays": 0.9779801089074955
+}

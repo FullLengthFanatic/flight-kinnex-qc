@@ -1,0 +1,31 @@
+{
+ "label": "BD144_HM",
+ "complete_passing_reads": 2029534,
+ "false_cuts": 178916,
+ "false_cuts_per_read": 0.08815619743251406,
+ "reads_with_false_cut": 0.0861971270252186,
+ "skera_calls_D": 0.7410628451340294,
+ "missed_adapter_found": 0.995735428916363,
+ "missed_is_D": 0.745056215724686,
+ "missed_same_letter_as_skera_call": 0.9906765532996918,
+ "cut_inside_proper_molecule": 0.9998267343334302,
+ "median_cut_to_missed_adapter_bp": 890.0,
+ "fused_far_end_at_real_adapter": 0.9800576806993226,
+ "fragment_after_cut_in_read_order": 0.9883414817600602,
+ "fragment_keeps_tso_when_ascending": 0.9996688278714463,
+ "fragment_keeps_r1_when_descending": 0.9996451551854656,
+ "cut_position_from_kept_end_median": 0.4679862652910191,
+ "fates": {
+  "frag_lima": 0.0,
+  "frag_refine": 0.0,
+  "frag_mapped": 0.0,
+  "fused_lima": 0.004327740762153879,
+  "fused_refine": 0.0042772223874983865,
+  "fused_mapped": 0.0012236672972108244
+ },
+ "baseline_proper_sreads": {
+  "lima_pass": 0.9999766798776211,
+  "refine_asrun": 0.9997829968071601,
+  "mapped_fltnc": 0.990143907844927
+ }
+}

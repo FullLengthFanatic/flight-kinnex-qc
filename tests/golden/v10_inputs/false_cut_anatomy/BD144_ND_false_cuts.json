@@ -1,0 +1,31 @@
+{
+ "label": "BD144_ND",
+ "complete_passing_reads": 1596858,
+ "false_cuts": 142451,
+ "false_cuts_per_read": 0.0892070553549533,
+ "reads_with_false_cut": 0.0872137660330474,
+ "skera_calls_D": 0.7434486244392808,
+ "missed_adapter_found": 0.9957318656941685,
+ "missed_is_D": 0.746903266287374,
+ "missed_same_letter_as_skera_call": 0.9902568332593078,
+ "cut_inside_proper_molecule": 0.999712181732666,
+ "median_cut_to_missed_adapter_bp": 891.0,
+ "fused_far_end_at_real_adapter": 0.9798527212866178,
+ "fragment_after_cut_in_read_order": 0.9884097206065862,
+ "fragment_keeps_tso_when_ascending": 0.9997542007098683,
+ "fragment_keeps_r1_when_descending": 0.9995764189963622,
+ "cut_position_from_kept_end_median": 0.473132372214941,
+ "fates": {
+  "frag_lima": 7.050048292830806e-06,
+  "frag_refine": 7.050048292830806e-06,
+  "frag_mapped": 7.050048292830806e-06,
+  "fused_lima": 0.00393392694739959,
+  "fused_refine": 0.0038704765127641123,
+  "fused_mapped": 0.001085707437095944
+ },
+ "baseline_proper_sreads": {
+  "lima_pass": 0.9993261717411862,
+  "refine_asrun": 0.9991260025188629,
+  "mapped_fltnc": 0.9896198876215689
+ }
+}

@@ -1,0 +1,31 @@
+{
+ "label": "BD144_kin",
+ "complete_passing_reads": 1950193,
+ "false_cuts": 175319,
+ "false_cuts_per_read": 0.08989828186235926,
+ "reads_with_false_cut": 0.08783335803174352,
+ "skera_calls_D": 0.7360183437049036,
+ "missed_adapter_found": 0.9958304576229615,
+ "missed_is_D": 0.7393005246637798,
+ "missed_same_letter_as_skera_call": 0.9904231676862099,
+ "cut_inside_proper_molecule": 0.9998802183448456,
+ "median_cut_to_missed_adapter_bp": 899.0,
+ "fused_far_end_at_real_adapter": 0.9795344486336336,
+ "fragment_after_cut_in_read_order": 0.9881778816413499,
+ "fragment_keeps_tso_when_ascending": 0.9997141900554471,
+ "fragment_keeps_r1_when_descending": 0.9997506186575611,
+ "cut_position_from_kept_end_median": 0.4781736076266935,
+ "fates": {
+  "frag_lima": 0.0,
+  "frag_refine": 0.0,
+  "frag_mapped": 0.0,
+  "fused_lima": 0.0033564735262446447,
+  "fused_refine": 0.0033106513620638303,
+  "fused_mapped": 0.001025270923545719
+ },
+ "baseline_proper_sreads": {
+  "lima_pass": 0.9999847111566758,
+  "refine_asrun": 0.9997906150255471,
+  "mapped_fltnc": 0.9893394110750675
+ }
+}

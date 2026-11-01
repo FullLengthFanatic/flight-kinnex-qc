@@ -1,0 +1,100 @@
+{
+ "gate": "lima",
+ "passed": true,
+ "metrics": {
+  "class_pair_agreement": 0.9832090792749519,
+  "fltnc_in_lima_pass": 0.9999730187142457,
+  "n_mapped_fltnc": 15418094,
+  "confusion": [
+   {
+    "end_class": "proper",
+    "lima_pair": "5p--3p",
+    "len": 15582152
+   },
+   {
+    "end_class": "tso_only",
+    "lima_pair": "5p--5p",
+    "len": 139841
+   },
+   {
+    "end_class": "r1_only",
+    "lima_pair": "3p--3p",
+    "len": 118678
+   },
+   {
+    "end_class": "r1_only",
+    "lima_pair": "none",
+    "len": 60222
+   },
+   {
+    "end_class": "tso_only",
+    "lima_pair": "none",
+    "len": 42332
+   },
+   {
+    "end_class": "other",
+    "lima_pair": "5p--5p",
+    "len": 4272
+   },
+   {
+    "end_class": "other",
+    "lima_pair": "3p--3p",
+    "len": 3088
+   },
+   {
+    "end_class": "none",
+    "lima_pair": "none",
+    "len": 2630
+   },
+   {
+    "end_class": "other",
+    "lima_pair": "none",
+    "len": 1660
+   },
+   {
+    "end_class": "r1_only",
+    "lima_pair": "5p--3p",
+    "len": 767
+   },
+   {
+    "end_class": "other",
+    "lima_pair": "5p--3p",
+    "len": 546
+   },
+   {
+    "end_class": "proper",
+    "lima_pair": "none",
+    "len": 359
+   },
+   {
+    "end_class": "tso_only",
+    "lima_pair": "5p--3p",
+    "len": 345
+   },
+   {
+    "end_class": "proper",
+    "lima_pair": "3p--3p",
+    "len": 22
+   },
+   {
+    "end_class": "tso_tso",
+    "lima_pair": "5p--5p",
+    "len": 15
+   },
+   {
+    "end_class": "r1_r1",
+    "lima_pair": "3p--3p",
+    "len": 14
+   },
+   {
+    "end_class": "proper",
+    "lima_pair": "5p--5p",
+    "len": 14
+   }
+  ]
+ },
+ "threshold": {
+  "class_pair_agreement": ">= 0.98",
+  "fltnc_in_lima_pass": ">= 0.995"
+ }
+}

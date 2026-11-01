@@ -1,0 +1,18 @@
+{
+ "label": "BD144_HM",
+ "hifi_reads": 2077059,
+ "molecules": 7.973243417736328,
+ "unfilled_slots": 0.026756582263671856,
+ "artifact_tso_tso": 0.0008762389513249263,
+ "artifact_r1_r1": 6.932879614878538e-05,
+ "artifact_one_primer_or_none": 0.013859500380104754,
+ "artifact_fused": 0.001800622899975398,
+ "usable": 7.956222716831828,
+ "kept_standard": 7.686335823874045,
+ "lost_lima": 0.022057630524698623,
+ "lost_refine": 0.0011540355858933233,
+ "lost_mapping": 0.07557464665182838,
+ "not_written_cleanly": 0.17110058019536278,
+ "other_mapped": 0.002631124103841056,
+ "mapped_sreads": 7.688966947977886
+}

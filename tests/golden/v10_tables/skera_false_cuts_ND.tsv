@@ -1,0 +1,2 @@
+skera_passing_reads	reads_with_cut_without_adapter	cuts	cuts_called_D_by_skera	cuts_closest_to_D	cuts_closest_to_D_3_to_5_edits	cuts_within_2_edits_of_any_adapter	cuts_with_ctcctcc_repeat	our_adapters_inside_sreads	inside_le1_edit_with_primer
+169259	14968	15290	11478	11337	11057	380	4344	15587	15567
