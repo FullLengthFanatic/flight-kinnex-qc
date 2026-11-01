@@ -91,7 +91,7 @@ def build(out_dir: Path) -> tuple[Path, Path]:
 
         for zm in (4, 5):                                    # two TSO-TSO mirrors at H: Q' H' H Q
             order = ["Q'", "H'", "H", "Q"]
-            mols = [molecule(rng.randint(*CDNA_RANGE)), tso_tso_molecule(rng.randint(*CDNA_RANGE)),
+            mols = [revcomp(molecule(rng.randint(*CDNA_RANGE))), tso_tso_molecule(rng.randint(*CDNA_RANGE)),
                     molecule(rng.randint(*CDNA_RANGE))]
             seq, starts = array(order, mols=mols)
             hifi_records.append(_hifi_record(zm, seq))
@@ -101,7 +101,7 @@ def build(out_dir: Path) -> tuple[Path, Path]:
         zm = 6                                               # one R1-R1 mirror at B: A B B' A'
         order = ["A", "B", "B'", "A'"]
         mols = [molecule(rng.randint(*CDNA_RANGE)), r1_r1_molecule(rng.randint(*CDNA_RANGE)),
-                molecule(rng.randint(*CDNA_RANGE))]
+                revcomp(molecule(rng.randint(*CDNA_RANGE)))]
         seq, starts = array(order, mols=mols)
         hifi_records.append(_hifi_record(zm, seq))
         qs, qe = starts[2] + MAS_LEN["B"], starts[3]         # the arm after the junction: B' to A'

@@ -1,8 +1,13 @@
-"""`kinnex-qc run`: per-read annotation of a HiFi BAM, and the CLI command that writes it out."""
-import argparse
+"""`kinnex-qc run`: per-read annotation of a HiFi BAM, and the function that writes its outputs.
+
+Option parsing, the rule checks, the one-line stderr errors and the exit codes live in cli.py; this
+module takes plain, already-validated values, so other code (the study's stage 02, Task 14) can import
+it as a library without argparse.
+"""
 import functools
 import gzip
 import json
+import shlex
 import sys
 import time
 from pathlib import Path
@@ -17,7 +22,7 @@ from .annotate import adapter_chain, annotate_read, chain_flags, primary_pattern
 from .classify import call_from_hits
 from .io import iter_bam
 from .parallel import batched, bounded_imap, process_pool
-from .patterns import Chemistry, FAIL_MAX_EDITS, HIFI_MAX_EDITS, KINNEX8_SC3, MAS_ORDER, all_patterns, chemistry_from
+from .patterns import Chemistry, FAIL_MAX_EDITS, HIFI_MAX_EDITS, KINNEX8_SC3, MAS_ORDER, all_patterns
 from .sampling import in_hash_sample
 from .schemas import ANNOT_SEGMENTS, READ_FEATURES, READ_SUMMARY
 
@@ -98,17 +103,34 @@ def _frame(schema: pa.Schema, drop: set[str], cols: dict[str, list]) -> pl.DataF
     return pl.from_arrow(table)
 
 
-def annotate(hifi, chem: Chemistry, fraction: float, threads: int) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+def annotate(hifi, chem: Chemistry, fraction: float, threads: int,
+             counts: Optional[dict] = None) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     """Annotate every record of a HiFi BAM (optionally hash-sampled), parallel over batches of BATCH.
 
     Returns (read_summary, molecules, features): READ_SUMMARY, ANNOT_SEGMENTS and READ_FEATURES
     columns and dtypes, without `source` and `skera_passing`, rows ordered by zm so the output does
     not depend on the worker pool.
+
+    counts: when given, receives counts["hifi_reads_in_file"], the number of records in the whole
+    HiFi BAM (before the sample), counted during this single pass instead of a second read of the
+    file. At fraction 1 every yielded record is counted (keep=None, nothing is filtered); below 1,
+    iter_bam calls keep(zm) once per record (a HiFi BAM has one record per ZMW), so counting those
+    calls counts the whole file even though only the sampled records are yielded.
     """
-    keep = None if fraction >= 1 else (lambda zm: in_hash_sample(zm, fraction))
+    seen = 0
+
+    def _keep(zm):
+        nonlocal seen
+        seen += 1
+        return in_hash_sample(zm, fraction)
+
+    keep = None if fraction >= 1 else _keep
 
     def items():
+        nonlocal seen
         for r in iter_bam(hifi, threads=threads, keep=keep):
+            if keep is None:
+                seen += 1
             yield (r.get_tag("zm"), "hifi", r.query_sequence, r.get_tag("np"), r.get_tag("rq"), True)
 
     feats_parts, summ_parts, segs_parts = [], [], []
@@ -122,6 +144,8 @@ def annotate(hifi, chem: Chemistry, fraction: float, threads: int) -> tuple[pl.D
     read_summary = _frame(READ_SUMMARY, {"source", "skera_passing"}, _merge(READ_SUMMARY, summ_parts)).sort("zm")
     molecules = _frame(ANNOT_SEGMENTS, {"source"}, _merge(ANNOT_SEGMENTS, segs_parts)).sort(["zm", "seg_index"])
     features = _frame(READ_FEATURES, {"source"}, _merge(READ_FEATURES, feats_parts)).sort(["zm", "start"])
+    if counts is not None:
+        counts["hifi_reads_in_file"] = seen
     return read_summary, molecules, features
 
 
@@ -136,40 +160,19 @@ def skera_version(sreads: Path) -> Optional[str]:
     return None
 
 
-def run(args: argparse.Namespace) -> int:
-    """Validate `kinnex-qc run`'s options, annotate the HiFi BAM and write reads.tsv.gz, summary.json
-    and run.log into --out. Returns the process exit code."""
+def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction: float, threads: int,
+        write_molecules: bool, template: Optional[Path], examples: int, *, adapters: Optional[str],
+        primers: str, fraction_defaulted: bool, hifi_arg: str, sreads_arg: Optional[str],
+        template_arg: Optional[str], argv: list[str]) -> int:
+    """Annotate the HiFi BAM and write reads.tsv.gz, summary.json and run.log into `out`.
 
-    def fail(msg: str) -> int:
-        print(f"kinnex-qc run: error: {msg}", file=sys.stderr)
-        return 2
-
-    hifi = Path(args.hifi)
-    if not hifi.exists():
-        return fail(f"--hifi: no such file: {hifi}")
-    sreads = Path(args.sreads) if args.sreads else None
-    if sreads is not None and not sreads.exists():
-        return fail(f"--sreads: no such file: {sreads}")
-    if args.adapters is not None and not Path(args.adapters).exists():
-        return fail(f"--adapters: no such file: {args.adapters}")
-    if args.template is not None and not Path(args.template).exists():
-        return fail(f"--template: no such file: {args.template}")
-    template = Path(args.template) if args.template else sreads
-
-    if args.write_molecules and sreads is None and template is None:
-        return fail("--write-molecules needs --sreads or --template")
-
-    fraction_given = args.fraction is not None
-    fraction = args.fraction if fraction_given else (1.0 if args.write_molecules else 0.1)
-    if not (0 < fraction <= 1):
-        return fail(f"--fraction must be in (0, 1]: {fraction}")
-
-    try:
-        chem = chemistry_from(args.adapters, args.primers)
-    except ValueError as e:
-        return fail(str(e))
-
-    out = Path(args.out)
+    Takes plain, already-validated values: option parsing, the rule checks and exit codes are
+    cli.py's job. adapters, primers, hifi_arg, sreads_arg and template_arg are the raw option
+    strings (or None), kept only for run.log and summary.json, which record them as given rather
+    than resolved (summary.json's "template" is None when --template was not given, even when
+    --sreads supplies its effective default). argv is the argument list cli.main parsed (without
+    the program name), logged shell-quoted. Returns the process exit code.
+    """
     out.mkdir(parents=True, exist_ok=True)
 
     lines = []
@@ -180,11 +183,11 @@ def run(args: argparse.Namespace) -> int:
 
     t0 = time.time()
     log(f"kinnex-qc run: start {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    log("command: " + " ".join(["kinnex-qc", "run", *sys.argv[2:]]))
-    log(f"options: hifi={hifi} sreads={sreads} out={out} adapters={args.adapters} primers={args.primers} "
-        f"fraction={fraction} threads={args.threads} write_molecules={args.write_molecules} "
-        f"template={template} examples={args.examples}")
-    if not fraction_given and args.write_molecules:
+    log("command: " + shlex.join(["kinnex-qc", *argv]))
+    log(f"options: hifi={hifi} sreads={sreads} out={out} adapters={adapters} primers={primers} "
+        f"fraction={fraction} threads={threads} write_molecules={write_molecules} "
+        f"template={template} examples={examples}")
+    if fraction_defaulted:
         log("fraction set to 1 because --write-molecules was given without --fraction")
 
     skv = None
@@ -193,28 +196,30 @@ def run(args: argparse.Namespace) -> int:
         if skv is None:
             log(f"warning: no @PG line names skera in {sreads}")
 
-    hifi_reads_in_file = sum(1 for _ in iter_bam(hifi, threads=args.threads))
-    read_summary, _molecules, _features = annotate(hifi, chem, fraction, args.threads)
+    counts: dict = {}
+    read_summary, _molecules, _features = annotate(hifi, chem, fraction, threads, counts=counts)
+    hifi_reads_in_file = counts["hifi_reads_in_file"]
 
+    csv_text = read_summary.select("zm", "read_len", "chain", "chain_flipped", "primary_pattern",
+                                    "n_mas").write_csv(separator="\t")
     with gzip.open(out / "reads.tsv.gz", "wb") as f:
-        read_summary.select("zm", "read_len", "chain", "chain_flipped", "primary_pattern", "n_mas").write_csv(
-            f, separator="\t")
+        f.write(csv_text.encode())
 
     summary = {
         "version": __version__,
         "inputs": {
-            "hifi": args.hifi,
-            "sreads": args.sreads,
-            "template": args.template,
-            "adapters": args.adapters,
+            "hifi": hifi_arg,
+            "sreads": sreads_arg,
+            "template": template_arg,
+            "adapters": adapters,
         },
         "fraction": fraction,
         "chemistry": {
-            "adapters": args.adapters if args.adapters is not None else "Kinnex 8-fold default",
+            "adapters": adapters if adapters is not None else "Kinnex 8-fold default",
             "order": list(chem.order),
             "tso": chem.tso,
             "r1": chem.r1,
-            "primers": args.primers,
+            "primers": primers,
         },
         "hifi_reads_in_file": hifi_reads_in_file,
         "hifi_reads": read_summary.height,

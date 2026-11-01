@@ -3,12 +3,20 @@ import csv
 import gzip
 import json
 import subprocess
+import warnings
 
 import polars as pl
+import pysam
+import pytest
 
-from kinnex_qc import runner
+from kinnex_qc import cli, runner
 from kinnex_qc.annotate import FAIL_PATTERNS, HIFI_PATTERNS
 from kinnex_qc.patterns import KINNEX8_SC3
+from kinnex_qc.sampling import in_hash_sample
+
+# the pytest process carries threads from earlier tests; the CLI forks its pool workers before any
+# BAM is open, which is fine, but multiprocessing warns about it when run in-process like this
+_IGNORE_FORK_WARNING = pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
 
 
 def _run(*args, check=False):
@@ -20,6 +28,14 @@ def _reads_tsv(path):
         return list(csv.DictReader(f, delimiter="\t"))
 
 
+def _sreads_bam_without_skera_pg(path):
+    """A minimal S-read BAM whose header has a @PG line, but not one naming skera."""
+    header = {"HD": {"VN": "1.6", "SO": "unknown"}, "PG": [{"ID": "other", "PN": "other", "VN": "1.0"}]}
+    with pysam.AlignmentFile(str(path), "wb", header=header):
+        pass
+    return path
+
+
 def test_default_chemistry_patterns_match_annotate_module():
     """For the default chemistry, runner's per-chemistry pattern cache must equal the study's module-level
     HIFI_PATTERNS and FAIL_PATTERNS (same thresholds, same adapters)."""
@@ -27,6 +43,7 @@ def test_default_chemistry_patterns_match_annotate_module():
     assert runner._fail_patterns(KINNEX8_SC3) == FAIL_PATTERNS
 
 
+@_IGNORE_FORK_WARNING
 def test_annotate_molecule_end_classes(test_bams):
     """Sanity check of the test BAM fixture itself: the mirror junctions come out as built."""
     hifi, _ = test_bams
@@ -37,6 +54,11 @@ def test_annotate_molecule_end_classes(test_bams):
     assert tso_tso["end_class"].to_list() == ["tso_tso", "tso_tso"]
     r1_r1 = molecules.filter((pl.col("zm") == 6) & (pl.col("left_token") == "B") & (pl.col("right_token") == "B'"))
     assert r1_r1["end_class"].to_list() == ["r1_r1"]
+    # every proper molecule in the fixture is built so its TSO end faces the higher-index adapter,
+    # as in real data (mirror arms included: both run from revcomp(molecule(...)))
+    proper = molecules.filter(pl.col("end_class") == "proper")
+    assert proper.height > 0
+    assert not proper["tso_toward_lower"].any()
 
 
 def test_run_writes_reads_tsv_with_pattern_counts(test_bams, tmp_path):
@@ -93,3 +115,119 @@ def test_summary_records_skera_version_with_sreads(test_bams, tmp_path):
     assert r.returncode == 0
     summary = json.loads((out / "summary.json").read_text())
     assert summary["skera_version"] == "26.1.0"
+
+
+def test_run_emits_no_warnings(test_bams, tmp_path):
+    """A run must not trigger polars' "pass a path, not a file object" UserWarning (reads.tsv.gz is
+    written through a gzip handle, which write_csv() does not see as a path)."""
+    hifi, _ = test_bams
+    out = tmp_path / "out"
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        rc = cli.main(["run", "--hifi", str(hifi), "--out", str(out), "--fraction", "1", "--threads", "2"])
+    assert rc == 0
+    polars_warnings = [str(w.message) for w in caught if "polars" in str(w.message).lower()]
+    assert polars_warnings == []
+
+
+def test_hifi_reads_in_file_counts_whole_bam_at_any_fraction(test_bams, tmp_path):
+    """hifi_reads_in_file must count every record in the HiFi BAM, not just the sampled ones, whether
+    or not a sample was taken."""
+    hifi, _ = test_bams
+    n_records = sum(1 for _ in pysam.AlignmentFile(str(hifi), "rb", check_sq=False))
+    for fraction in ("1", "0.5"):
+        out = tmp_path / fraction
+        r = _run("--hifi", str(hifi), "--out", str(out), "--fraction", fraction, "--threads", "2", check=True)
+        assert r.returncode == 0
+        summary = json.loads((out / "summary.json").read_text())
+        assert summary["hifi_reads_in_file"] == n_records
+
+
+def test_bad_threads_exit_2(test_bams, tmp_path):
+    hifi, _ = test_bams
+    for bad in ("0", "-1"):
+        r = _run("--hifi", str(hifi), "--out", str(tmp_path / bad), "--fraction", "1", "--threads", bad)
+        assert r.returncode == 2
+        assert r.stderr.startswith("kinnex-qc run: error:")
+
+
+def test_adapters_naming_a_directory_exits_2(test_bams, tmp_path):
+    hifi, _ = test_bams
+    r = _run("--hifi", str(hifi), "--out", str(tmp_path / "out"), "--fraction", "1", "--threads", "2",
+             "--adapters", str(tmp_path))
+    assert r.returncode == 2
+    assert r.stderr.startswith("kinnex-qc run: error:")
+
+
+def test_out_naming_an_existing_file_exits_2(test_bams, tmp_path):
+    hifi, _ = test_bams
+    out = tmp_path / "out"
+    out.write_text("not a directory")
+    r = _run("--hifi", str(hifi), "--out", str(out), "--fraction", "1", "--threads", "2")
+    assert r.returncode == 2
+    assert r.stderr.startswith("kinnex-qc run: error:")
+
+
+def test_missing_hifi_exits_2(tmp_path):
+    r = _run("--hifi", str(tmp_path / "nope.bam"), "--out", str(tmp_path / "out"), "--fraction", "1")
+    assert r.returncode == 2
+    assert r.stderr.startswith("kinnex-qc run: error:")
+
+
+def test_bad_primers_exits_2(test_bams, tmp_path):
+    hifi, _ = test_bams
+    r = _run("--hifi", str(hifi), "--out", str(tmp_path / "out"), "--fraction", "1", "--primers", "bogus")
+    assert r.returncode == 2
+    assert r.stderr.startswith("kinnex-qc run: error:")
+
+
+@_IGNORE_FORK_WARNING
+def test_command_line_logs_the_argv_main_received_not_sys_argv(test_bams, tmp_path, monkeypatch):
+    """runner.run must log the argv cli.main actually parsed, shell-quoted, not sys.argv (which differs
+    for a library caller like Task 14's study that calls cli.main(argv) in-process)."""
+    hifi, _ = test_bams
+    out = tmp_path / "out with space"
+    monkeypatch.setattr("sys.argv", ["pytest", "unrelated", "args"])
+    rc = cli.main(["run", "--hifi", str(hifi), "--out", str(out), "--fraction", "1", "--threads", "1"])
+    assert rc == 0
+    log = (out / "run.log").read_text()
+    [command_line] = [line for line in log.splitlines() if line.startswith("command:")]
+    assert "unrelated" not in command_line
+    assert f"--out '{out}'" in command_line
+
+
+def test_hash_sample_annotates_exactly_the_sampled_reads(test_bams, tmp_path):
+    hifi, _ = test_bams
+    fraction = 0.5
+    expected = {zm for zm in range(1, 7) if in_hash_sample(zm, fraction)}
+    out = tmp_path / "out"
+    r = _run("--hifi", str(hifi), "--out", str(out), "--fraction", str(fraction), "--threads", "2", check=True)
+    assert r.returncode == 0
+    rows = _reads_tsv(out / "reads.tsv.gz")
+    assert {int(row["zm"]) for row in rows} == expected
+
+
+def test_sreads_without_skera_pg_warns_and_records_null_version(test_bams, tmp_path):
+    hifi, _ = test_bams
+    sreads = _sreads_bam_without_skera_pg(tmp_path / "no_skera.bam")
+    out = tmp_path / "out"
+    r = _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--fraction", "1", "--threads", "2",
+             check=True)
+    assert r.returncode == 0
+    assert f"warning: no @PG line names skera in {sreads}" in r.stderr
+    summary = json.loads((out / "summary.json").read_text())
+    assert summary["skera_version"] is None
+
+
+def test_threads_1_and_3_give_the_same_output(test_bams, tmp_path):
+    hifi, _ = test_bams
+    outs = []
+    for threads in ("1", "3"):
+        out = tmp_path / threads
+        r = _run("--hifi", str(hifi), "--out", str(out), "--fraction", "1", "--threads", threads, check=True)
+        assert r.returncode == 0
+        # compare decompressed text, not raw gzip bytes: gzip's header embeds the write's mtime,
+        # so two subprocess runs a second apart differ byte-for-byte even with identical content
+        with gzip.open(out / "reads.tsv.gz", "rt") as f:
+            outs.append(f.read())
+    assert outs[0] == outs[1]
