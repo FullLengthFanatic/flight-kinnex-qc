@@ -29,7 +29,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--write-molecules", action="store_true",
                       help="write DIR/molecules.bam: one unaligned record per usable molecule, ready for lima --isoseq")
     run.add_argument("--template", help="BAM whose header to copy for --write-molecules (default: --sreads)")
-    run.add_argument("--examples", type=int, default=2, help="example reads per pattern to keep (default: 2)")
+    run.add_argument("--examples", type=int, default=2,
+                      help="example reads per category shown in DIR/report.html (default: 2; 0 for none)")
 
     return ap
 
@@ -44,6 +45,8 @@ def _run_cmd(args: argparse.Namespace, argv: list[str]) -> int:
     Returns the process exit code."""
     if args.threads < 1:
         return _fail(f"--threads must be >= 1: {args.threads}")
+    if args.examples < 0:
+        return _fail(f"--examples must be >= 0: {args.examples}")
 
     hifi = Path(args.hifi)
     if not hifi.is_file():

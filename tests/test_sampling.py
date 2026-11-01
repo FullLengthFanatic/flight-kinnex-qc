@@ -48,3 +48,15 @@ def test_in_hash_sample_fraction_and_independence():
     sub = keep_zmw_array(zms[keep], 10)
     assert abs(sub.mean() - 0.1) < 0.006
     assert not any(in_hash_sample(z, 1e-12) for z in zms[:1000])
+
+
+def test_hash_key_orders_the_hash_sample():
+    """in_hash_sample(zm, f) is hash_key(zm) below f of the 64-bit range, so every hash sample is a prefix of the
+    ZMWs sorted by hash_key: the order report.html picks its example reads in."""
+    from kinnex_qc.sampling import hash_key, in_hash_sample
+    zms = range(1_000_000, 1_020_000)
+    ordered = sorted(zms, key=hash_key)
+    for f in (0.01, 0.18, 0.5):
+        assert all(in_hash_sample(z, f) == (hash_key(z) < int(f * 2**64)) for z in zms)
+        sample = [z for z in ordered if in_hash_sample(z, f)]
+        assert sample == ordered[:len(sample)]

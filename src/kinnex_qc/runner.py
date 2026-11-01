@@ -18,7 +18,7 @@ import polars as pl
 import pyarrow as pa
 import pysam
 
-from . import __version__, skera
+from . import __version__, reader_report, skera
 from .annotate import adapter_chain, annotate_read, chain_flags, primary_pattern, segment_hits, split_segments
 from .classify import call_from_hits
 from .io import iter_bam
@@ -196,18 +196,32 @@ def read_sreads(sreads: Path, threads: int, keep=None) -> pl.DataFrame:
                                        "dl": pl.Int8, "dr": pl.Int8})
 
 
+def example_sequences(hifi: Path, zms: set[int], threads: int) -> dict[int, str]:
+    """The HiFi read sequence of each ZMW in zms, from one more pass over the HiFi BAM that stops once all are
+    found: only the example reads' sequences are held, never every read's."""
+    seqs: dict[int, str] = {}
+    if not zms:
+        return seqs
+    for r in iter_bam(hifi, threads=threads, keep=zms.__contains__):
+        seqs[r.get_tag("zm")] = r.query_sequence
+        if len(seqs) == len(zms):
+            break
+    return seqs
+
+
 def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction: float, threads: int,
         write_molecules: bool, template: Optional[Path], examples: int, *, adapters: Optional[str],
         primers: str, fraction_defaulted: bool, hifi_arg: str, sreads_arg: Optional[str],
         template_arg: Optional[str], argv: list[str]) -> int:
-    """Annotate the HiFi BAM and write reads.tsv.gz, summary.json and run.log into `out`.
+    """Annotate the HiFi BAM and write reads.tsv.gz, summary.json, report.html and run.log into `out`.
 
     Takes plain, already-validated values: option parsing, the rule checks and exit codes are
     cli.py's job. adapters, primers, hifi_arg, sreads_arg and template_arg are the raw option
     strings (or None), kept only for run.log and summary.json, which record them as given rather
     than resolved (summary.json's "template" is None when --template was not given, even when
     --sreads supplies its effective default). argv is the argument list cli.main parsed (without
-    the program name), logged shell-quoted. Returns the process exit code.
+    the program name), logged shell-quoted. examples: example reads per category in report.html
+    (reader_report.pick_examples; 0 for none). Returns the process exit code.
     """
     out.mkdir(parents=True, exist_ok=True)
 
@@ -246,6 +260,7 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
     # half-copied reader), and only for the ZMWs in the sample, with the same hash keep function
     # the HiFi pass used.
     skera_summary = None
+    sreads_df = passing = fc_all = None
     reads_out = read_summary.select("zm", "read_len", "chain", "chain_flipped", "primary_pattern", "n_mas")
     read_summary_for_junctions = read_summary.with_columns(pl.lit(None, dtype=pl.Boolean).alias("skera_passing"))
     if sreads is not None:
@@ -315,7 +330,14 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
         summary["skera"] = skera_summary
     if molecules_written is not None:
         summary["molecules_written"] = molecules_written
-    (out / "summary.json").write_text(json.dumps(_json_safe(summary), indent=1))
+    summary = _json_safe(summary)
+    (out / "summary.json").write_text(json.dumps(summary, indent=1))
+
+    picks = reader_report.pick_examples(read_summary, molecules, features, examples, order=chem.order,
+                                        sreads=sreads_df, passing=passing, fc=fc_all)
+    seqs = example_sequences(hifi, {p["zm"] for p in picks}, threads)
+    report = reader_report.write(out, summary, [{**p, "seq": seqs[p["zm"]]} for p in picks])
+    log(f"report: {report} ({len(picks)} example reads)")
 
     log(f"records: hifi_reads_in_file={hifi_reads_in_file} hifi_reads={read_summary.height}")
     log(f"run time: {time.time() - t0:.1f} s")

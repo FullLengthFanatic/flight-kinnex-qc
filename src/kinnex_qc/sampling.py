@@ -36,7 +36,13 @@ def keep_zmw_array(zms, modulo: int) -> np.ndarray:
     return x % np.uint64(modulo) == 0
 
 
+def hash_key(zm: int) -> int:
+    """The salted splitmix64 hash of a ZMW number that the hash sample is drawn by; sorting ZMWs by it orders them as
+    the hash sample admits them, spread over the whole cell."""
+    return splitmix64(int(zm) ^ HASH_SAMPLE_SALT)
+
+
 def in_hash_sample(zm: int, fraction: float) -> bool:
     """A ZMW is in the hash sample when its salted splitmix64 hash falls in the lowest fraction of the 64-bit range:
     the sample spreads over the whole cell, whatever the BAM order (a prefix of the HiFi BAM is not a random sample)."""
-    return splitmix64(int(zm) ^ HASH_SAMPLE_SALT) < int(fraction * 2**64)
+    return hash_key(zm) < int(fraction * 2**64)

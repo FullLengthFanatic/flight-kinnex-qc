@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>$title</title>
+<style>
+:root { color-scheme: light; --ink: #1B1F24; --ink2: #5B636E; --rule: #C9D0D7; --tint: #F4F6F8; --accent: #1F5F8B;
+  --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif; --mono: "IBM Plex Mono", Menlo, Consolas, monospace; }
+* { box-sizing: border-box; }
+body { background: #FFFFFF; color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; margin: 0; padding-inline: 20px; }
+main { max-width: 1040px; margin: 0 auto; padding-block: 48px 80px; }
+.prose { max-width: 74ch; }
+.eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+h1 { font-weight: 600; font-size: 32px; line-height: 1.2; margin: 10px 0 12px; text-wrap: balance; overflow-wrap: anywhere; }
+h2 { font-weight: 600; font-size: 21px; margin: 56px 0 10px; text-wrap: balance; }
+h2 .sec { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums; }
+h3 { font-weight: 600; font-size: 16px; margin: 30px 0 6px; }
+p { margin: 0 0 14px; }
+.byline { font-size: 15px; color: var(--ink2); max-width: 90ch; overflow-wrap: anywhere; }
+nav.toc { font-size: 14px; color: var(--ink2); margin: 18px 0 0; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+nav.toc a { color: var(--accent); text-decoration: none; }
+nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.terms { margin: 22px 0 8px; }
+.terms dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 4px 28px; margin: 0; font-size: 14px; line-height: 1.5; }
+.terms dt { font-weight: 600; color: var(--ink); margin-top: 10px; }
+.terms dd { margin: 2px 0 0; color: var(--ink2); }
+.headline { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 14px 0; margin: 18px 0; }
+.headline .big { font-weight: 600; font-size: 26px; font-variant-numeric: tabular-nums; margin-right: 8px; }
+figure { margin: 24px 0 20px; }
+.legend { font-size: 13.5px; line-height: 1.5; color: var(--ink2); max-width: 92ch; margin-top: 6px; }
+.plotwrap { overflow-x: auto; }
+.tablewrap { overflow-x: auto; margin: 10px 0 24px; }
+table { border-collapse: collapse; font-size: 13.5px; }
+th { text-align: left; font-weight: 600; color: var(--ink); border-bottom: 1.5px solid var(--ink2); padding: 6px 14px 6px 0; vertical-align: bottom; }
+td { border-bottom: 1px solid var(--rule); padding: 6px 14px 6px 0; vertical-align: top; }
+td:first-child { white-space: nowrap; }
+table.num td { font-variant-numeric: tabular-nums; }
+table.numbers .val { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+code { font-family: var(--mono); font-size: 0.86em; background: var(--tint); padding: 1px 4px; border-radius: 3px; overflow-wrap: anywhere; }
+code.key { font-size: 12px; color: var(--ink2); white-space: nowrap; }
+.schematic { width: 100%; height: auto; display: block; background: #FFFFFF; }
+.note { font-size: 14.5px; color: var(--ink2); max-width: 100ch; }
+.example pre { max-height: 34em; overflow: auto; }
+ul { padding-left: 20px; }
+li { margin-bottom: 4px; }
+$viewer_css
+@media (max-width: 640px) { h1 { font-size: 26px; } body { font-size: 15px; } }
+</style>
+<script>$plotly_js</script>
+</head>
+<body>
+<main>
+<header>
+$header
+$toc
+</header>
+$body
+</main>
+<script>
+// open each example read's box a few lines above its junction or false cut
+document.querySelectorAll("pre[data-focus-line]").forEach(function (pre) {
+  var lines = pre.textContent.split("\n").length;
+  pre.scrollTop = Math.max(0, (Number(pre.dataset.focusLine) - 3) * pre.scrollHeight / lines);
+});
+</script>
+</body>
+</html>

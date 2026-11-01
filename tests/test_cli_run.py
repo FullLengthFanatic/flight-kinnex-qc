@@ -160,6 +160,13 @@ def test_bad_threads_exit_2(test_bams, tmp_path):
         assert r.stderr.startswith("kinnex-qc run: error:")
 
 
+def test_negative_examples_exit_2(test_bams, tmp_path):
+    hifi, _ = test_bams
+    r = _run("--hifi", str(hifi), "--out", str(tmp_path / "out"), "--fraction", "1", "--examples", "-1")
+    assert r.returncode == 2
+    assert r.stderr == "kinnex-qc run: error: --examples must be >= 0: -1\n"
+
+
 def test_adapters_naming_a_directory_exits_2(test_bams, tmp_path):
     hifi, _ = test_bams
     r = _run("--hifi", str(hifi), "--out", str(tmp_path / "out"), "--fraction", "1", "--threads", "2",
