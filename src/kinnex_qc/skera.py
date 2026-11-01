@@ -1,6 +1,8 @@
 """Shared rules for skera's S-reads: false cuts, adapters left inside an S-read, molecule coverage, and mirror junctions."""
 import polars as pl
 
+from .patterns import MAS_ORDER
+
 COVER = 0.8
 TOUCH = 0.2
 TOL = 5
@@ -110,6 +112,164 @@ def single_tso_tso_mirrors(molecules: pl.DataFrame) -> pl.DataFrame:
                                   pl.col("end_class").first().alias("jclass"), pl.col("letter").first())
             .filter((pl.col("nj") == 1) & (pl.col("jclass") == "tso_tso"))
             .select("zm", "js", "je", "letter").sort("zm"))
+
+
+def passing_from_labels(sreads: pl.DataFrame, order_len: int = 9) -> pl.DataFrame:
+    """Derive skera's pass/fail verdict from the S-read adapter labels alone, for the reader command's
+    case (it gets only segmented.bam, not segmented.non_passing.bam): a ZMW is passing when, in read
+    order (S-reads sorted by qs), its labels (dl, dr) chain from the first adapter to the last, either
+    forwards (dl[0] == 0, dr[-1] == order_len - 1, dr == dl + 1 for every S-read) or backwards when the
+    first S-read has dl > dr (dl[0] == order_len - 1, dr[-1] == 0, dr == dl - 1), with every S-read's dr
+    equal to the next one's dl either way. Coordinates play no part: a false cut keeps the label chain
+    intact, since skera calls the letter it skipped, so a complete read with a false cut still passes.
+    ZMWs without S-reads are not in the result (the caller treats them as failing).
+
+    Measured against skera's own verdict (segmented.non_passing.bam) on BD144: agreement on complete
+    reads 1.000000 in ND (1,615,591 reads), HM (2,040,035) and kin (1,960,640), zero disagreements; on
+    all reads 0.999990 / 0.999975 / 0.999975 (20, 51, 50 reads skera passes that this rule calls
+    failing). Both above the task's 0.999 threshold, so the reader command has no --non-passing option.
+    """
+    s = (sreads.sort("zm", "qs")
+         .with_columns(pl.col("dl", "dr").cast(pl.Int64))
+         .with_columns(pl.col("dl").first().over("zm").alias("dl0"), pl.col("dr").first().over("zm").alias("dr0"),
+                       pl.col("dl").shift(-1).over("zm").alias("dl_next")))
+    reversed_ = pl.col("dl0") > pl.col("dr0")
+    step_ok = pl.when(reversed_).then(pl.col("dr") == pl.col("dl") - 1).otherwise(pl.col("dr") == pl.col("dl") + 1)
+    link_ok = pl.col("dl_next").is_null() | (pl.col("dr") == pl.col("dl_next"))
+    out = (s.group_by("zm", maintain_order=True).agg(
+        pl.col("dl0").first(), pl.col("dr0").first(), pl.col("dr").last().alias("dr_last"),
+        step_ok.all().alias("steps_ok"), link_ok.all().alias("links_ok"))
+        .with_columns(
+            pl.when(pl.col("dl0") > pl.col("dr0"))
+            .then((pl.col("dl0") == order_len - 1) & (pl.col("dr_last") == 0))
+            .otherwise((pl.col("dl0") == 0) & (pl.col("dr_last") == order_len - 1))
+            .alias("endpoints_ok")))
+    return out.with_columns((pl.col("steps_ok") & pl.col("links_ok") & pl.col("endpoints_ok")).alias("passing")).select("zm", "passing")
+
+
+def skipped_adapters(fc: pl.DataFrame, sreads: pl.DataFrame, features: pl.DataFrame, tol: int = TOL) -> pl.DataFrame:
+    """For every false cut (skera.false_cuts' output), the MAS hit of ours nearest the cut that lies
+    inside the S-read before or after it, with the inclusive rule of skera.adapters_inside_sreads
+    (strict=False): cut = (cut_start + cut_end) // 2, nearest by |start - cut| with start as the
+    tie-break. Columns zm, cut_start, missed, in_sread (1 before, 2 after), dist; null missed when
+    neither S-read holds one. Port of the study's false_cut_anatomy.py (the "ins" block)."""
+    base = fc.with_row_index("gid").with_columns(((pl.col("cut_start") + pl.col("cut_end")) // 2).alias("cut"))
+    inside = adapters_inside_sreads(sreads, features, tol=tol, strict=False).select("zm", "di", "name", "start")
+    before = base.select("gid", "zm", pl.col("di_before").alias("di"), "cut").join(inside, on=["zm", "di"]) \
+        .with_columns(pl.lit(1).alias("in_sread"))
+    after = base.select("gid", "zm", pl.col("di_after").alias("di"), "cut").join(inside, on=["zm", "di"]) \
+        .with_columns(pl.lit(2).alias("in_sread"))
+    cand = (pl.concat([before, after]).select("gid", "name", "start", "cut", "in_sread")
+            .with_columns((pl.col("start") - pl.col("cut")).abs().alias("dist")))
+    best = (cand.sort("dist", "start").group_by("gid", maintain_order=True)
+            .agg(pl.col("name").first().alias("missed"), pl.col("in_sread").first(), pl.col("dist").first()))
+    out = base.join(best, on="gid", how="left").select("zm", "cut_start", "missed", "in_sread", "dist")
+    return out.sort("zm", "cut_start")
+
+
+def false_cut_stats(read_summary: pl.DataFrame, features: pl.DataFrame, sreads: pl.DataFrame, order=MAS_ORDER) -> dict:
+    """summary.json["skera"]'s false-cut numbers: complete_reads (our complete pattern),
+    complete_passing_reads (derived via passing_from_labels), false_cuts, false_cut_reads_share
+    (reads with at least one false cut / complete_passing_reads), false_cuts_per_read,
+    false_cut_letters (letter skera called -> count) and skipped_adapter_letters (letter of ours
+    skera skipped -> count, "none" for false cuts without one)."""
+    complete = read_summary.filter(pl.col("primary_pattern") == "complete").select("zm")
+    passing = passing_from_labels(sreads, order_len=len(order)).filter(pl.col("passing")).select("zm")
+    target = complete.join(passing, on="zm")["zm"]
+    s = sreads.filter(pl.col("zm").is_in(target))
+    f = features.filter(pl.col("zm").is_in(target))
+    fc = false_cuts(s, f)
+    sk = skipped_adapters(fc, s, f)
+    n = target.len()
+
+    letter_of = dict(enumerate(order))
+    letters = (fc.with_columns(pl.col("dr_before").cast(pl.Int64).replace_strict(letter_of, return_dtype=pl.Utf8).alias("letter"))
+               .group_by("letter").agg(pl.len().alias("n")).sort("letter"))
+    false_cut_letters = dict(zip(letters["letter"].to_list(), letters["n"].to_list()))
+    missed = (sk.with_columns(pl.col("missed").fill_null("none"))
+              .group_by("missed").agg(pl.len().alias("n")).sort("missed"))
+    skipped_adapter_letters = dict(zip(missed["missed"].to_list(), missed["n"].to_list()))
+
+    return {
+        "complete_reads": complete.height,
+        "complete_passing_reads": n,
+        "false_cuts": fc.height,
+        "false_cut_reads_share": (fc["zm"].n_unique() / n) if n else float("nan"),
+        "false_cuts_per_read": (fc.height / n) if n else float("nan"),
+        "false_cut_letters": false_cut_letters,
+        "skipped_adapter_letters": skipped_adapter_letters,
+    }
+
+
+def mirror_arm_classes(molecules: pl.DataFrame, sreads: pl.DataFrame) -> pl.DataFrame:
+    """Every proper, non-internal molecule of a single TSO-TSO mirror read (skera.single_tso_tso_mirrors),
+    with its region before (end <= js) or after (start >= je) the junction, and its class under
+    molecule_coverage computed on all molecules of that read. Port of the study's skera_mirror_arms.py
+    (lines 96 to 104: the region rule)."""
+    st = single_tso_tso_mirrors(molecules)
+    mols = molecules.join(st.select("zm", "js", "je"), on="zm")
+    sr = sreads.filter(pl.col("zm").is_in(st["zm"]))
+    cov = molecule_coverage(mols, sr)
+    return (cov.filter((pl.col("end_class") == "proper") & ~pl.col("internal"))
+            .with_columns(pl.when(pl.col("end") <= pl.col("js")).then(pl.lit("before"))
+                          .when(pl.col("start") >= pl.col("je")).then(pl.lit("after"))
+                          .otherwise(pl.lit("other")).alias("region"))
+            .select("zm", "region", "cls"))
+
+
+def mirror_arm_stats(molecules: pl.DataFrame, sreads: pl.DataFrame) -> dict:
+    """summary.json["skera"]'s mirror_arms: CLEAN shares (and counts by class) on the arm after and
+    before a single TSO-TSO mirror junction. Port of the study's skera_mirror_arms.py (lines 96 to
+    104 and 135 to 141: the region rule and shares)."""
+    arm = mirror_arm_classes(molecules, sreads)
+    out = {}
+    for region in ("after", "before"):
+        r = arm.filter(pl.col("region") == region)
+        n = r.height
+        counts = {cls: r.filter(pl.col("cls") == cls).height for cls in ("CLEAN", "FUSED", "PARTIAL", "NOT_WRITTEN")}
+        out[f"{region}_clean_share"] = (counts["CLEAN"] / n) if n else float("nan")
+        out[f"{region}_counts"] = counts
+    return out
+
+
+def budget_classes(molecules: pl.DataFrame, sreads: pl.DataFrame) -> pl.DataFrame:
+    """Every molecule's slot-budget role: usable (proper, not internal) and, from molecule_coverage
+    computed on all molecules of the read, its class (CLEAN/FUSED/PARTIAL/NOT_WRITTEN). Port of the
+    study's molecule_budget.py (the usable rule and chunk_budget, lines 50 to 81), without the lima,
+    refine or mapping columns (no lima, refine or mapping run here)."""
+    return molecule_coverage(molecules, sreads).with_columns(
+        ((pl.col("end_class") == "proper") & ~pl.col("internal")).alias("usable"))
+
+
+def budget_per_read(cls: pl.DataFrame) -> pl.DataFrame:
+    """Per ZMW with at least one molecule in `cls` (skera.budget_classes' output): molecule count, the
+    four artifact kinds, usable molecules and their clean/not-clean split. Port of the study's
+    molecule_budget.py (per_read, lines 66 to 77)."""
+    return (cls.group_by("zm", maintain_order=True).agg(
+        pl.len().alias("molecules"),
+        (~pl.col("usable") & (pl.col("end_class") == "tso_tso")).sum().alias("artifact_tso_tso"),
+        (~pl.col("usable") & (pl.col("end_class") == "r1_r1")).sum().alias("artifact_r1_r1"),
+        (~pl.col("usable") & pl.col("end_class").is_in(["tso_only", "r1_only", "none"])).sum().alias("artifact_one_primer_or_none"),
+        ((pl.col("end_class") == "proper") & pl.col("internal")).sum().alias("artifact_fused"),
+        pl.col("usable").sum().alias("usable"),
+        (pl.col("usable") & (pl.col("cls") == "CLEAN")).sum().alias("usable_clean"),
+        (pl.col("usable") & (pl.col("cls") != "CLEAN")).sum().alias("usable_not_clean"))
+        .with_columns(pl.exclude("zm").cast(pl.Int64)))
+
+
+def budget_stats(read_summary: pl.DataFrame, cls: pl.DataFrame, order_len: int = 9) -> dict:
+    """summary.json["skera"]'s budget: means over every HiFi read in read_summary (reads without
+    molecules count as 0) of budget_per_read's counts, plus unfilled_slots (order_len - 1 - molecules)
+    and artifact (the sum of the four artifact_* counts, per read, then meaned)."""
+    per_read = budget_per_read(cls)
+    reads = (read_summary.select("zm").join(per_read, on="zm", how="left")
+             .with_columns(pl.exclude("zm").fill_null(0))
+             .with_columns((order_len - 1 - pl.col("molecules")).alias("unfilled_slots"),
+                           (pl.col("artifact_tso_tso") + pl.col("artifact_r1_r1") + pl.col("artifact_one_primer_or_none")
+                            + pl.col("artifact_fused")).alias("artifact")))
+    cols = ["molecules", "unfilled_slots", "artifact_tso_tso", "artifact_r1_r1", "artifact_one_primer_or_none",
+            "artifact_fused", "artifact", "usable", "usable_clean", "usable_not_clean"]
+    return {c: float(reads[c].mean()) for c in cols}
 
 
 def double_mirrors(molecules: pl.DataFrame) -> pl.Series:

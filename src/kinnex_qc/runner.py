@@ -18,7 +18,7 @@ import polars as pl
 import pyarrow as pa
 import pysam
 
-from . import __version__
+from . import __version__, skera
 from .annotate import adapter_chain, annotate_read, chain_flags, primary_pattern, segment_hits, split_segments
 from .classify import call_from_hits
 from .io import iter_bam
@@ -174,6 +174,26 @@ def skera_version(sreads: Path) -> Optional[str]:
     return None
 
 
+def read_sreads(sreads: Path, threads: int, keep=None) -> pl.DataFrame:
+    """S-read tags (zm, qs, qe, dl, dr) from skera's S-read BAM, with di set to each record's 0-based
+    index within its ZMW (S-reads of one ZMW are consecutive in the file, as iter_bam's own keep
+    filter relies on). keep: as iter_bam's, the same hash-sample filter the HiFi pass used."""
+    cols = {"zm": [], "di": [], "qs": [], "qe": [], "dl": [], "dr": []}
+    last_zm, di = None, -1
+    for r in iter_bam(sreads, threads=threads, keep=keep):
+        zm = r.get_tag("zm")
+        di = di + 1 if zm == last_zm else 0
+        last_zm = zm
+        cols["zm"].append(zm)
+        cols["di"].append(di)
+        cols["qs"].append(r.get_tag("qs"))
+        cols["qe"].append(r.get_tag("qe"))
+        cols["dl"].append(r.get_tag("dl"))
+        cols["dr"].append(r.get_tag("dr"))
+    return pl.DataFrame(cols, schema={"zm": pl.UInt32, "di": pl.Int16, "qs": pl.Int32, "qe": pl.Int32,
+                                       "dl": pl.Int8, "dr": pl.Int8})
+
+
 def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction: float, threads: int,
         write_molecules: bool, template: Optional[Path], examples: int, *, adapters: Optional[str],
         primers: str, fraction_defaulted: bool, hifi_arg: str, sreads_arg: Optional[str],
@@ -211,17 +231,48 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
             log(f"warning: no @PG line names skera in {sreads}")
 
     counts: dict = {}
-    read_summary, molecules, _features = annotate(hifi, chem, fraction, threads, counts=counts)
+    read_summary, molecules, features = annotate(hifi, chem, fraction, threads, counts=counts)
     hifi_reads_in_file = counts["hifi_reads_in_file"]
 
-    csv_text = read_summary.select("zm", "read_len", "chain", "chain_flipped", "primary_pattern",
-                                    "n_mas").write_csv(separator="\t")
+    # The S-read BAM is read only after annotate()'s process pool has been created and shut down
+    # (fork safety: a pysam file opened with threads > 1 before a fork can leave the child with a
+    # half-copied reader), and only for the ZMWs in the sample, with the same hash keep function
+    # the HiFi pass used.
+    skera_summary = None
+    reads_out = read_summary.select("zm", "read_len", "chain", "chain_flipped", "primary_pattern", "n_mas")
+    read_summary_for_junctions = read_summary.with_columns(pl.lit(None, dtype=pl.Boolean).alias("skera_passing"))
+    if sreads is not None:
+        keep = None if fraction >= 1 else (lambda zm: in_hash_sample(zm, fraction))
+        sreads_df = read_sreads(sreads, threads, keep=keep)
+        order_len = len(chem.order)
+
+        passing = skera.passing_from_labels(sreads_df, order_len=order_len)
+        fc_all = skera.false_cuts(sreads_df, features)
+        budget_cls = skera.budget_classes(molecules, sreads_df)
+
+        per_read = (read_summary.select("zm")
+                    .join(sreads_df.group_by("zm").len().rename({"len": "n_sreads"}), on="zm", how="left")
+                    .join(passing, on="zm", how="left")
+                    .join(fc_all.group_by("zm").len().rename({"len": "false_cuts"}), on="zm", how="left")
+                    .join(budget_cls.filter(pl.col("usable") & (pl.col("cls") != "CLEAN"))
+                          .group_by("zm").len().rename({"len": "usable_not_clean"}), on="zm", how="left")
+                    .with_columns(pl.col("n_sreads", "false_cuts", "usable_not_clean").fill_null(0),
+                                  pl.col("passing").fill_null(False)))
+        reads_out = reads_out.join(per_read, on="zm", how="left")
+
+        read_summary_for_junctions = read_summary.join(
+            passing.rename({"passing": "skera_passing"}), on="zm", how="left"
+        ).with_columns(pl.col("skera_passing").fill_null(False))
+
+        skera_summary = {
+            **skera.false_cut_stats(read_summary, features, sreads_df, order=chem.order),
+            "mirror_arms": skera.mirror_arm_stats(molecules, sreads_df),
+            "budget": skera.budget_stats(read_summary, budget_cls, order_len=order_len),
+        }
+
+    csv_text = reads_out.write_csv(separator="\t")
     with gzip.open(out / "reads.tsv.gz", "wb") as f:
         f.write(csv_text.encode())
-
-    # skera's pass/fail verdict per read is Task 9's job (it needs --sreads); here there is none
-    # yet, so junction_composition's skera_pass_share is null rather than a guessed True or False.
-    read_summary_for_junctions = read_summary.with_columns(pl.lit(None, dtype=pl.Boolean).alias("skera_passing"))
 
     summary = {
         "version": __version__,
@@ -250,6 +301,8 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
         "junction_composition": junction_composition(molecules, read_summary_for_junctions).to_dicts(),
         "mirror_size_rule": mirror_size_rule(molecules, read_summary, order=chem.order).to_dicts(),
     }
+    if skera_summary is not None:
+        summary["skera"] = skera_summary
     (out / "summary.json").write_text(json.dumps(_json_safe(summary), indent=1))
 
     log(f"records: hifi_reads_in_file={hifi_reads_in_file} hifi_reads={read_summary.height}")

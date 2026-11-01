@@ -9,7 +9,7 @@ import polars as pl
 import pysam
 import pytest
 
-from kinnex_qc import cli, runner
+from kinnex_qc import cli, runner, skera
 from kinnex_qc.annotate import FAIL_PATTERNS, HIFI_PATTERNS
 from kinnex_qc.patterns import KINNEX8_SC3
 from kinnex_qc.sampling import in_hash_sample
@@ -262,6 +262,81 @@ def test_hash_sample_of_zero_reads_writes_null_fractions_not_a_crash(test_bams, 
     summary = json.loads((out / "summary.json").read_text())
     assert summary["hifi_reads"] == 0
     assert summary["fractions"] == {"complete_fraction": None, "mirror_fraction": None}
+
+
+@_IGNORE_FORK_WARNING
+def test_skera_summary_false_cut_and_mirror_arms(test_bams, tmp_path):
+    """Step 1 of Task 9: the test BAM's one false cut (around D, skera letter D, skipped adapter D)
+    and its mirror arms (after CLEAN 1.0, before CLEAN 0.0) show up in summary.json["skera"]."""
+    hifi, sreads = test_bams
+    out = tmp_path / "out"
+    r = _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--fraction", "1",
+              "--threads", "2", check=True)
+    assert r.returncode == 0
+    summary = json.loads((out / "summary.json").read_text())
+    sk = summary["skera"]
+    assert sk["complete_reads"] == 3
+    assert sk["complete_passing_reads"] == 3
+    assert sk["false_cuts"] == 1
+    assert sk["false_cut_reads_share"] == pytest.approx(1 / 3)
+    assert sk["false_cut_letters"] == {"D": 1}
+    assert sk["skipped_adapter_letters"] == {"D": 1}
+    assert sk["mirror_arms"]["after_clean_share"] == 1.0
+    assert sk["mirror_arms"]["before_clean_share"] == 0.0
+
+
+def test_skera_summary_absent_without_sreads(test_bams, tmp_path):
+    hifi, _ = test_bams
+    out = tmp_path / "out"
+    r = _run("--hifi", str(hifi), "--out", str(out), "--fraction", "1", "--threads", "2", check=True)
+    assert r.returncode == 0
+    summary = json.loads((out / "summary.json").read_text())
+    assert "skera" not in summary
+
+
+@_IGNORE_FORK_WARNING
+def test_reads_tsv_has_skera_columns_with_sreads(test_bams, tmp_path):
+    hifi, sreads = test_bams
+    out = tmp_path / "out"
+    r = _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--fraction", "1",
+              "--threads", "2", check=True)
+    assert r.returncode == 0
+    rows = {int(row["zm"]): row for row in _reads_tsv(out / "reads.tsv.gz")}
+    assert set(rows[1]) == {"zm", "read_len", "chain", "chain_flipped", "primary_pattern", "n_mas",
+                            "n_sreads", "passing", "false_cuts", "usable_not_clean"}
+    assert int(rows[1]["n_sreads"]) == 8
+    assert rows[1]["passing"] == "true"
+    assert int(rows[1]["false_cuts"]) == 1
+    assert int(rows[1]["usable_not_clean"]) == 2
+    assert int(rows[6]["n_sreads"]) == 1
+    assert rows[6]["passing"] == "false"
+
+
+@_IGNORE_FORK_WARNING
+def test_junction_composition_skera_pass_share_not_null_with_sreads(test_bams, tmp_path):
+    hifi, sreads = test_bams
+    out = tmp_path / "out"
+    r = _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--fraction", "1",
+              "--threads", "2", check=True)
+    assert r.returncode == 0
+    summary = json.loads((out / "summary.json").read_text())
+    assert all(row["skera_pass_share"] is not None for row in summary["junction_composition"])
+
+
+@_IGNORE_FORK_WARNING
+def test_skera_budget_matches_direct_library_call(test_bams, tmp_path):
+    hifi, sreads = test_bams
+    out = tmp_path / "out"
+    r = _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--fraction", "1",
+              "--threads", "2", check=True)
+    assert r.returncode == 0
+    summary = json.loads((out / "summary.json").read_text())
+
+    read_summary, molecules, features = runner.annotate(hifi, KINNEX8_SC3, 1.0, 2)
+    sreads_df = runner.read_sreads(sreads, 2)
+    cls = skera.budget_classes(molecules, sreads_df)
+    expected = skera.budget_stats(read_summary, cls, order_len=len(KINNEX8_SC3.order))
+    assert summary["skera"]["budget"] == expected
 
 
 def test_threads_1_and_3_give_the_same_output(test_bams, tmp_path):
