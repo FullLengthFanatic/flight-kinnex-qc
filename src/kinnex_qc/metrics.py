@@ -29,8 +29,12 @@ def artifact_rates(molecules: pl.DataFrame) -> dict:
 
 
 def read_fractions(read_summary: pl.DataFrame) -> dict:
-    """Share of reads whose primary chain pattern is complete, and whose pattern is mirror."""
+    """Share of reads whose primary chain pattern is complete, and whose pattern is mirror.
+    NaN (no reads) when read_summary is empty: polars' mean() of an empty Series is None, not NaN,
+    and float(None) raises, so the empty case is handled before the float() call."""
     pattern = read_summary["primary_pattern"]
+    if pattern.len() == 0:
+        return {"complete_fraction": float("nan"), "mirror_fraction": float("nan")}
     return {"complete_fraction": float((pattern == "complete").mean()), "mirror_fraction": float((pattern == "mirror").mean())}
 
 

@@ -250,6 +250,20 @@ def test_summary_has_every_metrics_key_and_null_skera_pass_share_without_sreads(
     assert all(row["skera_pass_share"] is None for row in summary["junction_composition"])
 
 
+def test_hash_sample_of_zero_reads_writes_null_fractions_not_a_crash(test_bams, tmp_path):
+    """A fraction small enough to sample zero reads from the fixture must still finish with rc 0 and
+    write summary.json and run.log, as it did before this task's read_fractions call (complete_fraction
+    and mirror_fraction null rather than a mean-of-nothing TypeError)."""
+    hifi, _ = test_bams
+    out = tmp_path / "out"
+    r = _run("--hifi", str(hifi), "--out", str(out), "--fraction", "0.000001", "--threads", "1", check=True)
+    assert r.returncode == 0, r.stderr
+    assert (out / "run.log").exists()
+    summary = json.loads((out / "summary.json").read_text())
+    assert summary["hifi_reads"] == 0
+    assert summary["fractions"] == {"complete_fraction": None, "mirror_fraction": None}
+
+
 def test_threads_1_and_3_give_the_same_output(test_bams, tmp_path):
     hifi, _ = test_bams
     outs = []
