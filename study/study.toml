@@ -1,0 +1,7 @@
+fraction = 0.18
+fail_subsample = 10
+processes = 9
+threads = 9
+pbtools_env = "kinnex-qc-pbtools"
+samples = "study/samples.tsv"
+out_root = "<out>"

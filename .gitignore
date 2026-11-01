@@ -7,3 +7,4 @@ __pycache__/
 local.toml
 study/samples.local.tsv
 study/study.local.toml
+study/tar_members.local.tsv
