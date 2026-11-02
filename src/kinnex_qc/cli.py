@@ -23,11 +23,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--out", required=True, help="output directory")
     run.add_argument("--adapters", help="adapter FASTA (default: the Kinnex 8-fold adapters)")
     run.add_argument("--primers", default="sc3", help="primer preset (sc3) or 'TSO,READ1' (default: sc3)")
-    run.add_argument("--fraction", type=float, default=None,
-                      help="share of ZMWs to annotate, in (0, 1] (default: 0.1, or 1.0 with --write-molecules)")
+    run.add_argument("--fraction", type=float, default=0.1,
+                      help="share of ZMWs the summary and report describe, in (0, 1] (default: 0.1)")
     run.add_argument("--threads", type=int, default=4, help="worker processes (default: 4)")
     run.add_argument("--write-molecules", action="store_true",
-                      help="write DIR/molecules.bam: one unaligned record per usable molecule, ready for lima --isoseq")
+                      help="write DIR/molecules.bam: one unaligned record per usable molecule of every read in the BAM "
+                           "(not only the sampled ones), ready for lima --isoseq")
     run.add_argument("--template", help="BAM whose header to copy for --write-molecules (default: --sreads)")
     run.add_argument("--examples", type=int, default=2,
                       help="example reads per category shown in DIR/report.html (default: 2; 0 for none)")
@@ -71,8 +72,7 @@ def _run_cmd(args: argparse.Namespace, argv: list[str]) -> int:
     if out.exists() and not out.is_dir():
         return _fail(f"--out: exists and is not a directory: {out}")
 
-    fraction_given = args.fraction is not None
-    fraction = args.fraction if fraction_given else (1.0 if args.write_molecules else 0.1)
+    fraction = args.fraction
     if not (0 < fraction <= 1):
         return _fail(f"--fraction must be in (0, 1]: {fraction}")
 
@@ -83,7 +83,6 @@ def _run_cmd(args: argparse.Namespace, argv: list[str]) -> int:
 
     return runner.run(hifi, sreads, out, chem, fraction, args.threads, args.write_molecules, template,
                        args.examples, adapters=args.adapters, primers=args.primers,
-                       fraction_defaulted=args.write_molecules and not fraction_given,
                        hifi_arg=args.hifi, sreads_arg=args.sreads, template_arg=args.template, argv=argv)
 
 

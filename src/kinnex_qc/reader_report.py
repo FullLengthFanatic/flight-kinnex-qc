@@ -595,7 +595,7 @@ def _section_inputs(s: dict, n_section: int) -> str:
             ["HiFi reads in the file", f"{s['hifi_reads_in_file']:,} " + _key("hifi_reads_in_file", s["hifi_reads_in_file"])],
             ["HiFi reads checked", f"{s['hifi_reads']:,} " + _key("hifi_reads", s["hifi_reads"])]]
     if "molecules_written" in s:
-        rows.append(["Molecules written to molecules.bam", f"{s['molecules_written']:,}"])
+        rows.append(["Molecules written to molecules.bam, from every read in the file", f"{s['molecules_written']:,}"])
     sk = f"skera {_e(s['skera_version'] or 'n/a')} (from the S-read BAM's header), " if inp["sreads"] else ""
     rows.append(["Software", f"kinnex-qc {_e(s['version'])}, {sk}Python {platform.python_version()}, {_versions()}"])
     fraction = ("Every ZMW in the file was checked." if s["fraction"] >= 1 else

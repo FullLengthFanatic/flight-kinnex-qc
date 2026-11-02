@@ -157,6 +157,73 @@ def test_annotate_keeps_rows_as_arrow_not_python_lists(monkeypatch):
     assert peak < 20 * 2**20
 
 
+class _ListSink:
+    """Keeps what annotate() hands a molecule sink: each batch's HiFi records and that batch's molecule rows."""
+
+    def __init__(self):
+        self.calls = []
+
+    def add(self, records, molecules):
+        self.calls.append((records, molecules))
+
+
+@_IGNORE_FORK_WARNING
+@pytest.mark.parametrize(("batch", "fraction"), [(200, 1.0), (2, 1.0), (2, 0.5), (1, 0.000001)])
+def test_annotate_with_a_molecule_sink_keeps_the_sampled_rows_and_hands_it_every_read(test_bams, monkeypatch, batch,
+                                                                                         fraction):
+    """With a molecule sink, annotate() returns the same frames and hifi_reads_in_file as without one (the hash sample's
+    rows), and hands the sink every record of the BAM, in file order, each batch with its own molecule rows."""
+    hifi, _ = test_bams
+    monkeypatch.setattr(runner, "BATCH", batch)
+    want_counts, got_counts, sink = {}, {}, _ListSink()
+    want = runner.annotate(hifi, KINNEX8_SC3, fraction, 2, counts=want_counts)
+    got = runner.annotate(hifi, KINNEX8_SC3, fraction, 2, counts=got_counts, molecules_out=sink)
+    for g, w in zip(got, want):
+        assert g.schema == w.schema
+        assert g.equals(w)
+    assert got_counts == want_counts == {"hifi_reads_in_file": 6}
+
+    file_order = [r.get_tag("zm") for r in pysam.AlignmentFile(str(hifi), "rb", check_sq=False)]
+    assert [r.get_tag("zm") for records, _ in sink.calls for r in records] == file_order
+    assert all(len(records) <= batch for records, _ in sink.calls)
+    for records, mols in sink.calls:
+        assert set(mols["zm"].to_list()) == {r.get_tag("zm") for r in records}
+    every_read = runner.annotate(hifi, KINNEX8_SC3, 1.0, 2)[1]
+    assert pl.concat([mols for _, mols in sink.calls]).sort(["zm", "seg_index"]).equals(every_read)
+
+
+@_IGNORE_FORK_WARNING
+def test_annotate_hands_the_sink_each_batch_as_it_comes_back(monkeypatch):
+    """With a molecule sink, every record is read (no keep filter on the pass) and each batch of records goes to the
+    sink as soon as its result comes back, so the parent holds the records of the batches in flight only (4 per
+    worker), never the whole BAM: 300 reads, one per batch, one worker, a hash sample of half."""
+    yielded = 0
+
+    def fake_iter_bam(path, threads=4, keep=None):
+        nonlocal yielded
+        assert keep is None
+        for zm in range(1, 301):
+            yielded += 1
+            yield _FakeRecord({"zm": zm, "np": 10, "rq": 0.999})
+
+    received, held = [], []
+
+    class Sink:
+        def add(self, records, molecules):
+            held.append(yielded - len(received))
+            received.extend(r.get_tag("zm") for r in records)
+
+    monkeypatch.setattr(runner, "iter_bam", fake_iter_bam)
+    monkeypatch.setattr(runner, "annotate_batch", _fake_annotate_batch)
+    monkeypatch.setattr(runner, "BATCH", 1)
+    counts = {}
+    read_summary, _, _ = runner.annotate("unused.bam", KINNEX8_SC3, 0.5, 1, counts=counts, molecules_out=Sink())
+    assert received == list(range(1, 301))
+    assert max(held) <= 4
+    assert counts == {"hifi_reads_in_file": 300}
+    assert read_summary["zm"].to_list() == [zm for zm in range(1, 301) if in_hash_sample(zm, 0.5)]
+
+
 def _read_sreads_the_list_way(sreads, keep):
     """read_sreads' frame built the way it was built while it kept one Python list per column to the end."""
     cols = {"zm": [], "di": [], "qs": [], "qe": [], "dl": [], "dr": []}
@@ -230,14 +297,37 @@ def test_fraction_zero_and_above_one_exit_2(test_bams, tmp_path):
         assert r.stderr.startswith("kinnex-qc run: error:")
 
 
-def test_write_molecules_without_fraction_sets_fraction_to_one(test_bams, tmp_path):
+def test_write_molecules_keeps_the_default_fraction_for_the_summary(test_bams, tmp_path):
+    """--write-molecules does not change the fraction: summary.json and reads.tsv.gz describe the default hash sample
+    (0.1, zm 4 alone in the fixture), while molecules.bam holds the 30 usable molecules of all six reads."""
     hifi, sreads = test_bams
+    assert {zm for zm in range(1, 7) if in_hash_sample(zm, 0.1)} == {4}
     out = tmp_path / "out"
     r = _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--write-molecules", "--threads", "2")
     assert r.returncode == 0, r.stderr
-    assert "fraction set to 1" in r.stderr
+    assert "fraction set to 1" not in r.stderr
     summary = json.loads((out / "summary.json").read_text())
-    assert summary["fraction"] == 1.0
+    assert summary["fraction"] == 0.1
+    assert (summary["hifi_reads_in_file"], summary["hifi_reads"]) == (6, 1)
+    assert [int(row["zm"]) for row in _reads_tsv(out / "reads.tsv.gz")] == [4]
+    assert summary["molecules_written"] == 30
+    assert sum(1 for _ in pysam.AlignmentFile(str(out / "molecules.bam"), "rb", check_sq=False)) == 30
+
+
+def test_write_molecules_leaves_summary_and_reads_tsv_as_without_it(test_bams, tmp_path):
+    """At a fraction below 1, with S-reads (so the skera comparison runs too), --write-molecules adds molecules_written
+    to summary.json and changes nothing else in it or in reads.tsv.gz."""
+    hifi, sreads = test_bams
+    outs = {}
+    for name, extra in (("with", ["--write-molecules"]), ("without", [])):
+        out = tmp_path / name
+        _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--fraction", "0.5", "--threads", "2",
+             *extra, check=True)
+        with gzip.open(out / "reads.tsv.gz", "rt") as f:
+            outs[name] = (json.loads((out / "summary.json").read_text()), f.read())
+    assert outs["with"][0].pop("molecules_written") == 30
+    assert outs["with"][0]["hifi_reads"] == 4
+    assert outs["with"] == outs["without"]
 
 
 def test_write_molecules_without_sreads_or_template_exits_2(test_bams, tmp_path):
@@ -571,7 +661,8 @@ def test_write_molecules_writes_molecules_bam_and_records_count(test_bams, tmp_p
 
     summary = json.loads((out / "summary.json").read_text())
     assert summary["molecules_written"] == 30
-    assert "molecules written: 30" in (out / "run.log").read_text()
+    assert ("molecules written: 30, for all 6 HiFi reads in the file; summary numbers come from the hash sample "
+            "(fraction 0.1, 1 of 6 reads)") in (out / "run.log").read_text()
 
 
 def test_threads_1_and_3_give_the_same_output(test_bams, tmp_path):

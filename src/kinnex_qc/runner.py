@@ -4,6 +4,8 @@ Option parsing, the rule checks, the one-line stderr errors and the exit codes l
 module takes plain, already-validated values, so other code (the study's stage 02) can import
 it as a library without argparse.
 """
+import collections
+import contextlib
 import functools
 import gzip
 import json
@@ -16,6 +18,7 @@ from typing import Optional
 
 import polars as pl
 import pyarrow as pa
+import pyarrow.compute as pc
 import pysam
 
 from . import __version__, reader_report, skera
@@ -23,7 +26,7 @@ from .annotate import adapter_chain, annotate_read, chain_flags, primary_pattern
 from .classify import call_from_hits
 from .io import iter_bam
 from .metrics import artifact_rates, junction_composition, junction_table, mirror_junction_shares, mirror_size_rule, pattern_shares, read_fractions
-from .molecules import write_molecules as write_molecules_bam
+from .molecules import MoleculeSink
 from .parallel import batched, bounded_imap, process_pool
 from .patterns import Chemistry, FAIL_MAX_EDITS, HIFI_MAX_EDITS, KINNEX8_SC3, MAS_ORDER, all_patterns
 from .sampling import in_hash_sample
@@ -113,17 +116,23 @@ def _frame(schema: pa.Schema, batches: list[pa.RecordBatch]) -> pl.DataFrame:
     return pl.from_arrow(pa.Table.from_batches(batches, schema=schema))
 
 
-def annotate(hifi, chem: Chemistry, fraction: float, threads: int,
-             counts: Optional[dict] = None) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
-    """Annotate every record of a HiFi BAM (optionally hash-sampled), parallel over batches of BATCH.
+def annotate(hifi, chem: Chemistry, fraction: float, threads: int, counts: Optional[dict] = None,
+             molecules_out: Optional[MoleculeSink] = None) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """Annotate the records of a HiFi BAM in the hash sample given by fraction (every record at fraction 1), parallel
+    over batches of BATCH.
 
     Returns (read_summary, molecules, features): READ_SUMMARY, ANNOT_SEGMENTS and READ_FEATURES
     columns and dtypes, without `source` and `skera_passing`, rows ordered by zm so the output does
     not depend on the worker pool.
 
+    molecules_out: when given, every record of the BAM is annotated, not only the sampled ones, and each batch of
+    records goes to molecules_out.add with its molecule rows as soon as the workers return it, so the parent holds
+    the records of the batches in flight only; the returned frames still hold the sampled reads alone, the same
+    frames as without molecules_out.
+
     counts: when given, receives counts["hifi_reads_in_file"], the number of records in the whole
     HiFi BAM (before the sample), counted during this single pass instead of a second read of the
-    file. At fraction 1 every yielded record is counted (keep=None, nothing is filtered); below 1,
+    file. When every record is read (fraction 1, or molecules_out given) every yielded record is counted; otherwise
     iter_bam calls keep(zm) once per record (a HiFi BAM has one record per ZMW), so counting those
     calls counts the whole file even though only the sampled records are yielded.
     """
@@ -134,14 +143,19 @@ def annotate(hifi, chem: Chemistry, fraction: float, threads: int,
         seen += 1
         return in_hash_sample(zm, fraction)
 
-    keep = None if fraction >= 1 else _keep
+    keep = None if fraction >= 1 or molecules_out is not None else _keep
+    # the records of each batch submitted and not yet returned, in submission order, which is the order bounded_imap
+    # returns the results in
+    in_flight = collections.deque()
 
-    def items():
+    def item_batches():
         nonlocal seen
-        for r in iter_bam(hifi, threads=threads, keep=keep):
+        for records in batched(iter_bam(hifi, threads=threads, keep=keep), BATCH):
             if keep is None:
-                seen += 1
-            yield (r.get_tag("zm"), "hifi", r.query_sequence, r.get_tag("np"), r.get_tag("rq"), True)
+                seen += len(records)
+            if molecules_out is not None:
+                in_flight.append(records)
+            yield [(r.get_tag("zm"), "hifi", r.query_sequence, r.get_tag("np"), r.get_tag("rq"), True) for r in records]
 
     # Each batch's column lists become arrow as soon as they arrive, so the Python ints and strings never pile up over
     # the whole BAM: kept to the end they grew the process by about 200 bytes a row, against about 50 as arrow
@@ -149,10 +163,17 @@ def annotate(hifi, chem: Chemistry, fraction: float, threads: int,
     batches = {"summ": [], "segs": [], "feats": []}
     with process_pool(threads) as pool:
         func = functools.partial(annotate_batch, chem=chem)
-        for feats, summ, segs in bounded_imap(pool, func, batched(items(), BATCH), 4 * threads):
-            batches["summ"].append(_record_batch(_SUMMARY_OUT, summ))
-            batches["segs"].append(_record_batch(_MOLECULES_OUT, segs))
-            batches["feats"].append(_record_batch(_FEATURES_OUT, feats))
+        for feats, summ, segs in bounded_imap(pool, func, item_batches(), 4 * threads):
+            parts = {"summ": _record_batch(_SUMMARY_OUT, summ), "segs": _record_batch(_MOLECULES_OUT, segs),
+                     "feats": _record_batch(_FEATURES_OUT, feats)}
+            if molecules_out is not None:
+                molecules_out.add(in_flight.popleft(), pl.from_arrow(parts["segs"]))
+                if fraction < 1:
+                    sampled = pa.array([zm for zm in summ["zm"] if in_hash_sample(zm, fraction)],
+                                       type=_SUMMARY_OUT.field("zm").type)
+                    parts = {k: b.filter(pc.is_in(b.column("zm"), value_set=sampled)) for k, b in parts.items()}
+            for k, b in parts.items():
+                batches[k].append(b)
 
     # pop: a table's batches are freed once polars holds its own copy, before the sort makes another
     read_summary = _frame(_SUMMARY_OUT, batches.pop("summ")).sort("zm")
@@ -227,7 +248,7 @@ def example_sequences(hifi: Path, zms: set[int], threads: int) -> dict[int, str]
 
 def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction: float, threads: int,
         write_molecules: bool, template: Optional[Path], examples: int, *, adapters: Optional[str],
-        primers: str, fraction_defaulted: bool, hifi_arg: str, sreads_arg: Optional[str],
+        primers: str, hifi_arg: str, sreads_arg: Optional[str],
         template_arg: Optional[str], argv: list[str]) -> int:
     """Annotate the HiFi BAM and write reads.tsv.gz, summary.json, report.html and run.log into `out`.
 
@@ -253,8 +274,6 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
     log(f"options: hifi={hifi} sreads={sreads} out={out} adapters={adapters} primers={primers} "
         f"fraction={fraction} threads={threads} write_molecules={write_molecules} "
         f"template={template} examples={examples}")
-    if fraction_defaulted:
-        log("fraction set to 1 because --write-molecules was given without --fraction")
 
     skv = None
     if sreads is not None:
@@ -262,14 +281,18 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
         if skv is None:
             log(f"warning: no @PG line names skera in {sreads}")
 
+    # --write-molecules: the molecules of every read go to molecules.bam during the one annotation pass, while the
+    # frames, and so every number below, hold the hash sample alone
     counts: dict = {}
-    read_summary, molecules, features = annotate(hifi, chem, fraction, threads, counts=counts)
+    with (MoleculeSink(template, out / "molecules.bam") if write_molecules else contextlib.nullcontext()) as sink:
+        read_summary, molecules, features = annotate(hifi, chem, fraction, threads, counts=counts, molecules_out=sink)
     hifi_reads_in_file = counts["hifi_reads_in_file"]
 
     molecules_written = None
     if write_molecules:
-        molecules_written = write_molecules_bam(hifi, molecules, template, out / "molecules.bam")
-        log(f"molecules written: {molecules_written}")
+        molecules_written = sink.written
+        log(f"molecules written: {molecules_written}, for all {hifi_reads_in_file} HiFi reads in the file; summary "
+            f"numbers come from the hash sample (fraction {fraction}, {read_summary.height} of {hifi_reads_in_file} reads)")
 
     # The S-read BAM is read only after annotate()'s process pool has been created and shut down
     # (fork safety: a pysam file opened with threads > 1 before a fork can leave the child with a

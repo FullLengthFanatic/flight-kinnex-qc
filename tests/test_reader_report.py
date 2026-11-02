@@ -320,6 +320,15 @@ def test_software_row_names_skera_only_with_sreads(with_sreads, without_sreads):
     assert "skera" not in _software(_html(without_sreads))
 
 
+def test_molecules_written_row_says_it_counts_every_read(with_sreads, tmp_path):
+    """--write-molecules writes the molecules of every read in the file while the other numbers describe the hash
+    sample, so its row says where its number comes from."""
+    summary = json.loads((with_sreads / "summary.json").read_text())
+    summary["molecules_written"] = 30
+    page = reader_report.write(tmp_path, summary, []).read_text(encoding="utf-8")
+    assert "<td>Molecules written to molecules.bam, from every read in the file</td><td>30</td>" in page
+
+
 def test_html_sequence_draws_adapters_on_top_with_1_based_titles():
     seq = "acgtACGTacgt"
     out = viewer.html_sequence(seq, [("A", 4, 8, "adapter"), ("TSO", 2, 6, "tso")], wrap=5)

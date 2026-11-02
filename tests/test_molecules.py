@@ -139,6 +139,22 @@ def test_write_molecules_records_follow_hifi_order_then_start_end(test_bams, tmp
     assert got == want
 
 
+@pytest.mark.parametrize(("batch", "fraction"), [(200, 1.0), (2, 1.0), (2, 0.5), (1, 0.000001)])
+def test_streamed_molecules_bam_is_byte_identical_to_write_molecules(test_bams, tmp_path, monkeypatch, batch, fraction):
+    """molecules.bam streamed by annotate() through a MoleculeSink holds the molecules of every read whatever the
+    fraction, and has the bytes write_molecules gives over every read's molecules (one batch, batches of 2, a hash
+    sample of half, a sample of zero reads)."""
+    hifi, sreads = test_bams
+    want = tmp_path / "write_molecules.bam"
+    n = molecules.write_molecules(hifi, _annotated(hifi), sreads, want)
+    monkeypatch.setattr(runner, "BATCH", batch)
+    got = tmp_path / "streamed.bam"
+    with molecules.MoleculeSink(sreads, got) as sink:
+        runner.annotate(hifi, KINNEX8_SC3, fraction, 2, molecules_out=sink)
+    assert (n, sink.written) == (30, 30)
+    assert got.read_bytes() == want.read_bytes()
+
+
 def test_write_molecules_does_not_hold_molecules_as_python_tuples(test_bams, tmp_path):
     """write_molecules finds a read's molecules by binary search in sorted columns, not in a dict of Python (start, end)
     tuples. 500,000 usable molecules of ZMWs the HiFi BAM does not hold (so nothing is written): as tuples they took a
