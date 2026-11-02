@@ -30,6 +30,9 @@ from .sampling import in_hash_sample
 from .schemas import ANNOT_SEGMENTS, READ_FEATURES, READ_SUMMARY
 
 BATCH = 200
+SREAD_CHUNK = 100_000
+_SREADS = pa.schema([("zm", pa.uint32()), ("di", pa.int16()), ("qs", pa.int32()), ("qe", pa.int32()),
+                     ("dl", pa.int8()), ("dr", pa.int8())])
 
 
 def token_pos(left: Optional[str], right: Optional[str], order=MAS_ORDER) -> Optional[int]:
@@ -92,18 +95,22 @@ def annotate_batch(batch: list[tuple], chem: Chemistry = KINNEX8_SC3) -> tuple[d
     return feats, summ, segs
 
 
-def _merge(schema: pa.Schema, parts: list[dict[str, list]]) -> dict[str, list]:
-    out = {f.name: [] for f in schema}
-    for part in parts:
-        for k in out:
-            out[k].extend(part[k])
-    return out
+def _without(schema: pa.Schema, drop: set[str]) -> pa.Schema:
+    return pa.schema([f for f in schema if f.name not in drop])
 
 
-def _frame(schema: pa.Schema, drop: set[str], cols: dict[str, list]) -> pl.DataFrame:
-    fields = [f for f in schema if f.name not in drop]
-    table = pa.Table.from_arrays([pa.array(cols[f.name], type=f.type) for f in fields], schema=pa.schema(fields))
-    return pl.from_arrow(table)
+_SUMMARY_OUT = _without(READ_SUMMARY, {"source", "skera_passing"})
+_MOLECULES_OUT = _without(ANNOT_SEGMENTS, {"source"})
+_FEATURES_OUT = _without(READ_FEATURES, {"source"})
+
+
+def _record_batch(schema: pa.Schema, cols: dict[str, list]) -> pa.RecordBatch:
+    """The columns of cols that schema names, as arrow with schema's types (other columns of cols are left out)."""
+    return pa.RecordBatch.from_arrays([pa.array(cols[f.name], type=f.type) for f in schema], schema=schema)
+
+
+def _frame(schema: pa.Schema, batches: list[pa.RecordBatch]) -> pl.DataFrame:
+    return pl.from_arrow(pa.Table.from_batches(batches, schema=schema))
 
 
 def annotate(hifi, chem: Chemistry, fraction: float, threads: int,
@@ -136,17 +143,21 @@ def annotate(hifi, chem: Chemistry, fraction: float, threads: int,
                 seen += 1
             yield (r.get_tag("zm"), "hifi", r.query_sequence, r.get_tag("np"), r.get_tag("rq"), True)
 
-    feats_parts, summ_parts, segs_parts = [], [], []
+    # Each batch's column lists become arrow as soon as they arrive, so the Python ints and strings never pile up over
+    # the whole BAM: kept to the end they grew the process by about 200 bytes a row, against about 50 as arrow
+    # (observed on 200,000 HiFi reads), tens of GB for the features and molecules of a whole cell.
+    batches = {"summ": [], "segs": [], "feats": []}
     with process_pool(threads) as pool:
         func = functools.partial(annotate_batch, chem=chem)
         for feats, summ, segs in bounded_imap(pool, func, batched(items(), BATCH), 4 * threads):
-            feats_parts.append(feats)
-            summ_parts.append(summ)
-            segs_parts.append(segs)
+            batches["summ"].append(_record_batch(_SUMMARY_OUT, summ))
+            batches["segs"].append(_record_batch(_MOLECULES_OUT, segs))
+            batches["feats"].append(_record_batch(_FEATURES_OUT, feats))
 
-    read_summary = _frame(READ_SUMMARY, {"source", "skera_passing"}, _merge(READ_SUMMARY, summ_parts)).sort("zm")
-    molecules = _frame(ANNOT_SEGMENTS, {"source"}, _merge(ANNOT_SEGMENTS, segs_parts)).sort(["zm", "seg_index"])
-    features = _frame(READ_FEATURES, {"source"}, _merge(READ_FEATURES, feats_parts)).sort(["zm", "start"])
+    # pop: a table's batches are freed once polars holds its own copy, before the sort makes another
+    read_summary = _frame(_SUMMARY_OUT, batches.pop("summ")).sort("zm")
+    molecules = _frame(_MOLECULES_OUT, batches.pop("segs")).sort(["zm", "seg_index"])
+    features = _frame(_FEATURES_OUT, batches.pop("feats")).sort(["zm", "start"])
     if counts is not None:
         counts["hifi_reads_in_file"] = seen
     return read_summary, molecules, features
@@ -179,8 +190,10 @@ def read_sreads(sreads: Path, threads: int, keep=None) -> pl.DataFrame:
     """S-read tags (zm, qs, qe, dl, dr) from skera's S-read BAM, with di set to each record's 0-based
     index within its ZMW (observed in skera 26.1.0 output: the S-reads of one ZMW are consecutive in
     the file, which iter_bam's own keep filter relies on). keep: as iter_bam's, the same hash-sample
-    filter the HiFi pass used."""
-    cols = {"zm": [], "di": [], "qs": [], "qe": [], "dl": [], "dr": []}
+    filter the HiFi pass used. Every SREAD_CHUNK records go to arrow, so no more than that many are
+    held as Python objects."""
+    batches = []
+    cols = {f.name: [] for f in _SREADS}
     last_zm, di = None, -1
     for r in iter_bam(sreads, threads=threads, keep=keep):
         zm = r.get_tag("zm")
@@ -192,8 +205,11 @@ def read_sreads(sreads: Path, threads: int, keep=None) -> pl.DataFrame:
         cols["qe"].append(r.get_tag("qe"))
         cols["dl"].append(r.get_tag("dl"))
         cols["dr"].append(r.get_tag("dr"))
-    return pl.DataFrame(cols, schema={"zm": pl.UInt32, "di": pl.Int16, "qs": pl.Int32, "qe": pl.Int32,
-                                       "dl": pl.Int8, "dr": pl.Int8})
+        if len(cols["zm"]) == SREAD_CHUNK:
+            batches.append(_record_batch(_SREADS, cols))
+            cols = {f.name: [] for f in _SREADS}
+    batches.append(_record_batch(_SREADS, cols))
+    return _frame(_SREADS, batches)
 
 
 def example_sequences(hifi: Path, zms: set[int], threads: int) -> dict[int, str]:

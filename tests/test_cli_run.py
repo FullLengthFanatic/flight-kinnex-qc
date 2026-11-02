@@ -3,16 +3,21 @@ import csv
 import gzip
 import json
 import subprocess
+import tracemalloc
 import warnings
 
 import polars as pl
+import pyarrow as pa
 import pysam
 import pytest
 
 from kinnex_qc import cli, runner
 from kinnex_qc.annotate import FAIL_PATTERNS, HIFI_PATTERNS
+from kinnex_qc.io import iter_bam
+from kinnex_qc.parallel import batched
 from kinnex_qc.patterns import KINNEX8_SC3
 from kinnex_qc.sampling import in_hash_sample
+from kinnex_qc.schemas import ANNOT_SEGMENTS, READ_FEATURES, READ_SUMMARY
 
 # the pytest process carries threads from earlier tests; the CLI forks its pool workers before any
 # BAM is open, which is fine, but multiprocessing warns about it when run in-process like this
@@ -59,6 +64,141 @@ def test_annotate_molecule_end_classes(test_bams):
     proper = molecules.filter(pl.col("end_class") == "proper")
     assert proper.height > 0
     assert not proper["tso_toward_lower"].any()
+
+
+def _sample(fraction):
+    return None if fraction >= 1 else (lambda zm: in_hash_sample(zm, fraction))
+
+
+def _annotate_the_list_way(hifi, fraction):
+    """annotate()'s three frames built the way it built them while it kept Python lists: annotate_batch over batches of
+    runner.BATCH sampled reads (serially, in file order), every batch's column lists kept and merged into one list per
+    column at the end, the merged lists made into one arrow table and sorted as annotate() sorts."""
+    items = ((r.get_tag("zm"), "hifi", r.query_sequence, r.get_tag("np"), r.get_tag("rq"), True)
+             for r in iter_bam(hifi, threads=1, keep=_sample(fraction)))
+    parts = [runner.annotate_batch(b, KINNEX8_SC3) for b in batched(items, runner.BATCH)]
+
+    def frame(schema, drop, k):
+        fields = [f for f in schema if f.name not in drop]
+        cols = {f.name: [v for part in parts for v in part[k][f.name]] for f in fields}
+        return pl.from_arrow(pa.Table.from_arrays([pa.array(cols[f.name], type=f.type) for f in fields],
+                                                  schema=pa.schema(fields)))
+
+    return (frame(READ_SUMMARY, {"source", "skera_passing"}, 1).sort("zm"),
+            frame(ANNOT_SEGMENTS, {"source"}, 2).sort(["zm", "seg_index"]),
+            frame(READ_FEATURES, {"source"}, 0).sort(["zm", "start"]))
+
+
+@_IGNORE_FORK_WARNING
+@pytest.mark.parametrize(("batch", "fraction", "reads"), [(200, 1.0, 6), (1, 1.0, 6), (2, 0.5, None), (1, 0.000001, 0)])
+def test_annotate_frames_equal_the_list_built_reference(test_bams, monkeypatch, batch, fraction, reads):
+    """Keeping each batch as arrow must not change a value, a dtype or the row order: all reads in one batch, one
+    read per batch, a hash sample over batches of 2, and a sample of zero reads."""
+    hifi, _ = test_bams
+    monkeypatch.setattr(runner, "BATCH", batch)
+    got = runner.annotate(hifi, KINNEX8_SC3, fraction, 2)
+    want = _annotate_the_list_way(hifi, fraction)
+    assert reads is None or got[0].height == reads
+    for g, w in zip(got, want):
+        assert g.schema == w.schema
+        assert g.equals(w)
+
+
+class _FakeRecord:
+    """Stands in for a pysam record in the memory tests: the tags and the sequence the readers ask for."""
+    query_sequence = "ACGT"
+
+    def __init__(self, tags):
+        self.tags = tags
+
+    def get_tag(self, name):
+        return self.tags[name]
+
+
+def _fake_annotate_batch(batch, chem=None):
+    """annotate_batch's three column dicts without annotating anything: 2,000 feature rows per read (zm, start and
+    end set, the rest null), one row each of read_summary and molecules (zm set, the rest null)."""
+    n = 2000
+    feats = {f.name: [] for f in READ_FEATURES}
+    summ = {f.name: [] for f in READ_SUMMARY}
+    segs = {f.name: [] for f in ANNOT_SEGMENTS}
+    for item in batch:
+        zm = item[0]
+        for k in feats:
+            feats[k] += {"zm": [zm] * n, "start": list(range(1000, 1000 + n)), "end": list(range(1016, 1016 + n))}.get(k, [None] * n)
+        for cols in (summ, segs):
+            for k in cols:
+                cols[k].append(zm if k == "zm" else None)
+    return feats, summ, segs
+
+
+def _python_heap_peak(fn):
+    """fn's result and the peak of the Python heap while it ran (tracemalloc: Python objects, numpy arrays; not
+    arrow's or polars' own buffers)."""
+    tracemalloc.start()
+    try:
+        result = fn()
+        return result, tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+
+
+@_IGNORE_FORK_WARNING
+def test_annotate_keeps_rows_as_arrow_not_python_lists(monkeypatch):
+    """annotate() turns each batch's column lists into arrow as it arrives, so the Python heap holds a few batches at a
+    time however many rows the BAM gives. 300 reads of 2,000 fake feature rows each, one read per batch: kept as
+    Python lists to the end, the 600,000 rows took a Python heap peak of 122 MB (measured before the change; 2.4 MB after)."""
+    records = [_FakeRecord({"zm": zm, "np": 10, "rq": 0.999}) for zm in range(1, 301)]
+    monkeypatch.setattr(runner, "iter_bam", lambda path, threads=4, keep=None: iter(records))
+    monkeypatch.setattr(runner, "annotate_batch", _fake_annotate_batch)
+    monkeypatch.setattr(runner, "BATCH", 1)
+    (read_summary, molecules, features), peak = _python_heap_peak(lambda: runner.annotate("unused.bam", KINNEX8_SC3, 1.0, 1))
+    assert (read_summary.height, molecules.height, features.height) == (300, 300, 600_000)
+    assert peak < 20 * 2**20
+
+
+def _read_sreads_the_list_way(sreads, keep):
+    """read_sreads' frame built the way it was built while it kept one Python list per column to the end."""
+    cols = {"zm": [], "di": [], "qs": [], "qe": [], "dl": [], "dr": []}
+    last_zm, di = None, -1
+    for r in iter_bam(sreads, threads=1, keep=keep):
+        zm = r.get_tag("zm")
+        di = di + 1 if zm == last_zm else 0
+        last_zm = zm
+        for k, v in (("zm", zm), ("di", di), ("qs", r.get_tag("qs")), ("qe", r.get_tag("qe")),
+                     ("dl", r.get_tag("dl")), ("dr", r.get_tag("dr"))):
+            cols[k].append(v)
+    return pl.DataFrame(cols, schema={"zm": pl.UInt32, "di": pl.Int16, "qs": pl.Int32, "qe": pl.Int32,
+                                      "dl": pl.Int8, "dr": pl.Int8})
+
+
+@pytest.mark.parametrize(("chunk", "fraction"), [(100_000, 1.0), (3, 1.0), (3, 0.5)])
+def test_read_sreads_equals_the_list_built_reference(test_bams, monkeypatch, chunk, fraction):
+    """Reading the S-reads in arrow chunks must not change a value, a dtype or the row order (di counts on across a
+    chunk boundary): one chunk, chunks of 3, and a hash sample in chunks of 3."""
+    _, sreads = test_bams
+    monkeypatch.setattr(runner, "SREAD_CHUNK", chunk)
+    got = runner.read_sreads(sreads, 1, keep=_sample(fraction))
+    want = _read_sreads_the_list_way(sreads, _sample(fraction))
+    assert got.height > 0
+    assert got.schema == want.schema
+    assert got.equals(want)
+
+
+def test_read_sreads_keeps_rows_as_arrow_not_python_lists(monkeypatch):
+    """read_sreads turns every SREAD_CHUNK S-reads into arrow, so the Python heap holds one chunk at a time.
+    200,000 fake S-reads in chunks of 1,000: kept as Python lists to the end, they took a Python heap peak of
+    28 MB (measured before the change; 0.2 MB after)."""
+    def fake_iter_bam(path, threads=4, keep=None):
+        for i in range(200_000):
+            yield _FakeRecord({"zm": 1000 + i // 8, "qs": 300 * (i % 8), "qe": 300 * (i % 8) + 290, "dl": i % 8, "dr": i % 8 + 1})
+
+    monkeypatch.setattr(runner, "iter_bam", fake_iter_bam)
+    monkeypatch.setattr(runner, "SREAD_CHUNK", 1000, raising=False)
+    sreads, peak = _python_heap_peak(lambda: runner.read_sreads("unused.bam", 1))
+    assert sreads.height == 200_000
+    assert sreads["di"].max() == 7
+    assert peak < 5 * 2**20
 
 
 def test_run_writes_reads_tsv_with_pattern_counts(test_bams, tmp_path):

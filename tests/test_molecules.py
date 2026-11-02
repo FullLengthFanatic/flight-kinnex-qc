@@ -1,8 +1,10 @@
 """Tests for `--write-molecules`: a BAM of the molecules a full-read segmentation finds."""
 import subprocess
 import sys
+import tracemalloc
 from pathlib import Path
 
+import numpy as np
 import polars as pl
 import pysam
 import pytest
@@ -118,6 +120,42 @@ def test_write_molecules_keep_further_restricts_reads(test_bams, tmp_path):
     assert n == 8
     zms = {r.get_tag("zm") for r in pysam.AlignmentFile(str(out), "rb", check_sq=False)}
     assert zms == {1}
+
+
+def test_write_molecules_records_follow_hifi_order_then_start_end(test_bams, tmp_path):
+    """Records come in HiFi file order and, within a read, by (start, end), whatever the row order of the frame
+    given: the same records, in the same order, as the dict of (start, end) lists write_molecules used to keep."""
+    hifi, sreads = test_bams
+    mols = _annotated(hifi).sample(fraction=1.0, shuffle=True, seed=3)
+    out = tmp_path / "molecules.bam"
+    molecules.write_molecules(hifi, mols, sreads, out)
+    by_zm = {}
+    for zm, start, end in mols.filter(molecules.USABLE).select("zm", "start", "end").iter_rows():
+        by_zm.setdefault(zm, []).append((start, end))
+    hifi_order = [r.get_tag("zm") for r in pysam.AlignmentFile(str(hifi), "rb", check_sq=False)]
+    want = [(zm, di, s, e) for zm in hifi_order if zm in by_zm for di, (s, e) in enumerate(sorted(by_zm[zm]))]
+    got = [(r.get_tag("zm"), r.get_tag("di"), r.get_tag("qs"), r.get_tag("qe")) for r in pysam.AlignmentFile(str(out), "rb", check_sq=False)]
+    assert len(got) == 30
+    assert got == want
+
+
+def test_write_molecules_does_not_hold_molecules_as_python_tuples(test_bams, tmp_path):
+    """write_molecules finds a read's molecules by binary search in sorted columns, not in a dict of Python (start, end)
+    tuples. 500,000 usable molecules of ZMWs the HiFi BAM does not hold (so nothing is written): as tuples they took a
+    Python heap peak of 72 MB (measured before the change; under 0.1 MB after)."""
+    hifi, sreads = test_bams
+    i = np.arange(500_000)
+    mols = pl.DataFrame({"zm": (1_000_000 + i // 10).astype(np.uint32), "start": (i % 10 * 700).astype(np.int32),
+                         "end": (i % 10 * 700 + 650).astype(np.int32)}).with_columns(
+        pl.lit("proper").alias("end_class"), pl.lit(False).alias("internal"))
+    tracemalloc.start()
+    try:
+        n = molecules.write_molecules(hifi, mols, sreads, tmp_path / "molecules.bam")
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert n == 0
+    assert peak < 20 * 2**20
 
 
 @pytest.mark.real

@@ -60,3 +60,16 @@ def test_hash_key_orders_the_hash_sample():
         assert all(in_hash_sample(z, f) == (hash_key(z) < int(f * 2**64)) for z in zms)
         sample = [z for z in ordered if in_hash_sample(z, f)]
         assert sample == ordered[:len(sample)]
+
+
+def test_vectorised_hashes_equal_the_scalar_ones():
+    """splitmix64_array, keep_zmw_array and hash_key_array give, value for value, what splitmix64, keep_zmw and
+    hash_key give (report.html orders its example reads with hash_key_array)."""
+    from kinnex_qc.sampling import hash_key, hash_key_array, splitmix64_array
+    rng = np.random.default_rng(3)
+    zms = np.concatenate([np.array([0, 1, 42, 2**31 - 1, 2**32 - 1], dtype=np.uint64),
+                          np.arange(1_000_000, 1_005_000, dtype=np.uint64), rng.integers(0, 2**32, 5000, dtype=np.uint64)])
+    assert splitmix64_array(zms).tolist() == [splitmix64(z) for z in zms.tolist()]
+    assert keep_zmw_array(zms, 10).tolist() == [keep_zmw(z, 10) for z in zms.tolist()]
+    assert hash_key_array(zms).tolist() == [hash_key(z) for z in zms.tolist()]
+    assert hash_key_array(zms.astype(np.uint32)).tolist() == [hash_key(z) for z in zms.tolist()]

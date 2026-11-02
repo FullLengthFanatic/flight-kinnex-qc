@@ -11,12 +11,13 @@ from importlib.resources import files
 from pathlib import Path
 from string import Template
 
+import numpy as np
 import plotly
 import plotly.graph_objects as go
 import polars as pl
 
 from . import skera
-from .sampling import hash_key
+from .sampling import hash_key_array
 from .schematics import FATE, false_cut_svg
 from .viewer import CSS as VIEWER_CSS, html_sequence
 
@@ -70,15 +71,18 @@ def _at_adapters(block: list[int], sreads: pl.DataFrame, features: pl.DataFrame,
     return set(per["zm"].to_list()) - bad
 
 
-def _first_by_hash(zms, n: int, ok=None) -> list[int]:
-    """The first n of zms by hash_key, smallest first; with ok (a function of a list of ZMWs returning the set that
-    qualifies), the first n that qualify, checked in blocks of _CHUNK so a large candidate set is never joined whole."""
-    ordered = sorted(set(zms), key=hash_key)
+def _first_by_hash(zms: pl.Series, n: int, ok=None) -> list[int]:
+    """The first n of the ZMWs in zms (repeats allowed) by hash_key, smallest first; with ok (a function of a list of
+    ZMWs returning the set that qualifies), the first n that qualify, checked in blocks of _CHUNK so a large candidate
+    set is never joined whole. The candidates, up to most of a cell's reads, are ordered as a numpy array (hash_key_array)
+    rather than as Python ints, which take about 130 bytes each in a list, a set and a sort key."""
+    candidates = zms.unique().to_numpy()
+    ordered = candidates[np.argsort(hash_key_array(candidates))]
     if ok is None:
-        return ordered[:n]
+        return ordered[:n].tolist()
     out = []
     for i in range(0, len(ordered), _CHUNK):
-        block = ordered[i:i + _CHUNK]
+        block = ordered[i:i + _CHUNK].tolist()
         good = ok(block)
         out += [z for z in block if z in good][:n - len(out)]
         if len(out) >= n:
@@ -165,14 +169,14 @@ def pick_examples(read_summary: pl.DataFrame, molecules: pl.DataFrame, features:
     single = junctions.filter(pl.col("nj") == 1)
     clean_zm = clean["zm"]
     complete = clean.filter(pl.col("primary_pattern") == "complete")
-    picks = {"tso_tso": _first_by_hash(set(skera.single_tso_tso_mirrors(molecules)["zm"].to_list()) & set(clean_zm.to_list()), n),
-             "r1_r1": _first_by_hash(single.filter((pl.col("jclass") == "r1_r1") & pl.col("zm").is_in(clean_zm))["zm"].to_list(), n)}
+    picks = {"tso_tso": _first_by_hash(skera.single_tso_tso_mirrors(molecules).filter(pl.col("zm").is_in(clean_zm))["zm"], n),
+             "r1_r1": _first_by_hash(single.filter((pl.col("jclass") == "r1_r1") & pl.col("zm").is_in(clean_zm))["zm"], n)}
     cuts = {}
     if sreads is None:
-        picks["complete"] = _first_by_hash(complete["zm"].to_list(), n)
+        picks["complete"] = _first_by_hash(complete["zm"], n)
     else:
         n_sreads = sreads.group_by("zm").len().rename({"len": "n_sreads"}).with_columns(pl.col("n_sreads").cast(pl.Int64))
-        one_each = complete.join(n_sreads, on="zm").filter(pl.col("n_sreads") == pl.col("n_mas").cast(pl.Int64) - 1)["zm"].to_list()
+        one_each = complete.join(n_sreads, on="zm").filter(pl.col("n_sreads") == pl.col("n_mas").cast(pl.Int64) - 1)["zm"]
         picks["complete"] = _first_by_hash(one_each, n, ok=lambda block: _at_adapters(block, sreads, features))
         target = complete.join(passing.filter(pl.col("passing")), on="zm").select("zm")
         fc_t = fc.join(target, on="zm")
@@ -181,8 +185,8 @@ def pick_examples(read_summary: pl.DataFrame, molecules: pl.DataFrame, features:
         found = (skera.skipped_adapters(one, s, f).filter(pl.col("missed").is_not_null())
                  .join(one.select("zm", "cut_start", "cut_end", pl.col("dr_before").cast(pl.Int64)), on=["zm", "cut_start"])
                  .filter(pl.col("cut_end") > pl.col("cut_start")))
-        picks["false_cut"] = _first_by_hash(found["zm"].to_list(), n)
-        cuts = {r["zm"]: r for r in found.iter_rows(named=True)}
+        picks["false_cut"] = _first_by_hash(found["zm"], n)
+        cuts = {r["zm"]: r for r in found.filter(pl.col("zm").is_in(_zm_series(picks["false_cut"]))).iter_rows(named=True)}
     return [_example(c, zm, read_summary, molecules, features, order, sreads=sreads, cut=cuts.get(zm))
             for c in CATEGORIES if c in picks for zm in picks[c]]
 

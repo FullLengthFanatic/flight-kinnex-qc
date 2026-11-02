@@ -1,9 +1,12 @@
 """Tests for report.html (kinnex_qc.reader_report), the read viewer and the schematics."""
+import heapq
 import json
 import re
 import subprocess
+import tracemalloc
 from pathlib import Path
 
+import numpy as np
 import plotly
 import polars as pl
 import pysam
@@ -11,6 +14,7 @@ import pytest
 
 from kinnex_qc import reader_report, runner, schematics, skera, viewer
 from kinnex_qc.patterns import KINNEX8_SC3
+from kinnex_qc.sampling import hash_key
 
 _IGNORE_FORK_WARNING = pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
 GOLDEN = Path(__file__).parent / "golden" / "v10_inputs"
@@ -191,6 +195,61 @@ def test_false_cut_examples_leave_out_touching_or_overlapping_sreads(test_bams, 
     picks = reader_report.pick_examples(read_summary, molecules, features, 5, order=KINNEX8_SC3.order,
                                         sreads=sreads, passing=passing, fc=fc)
     assert [p["zm"] for p in picks if p["category"] == "false_cut"] == []
+
+
+def test_first_by_hash_orders_as_python_sorting_by_hash_key():
+    """_first_by_hash orders its candidates as a numpy array (hash_key_array); its picks must be those of sorting the
+    distinct ZMWs as Python ints by hash_key, with and without an ok filter (checked in blocks of _CHUNK, given as
+    lists of Python ints), and none for no candidates."""
+    rng = np.random.default_rng(5)
+    zms = rng.integers(0, 2**32, 20_000, dtype=np.uint64).astype(np.uint32)
+    series = pl.Series("zm", np.concatenate([zms, zms[:3000]]), dtype=pl.UInt32)
+    by_hash = sorted(set(zms.tolist()), key=hash_key)
+    blocks = []
+
+    def ok(block):
+        blocks.append(block)
+        return {z for z in block if z % 97 == 0}
+
+    for n in (1, 2, 5, 25_000):
+        assert reader_report._first_by_hash(series, n) == by_hash[:n]
+        blocks.clear()
+        assert reader_report._first_by_hash(series, n, ok=ok) == [z for z in by_hash if z % 97 == 0][:n]
+        assert blocks[0] == by_hash[:reader_report._CHUNK] and all(type(z) is int for b in blocks for z in b)
+    assert reader_report._first_by_hash(series.clear(), 2) == []
+    assert reader_report._first_by_hash(series.clear(), 2, ok=ok) == []
+
+
+def _clean_complete_reads(n):
+    """n reads that pass the clean rule, each a complete two-adapter array (A, Read1, TSO, B) holding one proper
+    molecule: the columns pick_examples reads, built in polars, so the test holds no Python list of the ZMWs."""
+    zm = pl.DataFrame(pl.int_range(1, n + 1, dtype=pl.UInt32, eager=True).alias("zm"))
+    read_summary = zm.with_columns(pl.lit(1032, dtype=pl.Int32).alias("read_len"), pl.lit("complete").alias("primary_pattern"),
+                                   pl.lit(2, dtype=pl.Int16).alias("n_mas"), pl.lit(1.0, dtype=pl.Float32).alias("rq"))
+    molecules = zm.with_columns(pl.lit(16, dtype=pl.Int32).alias("start"), pl.lit(1000, dtype=pl.Int32).alias("end"),
+                                pl.lit("A").alias("left_token"), pl.lit("B").alias("right_token"),
+                                pl.lit("proper").alias("end_class"), pl.lit(False).alias("internal"))
+    features = pl.concat([zm.with_columns(pl.lit(name).alias("name"), pl.lit(kind).alias("kind"), pl.lit("+").alias("strand"),
+                                          pl.lit(start, dtype=pl.Int32).alias("start"), pl.lit(start + 16, dtype=pl.Int32).alias("end"),
+                                          pl.lit(0, dtype=pl.Int8).alias("edits"))
+                          for name, kind, start in (("A", "MAS", 0), ("R1", "R1", 16), ("TSO", "TSO", 984), ("B", "MAS", 1000))])
+    return read_summary, molecules, features
+
+
+def test_pick_examples_keeps_candidate_zmws_out_of_python_lists():
+    """pick_examples orders its candidate ZMWs as numpy arrays, not as Python ints. 300,000 clean complete reads: as
+    Python lists, sets and sort keys the candidates took a Python heap peak of 38 MB (measured before the change;
+    7.2 MB after); the two picks are the first two ZMWs by hash_key either way."""
+    n = 300_000
+    read_summary, molecules, features = _clean_complete_reads(n)
+    tracemalloc.start()
+    try:
+        picks = reader_report.pick_examples(read_summary, molecules, features, 2, order=KINNEX8_SC3.order)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert [(p["category"], p["zm"]) for p in picks] == [("complete", z) for z in heapq.nsmallest(2, range(1, n + 1), key=hash_key)]
+    assert peak < 15 * 2**20
 
 
 def _pct_span(values) -> str:

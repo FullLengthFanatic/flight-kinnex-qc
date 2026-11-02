@@ -5,6 +5,7 @@ study's downstream test's molecule-writing loop.
 from collections.abc import Callable
 from pathlib import Path
 
+import numpy as np
 import polars as pl
 import pysam
 
@@ -27,17 +28,24 @@ def write_molecules(hifi: Path, molecules: pl.DataFrame, template: Path, out: Pa
     molecule). keep(zm), when given, further restricts which reads are written. The HiFi BAM is
     read once, in file order, so the output is in HiFi file order. Returns the number of records written.
     """
-    usable = molecules.filter(USABLE)
-    by_zm: dict[int, list[tuple[int, int]]] = {}
-    for zm, start, end in usable.select("zm", "start", "end").iter_rows():
-        by_zm.setdefault(zm, []).append((start, end))
+    # A read's molecules are found by binary search in columns sorted by (zm, start, end), not in a dict of Python
+    # (start, end) tuples, which take about 140 bytes per molecule.
+    usable = molecules.filter(USABLE).select("zm", "start", "end").sort("zm", "start", "end")
+    zms, starts, ends = (usable[c].to_numpy() for c in ("zm", "start", "end"))
+
+    def _rows(zm: int) -> tuple[int, int]:
+        """zm's rows [lo, hi) in the sorted columns (lo == hi: no usable molecule). zm is cast to the column's dtype,
+        since a search with another dtype converts the whole column on every call."""
+        key = zms.dtype.type(zm)
+        return int(np.searchsorted(zms, key, "left")), int(np.searchsorted(zms, key, "right"))
 
     with pysam.AlignmentFile(str(template), "rb", check_sq=False) as t:
         header = t.header.to_dict()
     rg = header["RG"][0]["ID"]
 
     def _keep(zm):
-        return zm in by_zm and (keep is None or keep(zm))
+        lo, hi = _rows(zm)
+        return lo < hi and (keep is None or keep(zm))
 
     n = 0
     with pysam.AlignmentFile(str(out), "wb", header=header) as w:
@@ -45,7 +53,8 @@ def write_molecules(hifi: Path, molecules: pl.DataFrame, template: Path, out: Pa
             zm = r.get_tag("zm")
             seq, qual = r.query_sequence, r.query_qualities
             movie = r.query_name.split("/")[0]
-            for di, (s, e) in enumerate(sorted(by_zm[zm])):
+            lo, hi = _rows(zm)
+            for di, (s, e) in enumerate(zip(starts[lo:hi].tolist(), ends[lo:hi].tolist())):
                 a = pysam.AlignedSegment(w.header)
                 a.query_name = f"{movie}/{zm}/ccs/{s}_{e}"
                 a.query_sequence, a.query_qualities = seq[s:e], qual[s:e]

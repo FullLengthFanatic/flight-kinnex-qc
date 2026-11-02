@@ -24,22 +24,32 @@ def keep_zmw(zm: int, modulo: int) -> bool:
     return splitmix64(int(zm)) % modulo == 0
 
 
-def keep_zmw_array(zms, modulo: int) -> np.ndarray:
-    """Vectorised keep_zmw over an array of ZMW ids (same hash, same answer)."""
-    x = np.asarray(zms, dtype=np.uint64)
+def splitmix64_array(x) -> np.ndarray:
+    """Vectorised splitmix64 over an array (same hash, as uint64)."""
+    x = np.asarray(x, dtype=np.uint64)
     with np.errstate(over="ignore"):
         x = x ^ (x >> np.uint64(30))
         x = x * np.uint64(_SPLITMIX_B)
         x = x ^ (x >> np.uint64(27))
         x = x * np.uint64(_SPLITMIX_C)
         x = x ^ (x >> np.uint64(31))
-    return x % np.uint64(modulo) == 0
+    return x
+
+
+def keep_zmw_array(zms, modulo: int) -> np.ndarray:
+    """Vectorised keep_zmw over an array of ZMW ids (same hash, same answer)."""
+    return splitmix64_array(zms) % np.uint64(modulo) == 0
 
 
 def hash_key(zm: int) -> int:
     """The salted splitmix64 hash of a ZMW number that the hash sample is drawn by; sorting ZMWs by it orders them as
     the hash sample admits them, spread over the whole cell."""
     return splitmix64(int(zm) ^ HASH_SAMPLE_SALT)
+
+
+def hash_key_array(zms) -> np.ndarray:
+    """Vectorised hash_key over an array of ZMW ids (same keys, as uint64)."""
+    return splitmix64_array(np.asarray(zms, dtype=np.uint64) ^ np.uint64(HASH_SAMPLE_SALT))
 
 
 def in_hash_sample(zm: int, fraction: float) -> bool:
