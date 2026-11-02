@@ -2,15 +2,18 @@
 import json
 import re
 import subprocess
+from pathlib import Path
 
+import plotly
 import polars as pl
 import pysam
 import pytest
 
-from kinnex_qc import reader_report, runner, schematics, viewer
+from kinnex_qc import reader_report, runner, schematics, skera, viewer
 from kinnex_qc.patterns import KINNEX8_SC3
 
 _IGNORE_FORK_WARNING = pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
+GOLDEN = Path(__file__).parent / "golden" / "v10_inputs"
 
 # The fixture's six ZMWs by hash_key, smallest first: 4, 6, 2, 1, 5, 3. Every read is clean (no edits,
 # rq 0.999, two primers per molecule, nothing fused). With --sreads, zm 1's S-reads do not end at our
@@ -137,6 +140,125 @@ def test_examples_need_the_clean_rule(test_bams):
         .then(pl.lit(1, dtype=pl.Int8)).otherwise(pl.col("edits")).alias("edits"))
     picks = reader_report.pick_examples(read_summary, molecules, features, 5, order=KINNEX8_SC3.order)
     assert [(p["category"], p["zm"]) for p in picks] == [("complete", 1), ("tso_tso", 4), ("tso_tso", 5), ("r1_r1", 6)]
+
+
+@pytest.fixture(scope="module")
+def annotated(test_bams):
+    hifi, _ = test_bams
+    return runner.annotate(hifi, KINNEX8_SC3, 1.0, 2)
+
+
+@_IGNORE_FORK_WARNING
+def test_examples_clean_rule_fused_molecule_primer_edits_and_missing_primer(annotated):
+    """zm 2, the first complete array by hash, is not shown once one of its molecules is fused, one of its primers
+    has 2 edits, or one of its primers is missing; zm 1 and 3 still are. A primer with 1 edit is allowed."""
+    read_summary, molecules, features = annotated
+    first_primer = features.filter((pl.col("zm") == 2) & (pl.col("kind") != "MAS"))["start"].min()
+    zm2_primer = (pl.col("zm") == 2) & (pl.col("kind") != "MAS") & (pl.col("start") == first_primer)
+    first_molecule = (pl.col("zm") == 2) & (pl.col("start") == molecules.filter(pl.col("zm") == 2)["start"].min())
+
+    def primer_edits(n):
+        return features.with_columns(pl.when(zm2_primer).then(pl.lit(n, dtype=pl.Int8)).otherwise(pl.col("edits")).alias("edits"))
+
+    cases = {
+        "fused molecule": (molecules.with_columns(pl.when(first_molecule).then(True).otherwise(pl.col("internal")).alias("internal")),
+                           features),
+        "primer with 2 edits": (molecules, primer_edits(2)),
+        "missing primer": (molecules, features.filter(~zm2_primer)),
+    }
+    for case, (mols, feats) in cases.items():
+        picks = reader_report.pick_examples(read_summary, mols, feats, 5, order=KINNEX8_SC3.order)
+        assert [(p["category"], p["zm"]) for p in picks] == [("complete", 1), ("complete", 3), *WITHOUT_SREADS[2:]], case
+    picks = reader_report.pick_examples(read_summary, molecules, primer_edits(1), 5, order=KINNEX8_SC3.order)
+    assert [(p["category"], p["zm"]) for p in picks][:3] == [("complete", 2), ("complete", 1), ("complete", 3)]
+
+
+@_IGNORE_FORK_WARNING
+@pytest.mark.parametrize("overlap", [0, 10])
+def test_false_cut_examples_leave_out_touching_or_overlapping_sreads(test_bams, annotated, overlap):
+    """A false cut whose two S-reads touch (overlap 0) or overlap has no gap to mark, so its read is not picked:
+    zm 1, the fixture's only false cut, drops out once its D-E S-read starts where, or before, the C-D one ends."""
+    _, sreads_bam = test_bams
+    read_summary, molecules, features = annotated
+    sreads = runner.read_sreads(sreads_bam, 1)
+    qe_before = sreads.filter((pl.col("zm") == 1) & (pl.col("di") == 2))["qe"][0]
+    sreads = sreads.with_columns(pl.when((pl.col("zm") == 1) & (pl.col("di") == 3))
+                                 .then(pl.lit(qe_before - overlap, dtype=pl.Int32)).otherwise(pl.col("qs")).alias("qs"))
+    fc = skera.false_cuts(sreads, features)
+    cut = fc.filter(pl.col("zm") == 1).row(0, named=True)
+    assert fc.filter(pl.col("zm") == 1).height == 1 and cut["cut_end"] - cut["cut_start"] == -overlap
+    passing = skera.passing_from_labels(sreads, order_len=len(KINNEX8_SC3.order))
+    picks = reader_report.pick_examples(read_summary, molecules, features, 5, order=KINNEX8_SC3.order,
+                                        sreads=sreads, passing=passing, fc=fc)
+    assert [p["zm"] for p in picks if p["category"] == "false_cut"] == []
+
+
+def _pct_span(values) -> str:
+    """Whole percentages over the three libraries as the report text gives them: "74%" when they round alike, else "74 to 75%"."""
+    lo, hi = round(100 * min(values)), round(100 * max(values))
+    return f"{lo}%" if lo == hi else f"{lo} to {hi}%"
+
+
+def test_bd144_numbers_in_the_text_match_the_golden_files(with_sreads):
+    """The BD144 observations the report states as fixed text, recomputed from the golden files they come from."""
+    fa = [json.loads((GOLDEN / "false_cut_anatomy" / f"BD144_{lib}_false_cuts.json").read_text()) for lib in ("ND", "HM", "kin")]
+    arms = pl.read_csv(GOLDEN / "skera_mirror_arms" / "nd_hash_skera26_molecules.tsv", separator="\t")
+    clean = {r: arms.filter((pl.col("region") == r) & (pl.col("class") == "CLEAN"))["share"][0] for r in ("after", "before")}
+    html = re.sub(r"\s+", " ", _html(with_sreads))
+    assert f"skera labelled the cut D in {_pct_span([f['skera_calls_D'] for f in fa])} of false cuts in each library" in html
+    found = {f"{100 * f['missed_adapter_found']:.1f}" for f in fa}
+    assert len(found) == 1 and f"found at {found.pop()}% of false cuts" in html
+    assert f"was D in {_pct_span([f['missed_is_D'] for f in fa])} of those" in html
+    assert f"the letter skera gave the cut in {_pct_span([f['missed_same_letter_as_skera_call'] for f in fa])}" in html
+    assert {round(f["median_cut_to_missed_adapter_bp"], -2) for f in fa} == {900} and "a median of about 900 bp past it" in html
+    assert max(f["fates"]["fused_lima"] for f in fa) < 0.005 and "in under 0.5% of cases" in html
+    assert max(f["fates"]["frag_lima"] for f in fa) < 0.0001 and "almost never" in html
+    assert f"skera 26.1.0 wrote {round(100 * clean['after'])}% and {round(100 * clean['before'])}% of them cleanly" in html
+
+
+def test_false_cut_caption_labels_the_drawing_as_observed(with_sreads):
+    caption = re.search(r"<figcaption[^>]*>(.*?)</figcaption>", re.sub(r"\s+", " ", _html(with_sreads))).group(1)
+    assert "are as observed in the three BD144 libraries (skera 26.1.0)" in caption
+
+
+@pytest.mark.parametrize("fmt, value, shown", [
+    (reader_report._pct, 0.0, "0%"), (reader_report._pct, 1e-07, "< 0.01%"), (reader_report._pct, 0.0042, "0.42%"),
+    (reader_report._pct, 0.3333333333333333, "33.3%"),
+    (reader_report._num, 0.0, "0"), (reader_report._num, 7.5e-05, "< 0.01"), (reader_report._num, 4.166666666666667, "4.17"),
+    (reader_report._num, -0.5, "-0.50"), (reader_report._num, 1234, "1,234"),
+    (lambda v: reader_report._num(v, 3), 0.0004, "< 0.001"), (lambda v: reader_report._num(v, 3), 0.0892, "0.089"),
+    (reader_report._per1000, 0.0, "0"), (reader_report._per1000, 7.5e-05, "< 0.01"), (reader_report._per1000, 0.5, "0.50"),
+    (reader_report._per1000, 60.60606060606061, "60.6"),
+])
+def test_number_formats_are_fixed_point_with_a_floor(fmt, value, shown):
+    assert fmt(value) == shown
+
+
+def test_slot_budget_other_molecules_have_a_row_and_a_legend(with_sreads, tmp_path):
+    """'Other molecules' (molecules - usable - artifact, no summary.json key of its own) has a row in the slot
+    budget's numbers table and a sentence under the bar."""
+    summary = json.loads((with_sreads / "summary.json").read_text())
+    b = summary["skera"]["budget"]
+    assert b["molecules"] - b["usable"] - b["artifact"] == 0           # the fixture has no molecule of the "other" class
+    summary["skera"]["budget"] = {**b, "molecules": b["molecules"] + 0.25}
+    for page, other in ((_html(with_sreads), "0"), (reader_report.write(tmp_path, summary, []).read_text(encoding="utf-8"), "0.25")):
+        assert re.search(rf'<td><span class="val">{re.escape(other)}</span></td><td>Other molecules', page)
+        assert "molecules minus usable minus artifact molecules" in re.sub(r"\s+", " ", page)
+
+
+def test_plotly_is_inlined_once(with_sreads, without_sreads):
+    banner = f"* plotly.js v{plotly.offline.get_plotlyjs_version()}"
+    for out in (with_sreads, without_sreads):
+        assert _html(out).count(banner) == 1
+
+
+def _software(html):
+    return re.search(r"<td>Software</td><td>(.*?)</td>", html).group(1)
+
+
+def test_software_row_names_skera_only_with_sreads(with_sreads, without_sreads):
+    assert "skera 26.1.0 (from the S-read BAM's header)" in _software(_html(with_sreads))
+    assert "skera" not in _software(_html(without_sreads))
 
 
 def test_html_sequence_draws_adapters_on_top_with_1_based_titles():

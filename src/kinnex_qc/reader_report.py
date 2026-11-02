@@ -153,8 +153,9 @@ def pick_examples(read_summary: pl.DataFrame, molecules: pl.DataFrame, features:
     complete: complete pattern; with sreads, also one S-read per molecule, each starting and ending at our
     adapters (within skera.TOL bp). tso_tso: one mirror junction, holding a TSO-TSO molecule. r1_r1: one mirror
     junction, holding an R1-R1 molecule. false_cut (only with sreads; passing and fc are skera.passing_from_labels'
-    and skera.false_cuts' output): complete, passing, exactly one false cut, and its skipped adapter found
-    (skera.skipped_adapters). Each example: category, zm, read_len, note (one line of what to look at) and features
+    and skera.false_cuts' output): complete, passing, exactly one false cut, its skipped adapter found
+    (skera.skipped_adapters), and a gap between its two S-reads (cut_end > cut_start; S-reads that touch or
+    overlap leave no site to mark). Each example: category, zm, read_len, note (one line of what to look at) and features
     (name, start, end, kind) for viewer.html_sequence, and focus (the junction molecule's or the false cut's start, where
     the read's box opens; None for complete arrays); the caller adds the read's sequence as "seq"."""
     if n <= 0:
@@ -178,7 +179,8 @@ def pick_examples(read_summary: pl.DataFrame, molecules: pl.DataFrame, features:
         one = fc_t.filter(pl.len().over("zm") == 1)
         s, f = sreads.filter(pl.col("zm").is_in(one["zm"])), features.filter(pl.col("zm").is_in(one["zm"]))
         found = (skera.skipped_adapters(one, s, f).filter(pl.col("missed").is_not_null())
-                 .join(one.select("zm", "cut_start", "cut_end", pl.col("dr_before").cast(pl.Int64)), on=["zm", "cut_start"]))
+                 .join(one.select("zm", "cut_start", "cut_end", pl.col("dr_before").cast(pl.Int64)), on=["zm", "cut_start"])
+                 .filter(pl.col("cut_end") > pl.col("cut_start")))
         picks["false_cut"] = _first_by_hash(found["zm"].to_list(), n)
         cuts = {r["zm"]: r for r in found.iter_rows(named=True)}
     return [_example(c, zm, read_summary, molecules, features, order, sreads=sreads, cut=cuts.get(zm))
@@ -192,29 +194,43 @@ def _e(x) -> str:
 
 
 def _pct(v, digits: int = 1) -> str:
-    """A share as a percentage; below 1%, to two significant figures (0.095%)."""
+    """A share as a percentage, fixed point: to `digits` decimals from 1%, to two below it (0.42%), "< 0.01%" below
+    0.01% and "0%" for exactly zero."""
     if v is None:
         return "n/a"
-    if 0 < v < 0.01:
-        return f"{100 * v:.2g}%"
+    if v == 0:
+        return "0%"
+    if v < 0.0001:
+        return "< 0.01%"
+    if v < 0.01:
+        return f"{100 * v:.2f}%"
     return f"{100 * v:.{digits}f}%"
 
 
 def _num(v, digits: int = 2) -> str:
-    """A count with thousands separators; a mean to `digits` decimals, or below 0.1 to two significant figures."""
+    """A count with thousands separators; a mean fixed point to `digits` decimals, "< 0.01" (for digits 2) when
+    smaller than its last decimal and "0" for exactly zero."""
     if v is None:
         return "n/a"
     if isinstance(v, int):
         return f"{v:,}"
-    if 0 < abs(v) < 0.1:
-        return f"{v:.2g}"
+    if v == 0:
+        return "0"
+    floor = f"{10 ** -digits:.{digits}f}"
+    if abs(v) < 10 ** -digits:
+        return f"< {floor}" if v > 0 else f"> -{floor}"
     return f"{v:,.{digits}f}"
 
 
 def _per1000(v) -> str:
+    """A rate per 1,000, fixed point: one decimal from 10, two below, "< 0.01" below 0.01 and "0" for exactly zero."""
     if v is None:
         return "n/a"
-    return f"{v:.1f}" if v >= 10 else f"{v:.2f}" if v >= 0.1 else f"{v:.3g}"
+    if v == 0:
+        return "0"
+    if v < 0.01:
+        return "< 0.01"
+    return f"{v:.1f}" if v >= 10 else f"{v:.2f}"
 
 
 def _key(path: str, value) -> str:
@@ -287,8 +303,14 @@ def _junction_figure(junctions: list[dict], order) -> str:
     return _plot(_style(f, 320).update_layout(margin=dict(l=70)))
 
 
+def _budget_other(b: dict):
+    """Molecules per read that are neither usable nor one of the four artifact kinds: molecules - usable - artifact
+    (skera.budget keys), at least 0. summary.json has no key of its own for it."""
+    return None if b["molecules"] is None else max(b["molecules"] - b["usable"] - b["artifact"], 0.0)
+
+
 def _budget_figure(b: dict, slots: int) -> str:
-    other = max(b["molecules"] - b["usable"] - b["artifact"], 0.0)
+    other = _budget_other(b)
     sep = dict(color="#FFFFFF", width=1)
     segs = [("Usable molecules skera writes cleanly", b["usable_clean"], dict(color=NEUTRAL[2], line=sep), "#FFFFFF"),
             ("Usable molecules skera does not write cleanly (a full-read segmentation keeps them)", b["usable_not_clean"],
@@ -470,15 +492,18 @@ adapter to the last, in order; this command reads only the S-reads, not skera's 
 <h3>False cuts</h3>
 <div class="prose"><p>A false cut is a place where skera cut a complete array although none of our adapters lies within {skera.TOL} bp of
 the cut. In the three BD144 libraries of the study behind this package (observed with skera 26.1.0 and lima 2.13.0), skera had skipped
-a real adapter, most often D (74% of false cuts), and cut at a similar sequence inside the next molecule, a median of about 900 bp past
-it. Of the two S-reads around such a cut, lima passed the chimera (the molecule before the skipped adapter, the adapter and the start
-of the next molecule) in under 0.5% of cases and the fragment (the rest of that molecule) almost never. skera gave the cut the letter of
-the skipped adapter at 99% of false cuts, so the labels still ran in order and the read still passed. Our segmentation cuts at the real
-adapters and keeps both molecules; this command counts false cuts and does not run lima.</p>
+a real adapter and cut at a similar sequence inside the next molecule, a median of about 900 bp past it. skera labelled the cut D in 74%
+of false cuts in each library. The adapter it skipped, found at 99.6% of false cuts, was D in 74 to 75% of those and had the letter skera
+gave the cut in 99%, so the labels still ran in order and the read still passed. Of the two S-reads around such a cut, lima passed the
+chimera (the molecule before the skipped adapter, the adapter and the start of the next molecule) in under 0.5% of cases and the fragment
+(the rest of that molecule) almost never. Our segmentation cuts at the real adapters and keeps both molecules; this command counts false
+cuts and does not run lima.</p>
 <p class="headline"><span class="big">{_pct(k['false_cut_reads_share'])}</span> of the {k['complete_passing_reads']:,} complete arrays
 skera passes have at least one false cut; they hold {k['false_cuts']:,} false cut{'s' if k['false_cuts'] != 1 else ''} in all.</p></div>
 <figure>{false_cut_svg(k)}<figcaption class="legend">One false cut, drawn to explain and not to scale, with the Kinnex 8-fold
-letters and D as the skipped adapter. The lima verdicts of the study's drawing are left out: this command does not run lima.</figcaption></figure>
+letters and D as the skipped adapter. The cut position (at a D-like sequence inside the next molecule) and the strand rule (on reads from
+the other strand the fragment keeps the Read1 end) are as observed in the three BD144 libraries (skera 26.1.0), not documented skera
+behaviour. The lima verdicts of the study's drawing are left out: this command does not run lima.</figcaption></figure>
 {_numbers([
     (f"{k['complete_reads']:,}", "Complete arrays among the reads checked.", _key("skera.complete_reads", k["complete_reads"])),
     (f"{k['complete_passing_reads']:,}", "Complete arrays that skera passes: the base of the false-cut numbers.",
@@ -507,8 +532,13 @@ Partly covered: the best S-read covers 20 to 80%. Not written: less (summary.jso
 molecules cleanly and leaves {_num(b['usable_not_clean'])} usable molecules not cleanly written; {_num(b['artifact'])} slots hold artifact
 molecules and {_num(b['unfilled_slots'])} slots stay empty.</p></div>
 {_budget_figure(b, slots) if b['molecules'] is not None else ''}
-<p class="legend">Means over the {s['hifi_reads']:,} HiFi reads checked, reads without molecules counted as 0 (summary.json: <code>skera.budget</code>).</p>
-{_numbers([(_num(b[c]), text, _key(f"skera.budget.{c}", b[c])) for c, text in budget_rows])}"""
+<p class="legend">Means over the {s['hifi_reads']:,} HiFi reads checked, reads without molecules counted as 0 (summary.json: <code>skera.budget</code>).
+Other molecules, per read: molecules minus usable minus artifact molecules (<code>skera.budget</code> keys), that is molecules that are
+neither usable nor one of the four artifact kinds; summary.json has no key of its own for them.</p>
+{_numbers([(_num(b[c]), text, _key(f"skera.budget.{c}", b[c])) for c, text in budget_rows]
+          + [(_num(_budget_other(b)), "Other molecules per read: molecules minus usable minus artifact molecules, the ones that are neither "
+              "usable nor one of the four artifact kinds (primers in no expected arrangement).",
+              'no key of its own: <code class="key">molecules - usable - artifact</code>')])}"""
 
 
 def _section_examples(s: dict, examples: list[dict], n_section: int) -> str:
@@ -518,7 +548,8 @@ def _section_examples(s: dict, examples: list[dict], n_section: int) -> str:
              ("TSO-TSO mirror", "exactly one mirror junction, holding a TSO-TSO molecule"),
              ("R1-R1 mirror", "exactly one mirror junction, holding an R1-R1 molecule")]
     if has_sreads:
-        kinds.append(("skera false cut", "a complete array skera passes, with exactly one false cut whose skipped adapter is found"))
+        kinds.append(("skera false cut", "a complete array skera passes, with exactly one false cut whose skipped adapter is found "
+                      "and whose two S-reads leave a gap at the cut"))
     out = [f"""<h2 id="examples"><span class="sec">{n_section}</span>Example reads</h2>
 <div class="prose"><p>Up to <code>--examples</code> reads (default 2) of each kind below, the first in hash order (the order the hash
 sample admits ZMWs in, spread over the cell whatever the file order) among the clean reads: no fused molecule, every adapter an exact
@@ -561,8 +592,8 @@ def _section_inputs(s: dict, n_section: int) -> str:
             ["HiFi reads checked", f"{s['hifi_reads']:,} " + _key("hifi_reads", s["hifi_reads"])]]
     if "molecules_written" in s:
         rows.append(["Molecules written to molecules.bam", f"{s['molecules_written']:,}"])
-    rows.append(["Software", f"kinnex-qc {_e(s['version'])}, skera {_e(s['skera_version'] or 'n/a')} (from the S-read BAM's header), "
-                             f"Python {platform.python_version()}, {_versions()}"])
+    sk = f"skera {_e(s['skera_version'] or 'n/a')} (from the S-read BAM's header), " if inp["sreads"] else ""
+    rows.append(["Software", f"kinnex-qc {_e(s['version'])}, {sk}Python {platform.python_version()}, {_versions()}"])
     fraction = ("Every ZMW in the file was checked." if s["fraction"] >= 1 else
                 f"A ZMW is checked when a salted hash of its number falls in the lowest {_pct(s['fraction'])} of the hash range, so the "
                 "sample spreads over the whole cell whatever the order of the file; every number above describes that sample.")
