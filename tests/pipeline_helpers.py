@@ -1,5 +1,6 @@
 """Helpers for the study stage tests: the stage modules, the mini dataset and running a stage as the study runs it.
 Importing this module puts study/pipeline on sys.path, so tests import the stage modules by name."""
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -33,3 +34,18 @@ def run_stage(script: str, sample: str, out_root: Path, samples: Path, *extra: s
             cmd += ["--processes", "2"]
     cmd += ["--sample", sample, "--samples", str(samples), "--out-root", str(out_root), *extra]
     subprocess.run(cmd, cwd=REPO, check=True)
+
+
+def run_cross_sample(script: str, out_root: Path, samples: Path, *extra: str) -> None:
+    """Run the cross-sample mode (--all) of stage 06 or 07, from the repository root; raise if it fails."""
+    subprocess.run([sys.executable, str(PIPELINE / script), "--all", "--samples", str(samples), "--out-root", str(out_root), *extra],
+                   cwd=REPO, check=True)
+
+
+def key_structure(x):
+    """The keys of a JSON value, in order and at every depth; a list by the distinct structures of its items."""
+    if isinstance(x, dict):
+        return [(k, key_structure(v)) for k, v in x.items()]
+    if isinstance(x, list):
+        return sorted({json.dumps(key_structure(v)) for v in x})
+    return None

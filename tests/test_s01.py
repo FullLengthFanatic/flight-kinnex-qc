@@ -7,9 +7,9 @@ from kinnex_qc.patterns import R1, TSO_CORE, TSO_EXT, revcomp
 from kinnex_qc.sampling import in_hash_sample
 from pipeline_helpers import bam_records, mini_samples, run_stage
 
+from config import EXPECTED_COLUMNS
+
 MOLECULE = R1 + "ACGTACGTA" + "GTGA" + "CATGCATGC" + "GACA" + "TTGACCAGT" + "AACCGGTT" + "T" * 20 + "GACT" * 150 + revcomp(TSO_CORE + TSO_EXT)
-COLUMNS = ["sample", "cell", "depletion", "hifi_bam", "fail_bam", "segmented_bam", "non_passing_bam", "zmw_metrics",
-           "skera_report", "fltnc_bam"]
 
 
 def write_bam(path, rows):
@@ -36,7 +36,7 @@ def fake_sample(tmp_path):
     write_bam(tmp_path / "hifi.bam", [(f"m/{zm}/ccs", "ACGT" * 10, {"zm": zm, "np": 9, "rq": 0.999}) for zm in (100, 200)])
     vals = ["FAKE", "c", "none", str(tmp_path / "hifi.bam"), str(tmp_path / "f.bam"), str(tmp_path / "segmented.bam"),
             str(tmp_path / "np.bam"), str(tmp_path / "z.csv.gz"), str(tmp_path / "r.json"), str(tmp_path / "fl.bam")]
-    (tmp_path / "samples.tsv").write_text("\t".join(COLUMNS) + "\n" + "\t".join(vals) + "\n")
+    (tmp_path / "samples.tsv").write_text("\t".join(EXPECTED_COLUMNS) + "\n" + "\t".join(vals) + "\n")
     return tmp_path
 
 

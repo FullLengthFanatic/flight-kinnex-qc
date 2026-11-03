@@ -1,4 +1,5 @@
 import os
+import shutil
 import tomllib
 from pathlib import Path
 
@@ -48,6 +49,27 @@ def nd_out(mini, tmp_path_factory) -> Path:
                          ("s03_build_reads.py", ())):
         run_stage(stage, "BD144_ND", out, mini / "samples_mini.tsv", "--fraction", "1", *extra)
     return out / "BD144_ND"
+
+
+@pytest.fixture(scope="session")
+def mini_study(mini, tmp_path_factory) -> Path:
+    """Stages 01 to 07 run once on the three mini samples at fraction 1, 1 in 10 fail reads annotated, stage 06 with
+    10 null replicates and 100,000 simulated arrays; the output root. The gate stage is not part of this fixture: each
+    sample's frozen gate_skera.json (tests/golden) is put in place before stage 07, so q2_summary.json carries
+    skera_agreement, as v10's did."""
+    from pipeline_helpers import run_stage
+    out = tmp_path_factory.mktemp("study")
+    samples = mini / "samples_mini.tsv"
+    golden = Path(__file__).parent / "golden" / "v10_inputs" / "hash_0.18"
+    for s in ("BD144_ND", "BD144_HM", "BD144_kin"):
+        for stage, extra in (("s01_extract_segments.py", ()), ("s02_annotate_reads.py", ("--fail-subsample", "10")),
+                             ("s03_build_reads.py", ()), ("s04_lima_refine.sh", ()), ("s05_fate.py", ()),
+                             ("s06_concatenation_bias.py", ("--n-null", "10", "--n-sim", "100000"))):
+            run_stage(stage, s, out, samples, "--fraction", "1", *extra)
+        (out / s / "gates").mkdir()
+        shutil.copy(golden / s / "gates" / "gate_skera.json", out / s / "gates")
+        run_stage("s07_depletion.py", s, out, samples, "--fraction", "1")
+    return out
 
 
 def pytest_collection_modifyitems(config, items):

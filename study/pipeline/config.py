@@ -1,5 +1,6 @@
 """Configuration and sample management for the study."""
 
+import json
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,9 @@ EXPECTED_COLUMNS = (
     "skera_report",
     "fltnc_bam",
 )
+
+# Order of the samples in the cross-sample tables of stages 06 and 07.
+SAMPLE_ORDER = ("BD144_ND", "BD144_HM", "BD144_kin")
 
 
 @dataclass(frozen=True)
@@ -97,3 +101,10 @@ def out_dir(out_root: Path | str, sample: str, fraction: float = 1) -> Path:
     path = Path(out_root) / sample if fraction == 1 else Path(out_root) / f"hash_{fraction:g}" / sample
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def skera_report_reads(sample: Sample) -> int:
+    """The cell's HiFi reads: read_segmentation.reads in the sample's skera report. Observed on the three BD144
+    cells: equal to the number of records in the cell's HiFi BAM."""
+    report = json.loads(sample.skera_report.read_text())
+    return next(a["value"] for a in report["attributes"] if a["id"] == "read_segmentation.reads")

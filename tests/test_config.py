@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -5,7 +6,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "study" / "pipeline"))
 
-from config import Sample, load_config, load_samples, out_dir  # noqa: E402
+from config import Sample, load_config, load_samples, out_dir, skera_report_reads  # noqa: E402
 
 SAMPLES_HEADER = "sample\tcell\tdepletion\thifi_bam\tfail_bam\tsegmented_bam\tnon_passing_bam\tzmw_metrics\tskera_report\tfltnc_bam\n"
 SAMPLES_ROW = "BD144_ND\tPB538_3_r0912\tnone\thifi.bam\tfail.bam\tsegmented.bam\tnon_passing.bam\tzmw.csv.gz\treport.json\tfltnc.bam\n"
@@ -81,3 +82,13 @@ def test_out_dir_rejects_fraction_outside_0_1(tmp_path, fraction):
     with pytest.raises(ValueError, match="fraction"):
         out_dir(tmp_path, "BD144_ND", fraction)
     assert not (tmp_path / "BD144_ND").exists()
+
+
+def test_skera_report_reads(tmp_path):
+    """The cell's HiFi reads come from read_segmentation.reads in the sample's skera report."""
+    report = {"attributes": [{"id": "read_segmentation.s_reads", "value": 7},
+                             {"id": "read_segmentation.reads", "value": 12345}]}
+    (tmp_path / "report.json").write_text(json.dumps(report))
+    samples_path = tmp_path / "samples.tsv"
+    samples_path.write_text(SAMPLES_HEADER + SAMPLES_ROW.replace("report.json", str(tmp_path / "report.json")))
+    assert skera_report_reads(load_samples(samples_path)["BD144_ND"]) == 12345

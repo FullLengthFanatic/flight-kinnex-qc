@@ -4,8 +4,9 @@
 #   lima/<sample>.pairs.bam    plain lima with the Iso-Seq end thresholds: bc tag = primer pair per S-read
 #   refine/<sample>.asrun.bam  refine as run for the existing fltnc BAMs (no polyA requirement)
 #   refine/<sample>.polyA_N.bam  refine --require-polya --min-polya-length N, N in 5 8 12 20
-# At fraction 1 lima reads the sample's segmented BAM itself. Below 1, lima and refine cannot read pipes, so the
-# S-reads of the hash sample go to a temporary BAM that is trashed at the end.
+# At fraction 1 lima reads the sample's segmented BAM itself. Below 1, the S-reads of the hash sample go to a temporary
+# BAM that is trashed at the end: lima 2.13.0 and isoseq refine 4.3.0 do not read a pipe (observed: both fail on
+# /dev/stdin with "unsupported extension", and on "-" and /dev/fd/N).
 # Usage, from the repository root:
 #   study/pipeline/s04_lima_refine.sh --sample <name> [--samples PATH] [--out-root DIR] [--fraction F] [--threads N]
 # Defaults come from study/study.toml; lima and isoseq run in its conda environment pbtools_env (a name, or a path).
@@ -15,6 +16,10 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 PY="$REPO/.venv/bin/python"
 PRIMERS="$REPO/resources/primers_FlashBD.fasta"
+
+for arg in "$@"; do
+  if [[ "$arg" == -h || "$arg" == --help ]]; then sed -n '2,12s/^# \{0,1\}//p' "$0"; exit 0; fi
+done
 
 # The options, and from them: output directory, segmented BAM, conda environment, temporary directory (empty at fraction 1).
 IFS=$'\t' read -r SAMPLE FRACTION THREADS OUT SEGMENTED PB TMP < <("$PY" - "$HERE" "$@" <<'EOF'

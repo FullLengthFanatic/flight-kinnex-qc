@@ -72,7 +72,7 @@ def test_indexes_and_annotation(nd_out):
     assert hs.height == hifi.height                          # every HiFi read is annotated
     assert (~hs["skera_passing"]).sum() == nonp.height
     assert summ.filter(pl.col("source") == "fail_sub").height > 50          # --fail-subsample 10 keeps 1 in 10
-    # skera rejects the mirror arrays; the arrays it accepts are complete chains for us too
+    # observed on the mini ND: skera rejects the mirror arrays, and the arrays it accepts are complete chains for us too
     assert (hs.filter(pl.col("primary_pattern") == "mirror")["skera_passing"] == False).mean() > 0.9  # noqa: E712
     assert (hs.filter(pl.col("skera_passing"))["primary_pattern"] == "complete").mean() > 0.98
     aseg = pl.read_parquet(nd_out / "annot_segments.parquet")

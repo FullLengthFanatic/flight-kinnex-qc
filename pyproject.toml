@@ -42,3 +42,4 @@ target-version = "py312"
 # Pre-existing in the verbatim-ported tests; not editing ported test logic.
 "tests/test_annotate.py" = ["E731"]
 "tests/test_scan.py" = ["F401"]
+"tests/test_stats.py" = ["E731", "E741"]
