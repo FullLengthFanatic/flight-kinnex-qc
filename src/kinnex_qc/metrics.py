@@ -3,7 +3,7 @@ import polars as pl
 
 from .classify import END_CLASSES
 from .patterns import MAS_ORDER
-from .skera import mirror_junctions
+from .skera import mirror_junctions, single_tso_tso_mirrors
 
 _OTHER_PATTERNS = {"skipped_slot": "other", "repeated": "other", "unresolved": "other"}
 
@@ -57,7 +57,8 @@ def junction_table(molecules: pl.DataFrame) -> pl.DataFrame:
 
 def junction_composition(molecules: pl.DataFrame, read_summary: pl.DataFrame) -> pl.DataFrame:
     """Per read with at least one mirror junction: what the junctions are made of (TSO-TSO, R1-R1, both or
-    neither), joined to read_summary for array size and skera's verdict."""
+    neither), joined to read_summary for array size and skera's verdict. Rows by reads, most first, then by
+    label, so groups with equal read counts come out in the same order in every run."""
     j = mirror_junctions(molecules)
     comp = j.group_by("zm").agg((pl.col("end_class") == "tso_tso").sum().alias("tt"), (pl.col("end_class") == "r1_r1").sum().alias("rr"))
     comp = comp.join(read_summary.select("zm", "n_mas", "skera_passing").with_columns(pl.col("n_mas").cast(pl.Int64)), on="zm")
@@ -67,18 +68,15 @@ def junction_composition(molecules: pl.DataFrame, read_summary: pl.DataFrame) ->
         .otherwise(pl.lit("other molecule")).alias("junction_molecules"))
         .group_by("junction_molecules").agg(pl.len().alias("reads"), (pl.col("n_mas") - 1).median().alias("median_molecules"),
                                             pl.col("skera_passing").mean().alias("skera_pass_share"))
-        .sort("reads", descending=True))
+        .sort(["reads", "junction_molecules"], descending=[True, False]))
 
 
 def mirror_size_rule(molecules: pl.DataFrame, read_summary: pl.DataFrame, order: list = MAS_ORDER) -> pl.DataFrame:
-    """For reads with exactly one mirror junction, a TSO-TSO one: array size (n_mas - 1) against the size that
-    junction's adapter letter predicts for a clean two-arm mirror."""
+    """For reads with exactly one mirror junction, a TSO-TSO one (skera.single_tso_tso_mirrors): array size
+    (n_mas - 1) against the size that junction's adapter letter predicts for a clean two-arm mirror."""
     predicted = {letter: 2 * (len(order) - 1 - i) + 1 for i, letter in enumerate(order)}
-    j = mirror_junctions(molecules)
-    comp = j.group_by("zm").agg(pl.len().alias("junctions"), (pl.col("end_class") == "tso_tso").sum().alias("tt"),
-                                pl.col("letter").first().alias("letter"))
-    comp = comp.join(read_summary.select("zm", "n_mas").with_columns(pl.col("n_mas").cast(pl.Int64)), on="zm")
-    single = (comp.filter((pl.col("junctions") == 1) & (pl.col("tt") == 1))
+    single = (single_tso_tso_mirrors(molecules).select("zm", "letter")
+              .join(read_summary.select("zm", pl.col("n_mas").cast(pl.Int64)), on="zm")
               .with_columns((pl.col("n_mas") - 1).alias("molecules"),
                             pl.col("letter").replace_strict(predicted, return_dtype=pl.Int64).alias("predicted")))
     return (single.group_by("letter").agg(pl.len().alias("reads"), pl.col("predicted").first(),

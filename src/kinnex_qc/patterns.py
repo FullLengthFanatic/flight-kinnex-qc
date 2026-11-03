@@ -132,21 +132,22 @@ _DNA = set("ACGT")
 def read_adapter_fasta(path) -> tuple[dict, tuple]:
     """Adapters from a FASTA in skera's format: names and sequences, in the order the adapters occur in an array."""
     adapters, order, name = {}, [], None
-    for line in open(path):
-        line = line.strip()
-        if line.startswith(">"):
-            parts = line[1:].split()
-            if not parts:
-                raise ValueError(f"{path}: empty header (a '>' line with no name)")
-            name = parts[0]
-            if name in adapters:
-                raise ValueError(f"{path}: duplicate adapter name {name!r}")
-            order.append(name)
-            adapters[name] = ""
-        elif line:
-            if name is None:
-                raise ValueError(f"{path}: sequence line before any '>' header")
-            adapters[name] += line.upper()
+    with open(path) as fasta:
+        for line in fasta:
+            line = line.strip()
+            if line.startswith(">"):
+                parts = line[1:].split()
+                if not parts:
+                    raise ValueError(f"{path}: empty header (a '>' line with no name)")
+                name = parts[0]
+                if name in adapters:
+                    raise ValueError(f"{path}: duplicate adapter name {name!r}")
+                order.append(name)
+                adapters[name] = ""
+            elif line:
+                if name is None:
+                    raise ValueError(f"{path}: sequence line before any '>' header")
+                adapters[name] += line.upper()
     if not order or any(not s or set(s) - _DNA for s in adapters.values()):
         raise ValueError(f"{path}: not an adapter FASTA (names and A/C/G/T sequences)")
     return adapters, tuple(order)

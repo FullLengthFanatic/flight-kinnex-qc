@@ -485,15 +485,28 @@ def test_summary_artifacts_and_junctions_match_the_molecules_frame(test_bams, tm
 
 
 def test_summary_has_every_metrics_key_and_null_skera_pass_share_without_sreads(test_bams, tmp_path):
+    """summary.json's keys in the order it writes them, at the top level, in every object and in every row of every list
+    of rows."""
     hifi, _ = test_bams
     out = tmp_path / "out"
     r = _run("--hifi", str(hifi), "--out", str(out), "--fraction", "1", "--threads", "2", check=True)
     assert r.returncode == 0
     summary = json.loads((out / "summary.json").read_text())
 
-    for key in ("patterns", "fractions", "artifacts", "mirror_junction_shares", "junctions",
-                "junction_composition", "mirror_size_rule"):
-        assert key in summary
+    assert list(summary) == ["version", "inputs", "fraction", "chemistry", "hifi_reads_in_file", "hifi_reads", "skera_version",
+                             "patterns", "fractions", "artifacts", "mirror_junction_shares", "junctions", "junction_composition",
+                             "mirror_size_rule"]
+    assert list(summary["inputs"]) == ["hifi", "sreads", "template", "adapters"]
+    assert list(summary["chemistry"]) == ["adapters", "order", "tso", "r1", "primers"]
+    assert list(summary["fractions"]) == ["complete_fraction", "mirror_fraction"]
+    assert list(summary["artifacts"]) == ["proper_per_1000", "tso_tso_per_1000", "r1_r1_per_1000", "tso_only_per_1000",
+                                          "r1_only_per_1000", "none_per_1000", "other_per_1000", "internal_per_1000"]
+    assert list(summary["mirror_junction_shares"]) == ["mirror_junctions", "mirror_junction_tso_tso_share", "mirror_junction_r1_r1_share"]
+    for key, row_keys in (("patterns", ["pattern", "reads", "share"]), ("junctions", ["letter", "molecule", "junctions"]),
+                          ("junction_composition", ["junction_molecules", "reads", "median_molecules", "skera_pass_share"]),
+                          ("mirror_size_rule", ["letter", "reads", "predicted", "median_molecules", "share_matching"])):
+        assert summary[key], key
+        assert all(list(row) == row_keys for row in summary[key]), key
     assert summary["junction_composition"]
     assert all(row["skera_pass_share"] is None for row in summary["junction_composition"])
 
@@ -738,5 +751,29 @@ def test_threads_1_and_3_give_the_same_output(test_bams, tmp_path):
         # compare decompressed text, not raw gzip bytes: gzip's header embeds the write's mtime,
         # so two subprocess runs a second apart differ byte-for-byte even with identical content
         with gzip.open(out / "reads.tsv.gz", "rt") as f:
-            outs.append(f.read())
-    assert outs[0] == outs[1]
+            outs.append((f.read(), (out / "summary.json").read_bytes()))
+    assert outs[0][0] == outs[1][0]
+    assert outs[0][1] == outs[1][1]
+
+
+# plotly.offline.plot names each figure's div with a fresh uuid4
+_PLOTLY_DIV_ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+@pytest.mark.parametrize("fraction", ["1", "0.5"])
+def test_summary_json_and_report_html_are_the_same_in_every_run(test_bams, tmp_path, fraction):
+    """Three runs, each in its own process, write byte-identical summary.json and, once plotly's random div ids are
+    masked, identical report.html: no row order may depend on polars' group_by. At fraction 0.5 junction_composition has
+    two rows of one read each (TSO-TSO only, R1-R1 only), a tie that came out in either order before it was broken by
+    the label."""
+    hifi, sreads = test_bams
+    outs = []
+    for i in range(3):
+        out = tmp_path / str(i)
+        _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--fraction", fraction, "--threads", "2",
+             check=True)
+        outs.append(((out / "summary.json").read_bytes(), _PLOTLY_DIV_ID.sub("DIV-ID", (out / "report.html").read_text())))
+    assert _PLOTLY_DIV_ID.search((tmp_path / "0" / "report.html").read_text())
+    for summary, report in outs[1:]:
+        assert summary == outs[0][0]
+        assert report == outs[0][1]

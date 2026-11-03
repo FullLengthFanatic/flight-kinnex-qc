@@ -1,5 +1,6 @@
 import pytest
 
+from kinnex_qc import patterns
 from kinnex_qc.annotate import annotate_read, chain_flags
 from kinnex_qc.patterns import (KINNEX8_SC3, MAS, MAS_ORDER, R1, TSO_CORE, Chemistry, all_patterns, chemistry_from,
                                 read_adapter_fasta)
@@ -36,6 +37,28 @@ def test_read_adapter_fasta_rejects_duplicate_name(tmp_path):
     f.write_text(">X\nACGTACGTACGTACGTA\n>X\nTTTTGGGGCCCCAAAAT\n")
     with pytest.raises(ValueError, match="duplicate"):
         read_adapter_fasta(f)
+
+
+@pytest.mark.parametrize(("text", "error"), [(">X\nACGTACGTACGTACGTA\n", None), (">X\nACGTACGTACGTACGTA\n>X\nACGTACGTACGTACGTA\n", "duplicate")])
+def test_read_adapter_fasta_closes_its_file(tmp_path, monkeypatch, text, error):
+    """The FASTA handle is closed when read_adapter_fasta returns and when it raises, not left to the garbage collector
+    (a ResourceWarning under -W error::ResourceWarning)."""
+    f = tmp_path / "a.fasta"
+    f.write_text(text)
+    opened = []
+
+    def tracking_open(*args, **kwargs):
+        opened.append(open(*args, **kwargs))
+        return opened[-1]
+
+    monkeypatch.setattr(patterns, "open", tracking_open, raising=False)
+    if error:
+        with pytest.raises(ValueError, match=error):
+            read_adapter_fasta(f)
+    else:
+        read_adapter_fasta(f)
+    assert len(opened) == 1
+    assert opened[0].closed
 
 
 def test_chemistry_from_defaults():

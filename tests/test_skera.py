@@ -1,4 +1,6 @@
 import json
+import math
+import random
 from pathlib import Path
 
 import polars as pl
@@ -130,6 +132,123 @@ def test_budget_stats_by_hand():
     assert stats["usable"] == pytest.approx(2.0)
     assert stats["usable_clean"] == pytest.approx(1 / 3)
     assert stats["usable_not_clean"] == pytest.approx(5 / 3)
+
+
+def test_zmw_with_one_sread_has_no_false_cut_and_its_one_molecule_is_clean():
+    """zm 8: one S-read over its one molecule, CLEAN. zm 9: one S-read over both its molecules, so each is FUSED, not
+    CLEAN. Neither ZMW has a gap between two S-reads, so neither has a false cut."""
+    reads = {8: {"adapters": [("C", "+", 0, 17, 0), ("D", "+", 1017, 1034, 0)],
+                 "molecules": [(17, 1017, "proper", False, "C", "D")],
+                 "sreads": [(17, 1017, 2, 3)]},
+             9: {"adapters": [("C", "+", 0, 17, 0), ("D", "+", 1017, 1034, 0), ("E", "+", 2034, 2051, 0)],
+                 "molecules": [(17, 1017, "proper", False, "C", "D"), (1034, 2034, "proper", False, "D", "E")],
+                 "sreads": [(17, 2034, 2, 4)]}}
+    f, m, s = frames(reads)
+    assert skera.false_cuts(s, f).height == 0
+    assert skera.molecule_coverage(m, s).select("zm", "cls").rows() == [(8, "CLEAN"), (9, "FUSED"), (9, "FUSED")]
+
+
+def test_zmw_with_sreads_and_no_molecules_gives_no_coverage_rows():
+    """zm 9 has two S-reads and no molecule: molecule_coverage and best_cover give rows for zm 1's two molecules only."""
+    reads = {**complete_with_false_cut(),
+             9: {"adapters": [("C", "+", 0, 17, 0)], "molecules": [], "sreads": [(17, 900, 2, 3), (920, 1800, 3, 4)]}}
+    f, m, s = frames(reads)
+    assert skera.molecule_coverage(m, s).select("zm", "start").rows() == [(1, 17), (1, 1034)]
+    assert skera.best_cover(m, s).select("zm", "start").rows() == [(1, 17), (1, 1034)]
+
+
+def test_every_public_function_on_empty_frames():
+    """Frames with their columns and no rows give empty results with the documented columns, and the summary dicts NaN
+    shares, zero counts and empty letter counts, not a crash."""
+    f, m, s = frames({})
+    rs = pl.DataFrame(schema={"zm": pl.UInt32, "primary_pattern": pl.Utf8})
+    passing, fc = skera.passing_from_labels(s), skera.false_cuts(s, f)
+    cls = skera.budget_classes(m, s)
+    adapter_cols = ["zm", "di", "name", "strand", "start", "end", "edits"]
+    coverage_cols = ["mid", *m.columns, "maxov", "clean_di", "cls"]
+    for name, out, cols in [
+        ("false_cuts", fc, ["zm", "di_before", "di_after", "cut_start", "cut_end", "dr_before"]),
+        ("adapters_inside_sreads", skera.adapters_inside_sreads(s, f), adapter_cols),
+        ("adapters_inside_sreads strict", skera.adapters_inside_sreads(s, f, strict=True), adapter_cols),
+        ("molecule_coverage", skera.molecule_coverage(m, s), coverage_cols),
+        ("best_cover", skera.best_cover(m, s), ["zm", "start", "end", "cover"]),
+        ("mirror_junctions", skera.mirror_junctions(m), [*m.columns, "letter"]),
+        ("single_tso_tso_mirrors", skera.single_tso_tso_mirrors(m), ["zm", "js", "je", "letter"]),
+        ("passing_from_labels", passing, ["zm", "passing"]),
+        ("skipped_adapters", skera.skipped_adapters(fc, s, f), ["zm", "cut_start", "missed", "in_sread", "dist"]),
+        ("mirror_arm_classes", skera.mirror_arm_classes(m, s), ["zm", "region", "cls"]),
+        ("budget_classes", cls, [*coverage_cols, "usable"]),
+        ("budget_per_read", skera.budget_per_read(cls), ["zm", "molecules", "artifact_tso_tso", "artifact_r1_r1",
+                                                         "artifact_one_primer_or_none", "artifact_fused", "usable",
+                                                         "usable_clean", "usable_not_clean"]),
+    ]:
+        assert (out.height, out.columns) == (0, cols), name
+    dm = skera.double_mirrors(m)
+    assert (dm.name, dm.len()) == ("zm", 0)
+
+    stats = skera.false_cut_stats(rs, f, s, passing=passing, fc=fc)
+    assert {k: stats[k] for k in ("complete_reads", "complete_passing_reads", "false_cuts", "false_cut_letters",
+                                  "skipped_adapter_letters")} == {"complete_reads": 0, "complete_passing_reads": 0, "false_cuts": 0,
+                                                                  "false_cut_letters": {}, "skipped_adapter_letters": {}}
+    assert math.isnan(stats["false_cut_reads_share"]) and math.isnan(stats["false_cuts_per_read"])
+    arms = skera.mirror_arm_stats(m, s)
+    assert arms["after_counts"] == arms["before_counts"] == {"CLEAN": 0, "FUSED": 0, "PARTIAL": 0, "NOT_WRITTEN": 0}
+    assert math.isnan(arms["after_clean_share"]) and math.isnan(arms["before_clean_share"])
+    budget = skera.budget_stats(rs.select("zm"), cls)
+    assert list(budget) == ["molecules", "unfilled_slots", "artifact_tso_tso", "artifact_r1_r1", "artifact_one_primer_or_none",
+                            "artifact_fused", "artifact", "usable", "usable_clean", "usable_not_clean"]
+    assert all(math.isnan(v) for v in budget.values())
+
+
+def _random_reads(n: int = 300, seed: int = 7) -> dict:
+    """n random ZMWs for the chunk-count test, as synth.frames takes them (zm 100, 113, 126, ..., spread over every chunk
+    count tried): 2 to 9 adapters in MAS order with 300 to 2,000 bp between them, a molecule between each pair, and S-reads
+    that follow the molecules within 5 bp, some skipping a molecule, some covering two, some cut in two inside one (a
+    false cut). Its own random.Random, so synth.rng's draws stay as other tests expect them."""
+    r = random.Random(seed)
+    reads = {}
+    for i in range(n):
+        adapters, pos = [], 0
+        for k in range(r.randint(2, len(MAS_ORDER))):
+            adapters.append((MAS_ORDER[k], "+", pos, pos + 17, r.randint(0, 2)))
+            pos += 17 + r.randint(300, 2000)
+        mols = [(a[3], b[2], r.choice(["proper", "tso_tso", "r1_r1", "none"]), r.random() < 0.1, a[0], b[0])
+                for a, b in zip(adapters, adapters[1:])]
+        sreads, k = [], 0
+        while k < len(mols):
+            start, end, u = mols[k][0], mols[k][1], r.random()
+            if u < 0.15:                                   # not written
+                k += 1
+                continue
+            if u < 0.3 and k + 1 < len(mols):              # one S-read over two molecules
+                end = mols[k + 1][1]
+                k += 1
+            elif u < 0.45:                                 # cut in two inside the molecule
+                cut = r.randint(start + 50, end - 50)
+                sreads.append((start + r.randint(-5, 5), cut, k, k + 1))
+                start = cut + r.randint(0, 20)
+            sreads.append((start + r.randint(-5, 5), end + r.randint(-5, 5), k, k + 1))
+            k += 1
+        reads[100 + 13 * i] = {"adapters": adapters, "molecules": mols, "sreads": sreads}
+    return reads
+
+
+def test_chunked_functions_give_the_same_frames_for_any_chunk_count(monkeypatch):
+    """false_cuts, adapters_inside_sreads, molecule_coverage and best_cover work through the ZMWs in _CHUNKS chunks by
+    zm; 1, 7 and 16 chunks give equal frames on the synth reads plus 300 random ZMWs."""
+    f, m, s = frames({**complete_with_false_cut(), **tso_tso_mirror(), **double_mirror(), **_random_reads()})
+    results = {}
+    for chunks in (1, 7, 16):
+        monkeypatch.setattr(skera, "_CHUNKS", chunks)
+        results[chunks] = {"false_cuts": skera.false_cuts(s, f), "adapters_inside_sreads": skera.adapters_inside_sreads(s, f),
+                           "adapters_inside_sreads strict": skera.adapters_inside_sreads(s, f, strict=True),
+                           "molecule_coverage": skera.molecule_coverage(m, s), "best_cover": skera.best_cover(m, s)}
+    want = results[16]
+    assert all(frame.height > 50 for frame in want.values())
+    assert set(want["molecule_coverage"]["cls"]) == {"CLEAN", "FUSED", "PARTIAL", "NOT_WRITTEN"}
+    for chunks in (1, 7):
+        for name, frame in results[chunks].items():
+            assert frame.equals(want[name]), (chunks, name)
 
 
 @pytest.mark.real

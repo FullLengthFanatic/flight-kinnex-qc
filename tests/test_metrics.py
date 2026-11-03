@@ -60,10 +60,10 @@ def test_junction_table_rows():
 
 
 def test_junction_composition():
+    """Every row, in order: reads descending, then the label, which breaks the tie of one read each here."""
     jc = metrics.junction_composition(_molecules(), _read_summary())
-    rows = {r["junction_molecules"]: r for r in jc.to_dicts()}
-    assert rows["TSO-TSO only"] == {"junction_molecules": "TSO-TSO only", "reads": 1, "median_molecules": 3.0, "skera_pass_share": 0.0}
-    assert rows["TSO-TSO and R1-R1"] == {"junction_molecules": "TSO-TSO and R1-R1", "reads": 1, "median_molecules": 4.0, "skera_pass_share": 1.0}
+    assert jc.columns == ["junction_molecules", "reads", "median_molecules", "skera_pass_share"]
+    assert jc.rows() == [("TSO-TSO and R1-R1", 1, 4.0, 1.0), ("TSO-TSO only", 1, 3.0, 0.0)]
 
 
 def test_mirror_size_rule():
@@ -76,8 +76,12 @@ def _assert_dict_equal(got: dict, gold: dict, keys):
         assert got[k] == gold[k], f"{k}: {got[k]} != {gold[k]}"
 
 
-def _assert_table_equal(got: pl.DataFrame, gold: pl.DataFrame, sort_by):
-    got, gold = got.sort(sort_by), gold.sort(sort_by)
+def _assert_table_equal(got: pl.DataFrame, gold: pl.DataFrame):
+    """got equals v10's table column for column and row for row, every value cast to the golden column's dtype.
+    Neither side is re-sorted: each v10 file below lists its rows in the order the function sorts them
+    (pattern_shares: pattern; junction_table: letter, molecule; junction_composition: reads descending, then label;
+    mirror_size_rule: letter), so the row order is checked too."""
+    assert got.columns == gold.columns, f"columns: {got.columns} != {gold.columns}"
     assert got.height == gold.height, f"row count: {got.height} != {gold.height}"
     for col in gold.columns:
         a, b = got[col].cast(gold[col].dtype).to_list(), gold[col].to_list()
@@ -123,25 +127,25 @@ def test_pattern_shares_match_v10(nd_frames):
     rs, _ = nd_frames
     gold = (pl.read_csv(GOLD / "v10_tables" / "fig2a_chain_patterns.tsv", separator="\t")
             .filter(pl.col("library") == "ND").select("pattern", "reads", "share"))
-    _assert_table_equal(metrics.pattern_shares(rs), gold, "pattern")
+    _assert_table_equal(metrics.pattern_shares(rs), gold)
 
 
 @pytest.mark.real
 def test_junction_table_matches_v10(nd_frames):
     _, mols = nd_frames
     gold = pl.read_csv(GOLD / "v10_tables" / "fig4b_mirror_junction_letters_ND.tsv", separator="\t")
-    _assert_table_equal(metrics.junction_table(mols), gold, ["letter", "molecule"])
+    _assert_table_equal(metrics.junction_table(mols), gold)
 
 
 @pytest.mark.real
 def test_junction_composition_matches_v10(nd_frames):
     rs, mols = nd_frames
     gold = pl.read_csv(GOLD / "v10_tables" / "S5_mirror_junction_composition_ND.tsv", separator="\t")
-    _assert_table_equal(metrics.junction_composition(mols, rs), gold, "junction_molecules")
+    _assert_table_equal(metrics.junction_composition(mols, rs), gold)
 
 
 @pytest.mark.real
 def test_mirror_size_rule_matches_v10(nd_frames):
     rs, mols = nd_frames
     gold = pl.read_csv(GOLD / "v10_tables" / "fig4c_mirror_array_size_rule_ND.tsv", separator="\t")
-    _assert_table_equal(metrics.mirror_size_rule(mols, rs), gold, "letter")
+    _assert_table_equal(metrics.mirror_size_rule(mols, rs), gold)
