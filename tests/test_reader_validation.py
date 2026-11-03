@@ -1,5 +1,5 @@
-"""validate_reader.py against the real BD144 kinnex-qc run output (task 13's controller runs), and
-against the tracked golden tables directly for the comparison logic itself (no real run needed)."""
+"""validate_reader.py against the real BD144 kinnex-qc run output, and against the tracked golden
+tables directly for the comparison logic itself (no real run needed)."""
 import sys
 from pathlib import Path
 
@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "study"))
 
-from validate_reader import SAMPLES, _compare_nd_only, _compare_patterns, main  # noqa: E402
+from validate_reader import KNOWN_DIFFS, SAMPLES, _check, _compare_nd_only, _compare_patterns, main  # noqa: E402
 
 GOLDEN = Path(__file__).resolve().parent / "golden"
 
@@ -70,6 +70,22 @@ def test_compare_nd_only_flags_a_row_the_reader_drops():
     lines2, ok2 = [], []
     _compare_nd_only(lines2, ok2, "BD144_ND", dropped, GOLDEN)
     assert not all(ok2), "a junctions row missing from the reader's output must count as a DIFF"
+
+
+def test_check_prints_known_only_for_the_exact_pinned_values():
+    (sample, key), (reader_val, v10_val, _reason) = next(iter(KNOWN_DIFFS.items()))
+    lines, ok = [], []
+    _check(lines, ok, sample, key, reader_val, v10_val)
+    assert ok == [True]
+    assert lines[0].endswith("\tKNOWN")
+
+
+def test_check_flags_any_other_reader_value_on_a_known_diff_key_as_diff():
+    (sample, key), (_reader_val, v10_val, _reason) = next(iter(KNOWN_DIFFS.items()))
+    lines, ok = [], []
+    _check(lines, ok, sample, key, 0.5, v10_val)
+    assert ok == [False]
+    assert lines[0].endswith("\tDIFF")
 
 
 def test_compare_nd_only_flags_a_wrong_skera_pass_share():

@@ -5,14 +5,16 @@ Usage: study/validate_reader.py RUNS_DIR [--golden tests/golden]
 RUNS_DIR/<sample>/summary.json for BD144_ND, BD144_HM and BD144_kin against the golden tables
 and JSON files the study's own analyses wrote (tests/golden/v10_inputs, tests/golden/v10_tables).
 Equality throughout is Python `==`, floats included: no tolerance, no rounding. Prints one line
-per compared number (sample, key, the reader's value, v10's value, OK or DIFF) and exits 1 if any
-line is a DIFF, 0 otherwise. A key present on one side only (the reader or v10) compares against
-None, so a row the reader drops or adds is a DIFF too. See the task-13 controller decisions for
-exactly which summary.json key compares against which golden file, and why.
+per compared number (sample, key, the reader's value, v10's value, OK, KNOWN or DIFF), then one
+line with the OK/KNOWN/DIFF counts, and exits 1 if any line is a DIFF, 0 when every line is OK or
+KNOWN. A key present on one side only (the reader or v10) compares against None, so a row the
+reader drops or adds is a DIFF too. See each `_compare_*` function below for exactly which
+summary.json key compares against which golden file, and why.
 """
 import argparse
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 import polars as pl
@@ -28,13 +30,31 @@ BUDGET_KEYS = ["molecules", "unfilled_slots", "artifact_tso_tso", "artifact_r1_r
                "artifact_one_primer_or_none", "artifact_fused", "usable"]
 MIRROR_ARM_CLASSES = ["CLEAN", "FUSED", "PARTIAL", "NOT_WRITTEN"]
 
+# Known difference: kinnex-qc derives skera's pass or fail verdict from the S-read adapter labels
+# (kinnex_qc.skera.passing_from_labels) because it reads only the segmented BAM, not skera's own
+# non-passing BAM, and that disagrees with skera's own verdict on 20 of BD144_ND's 1,969,703
+# sampled reads (19 truncated, 1 mirror, none of the complete arrays). The one mismatched mirror
+# read falls in the row pinned below; see CHANGELOG.md for the exact numbers.
+KNOWN_DIFFS = {
+    ("BD144_ND", "junction_composition[TSO-TSO only].skera_pass_share"):
+        (0.0034570434472299045, 0.0034602296623886418,
+         "skera_pass_share derived from S-read labels, not skera's non-passing BAM"),
+}
+
 
 def _check(lines: list[str], ok: list[bool], sample: str, key: str, reader, v10) -> None:
-    """Append one printed line (sample, key, reader's value, v10's value, OK/DIFF) and record
-    whether it matched. `==` is exact for floats too: no rounding, no tolerance."""
-    good = reader == v10
-    lines.append(f"{sample}\t{key}\t{reader!r}\t{v10!r}\t{'OK' if good else 'DIFF'}")
-    ok.append(good)
+    """Append one printed line (sample, key, reader's value, v10's value, OK/KNOWN/DIFF) and
+    record whether it counts as a pass. `==` is exact for floats too: no rounding, no tolerance.
+    A (sample, key) pinned in KNOWN_DIFFS prints KNOWN, and counts as a pass, only when both the
+    reader's and v10's values equal the pinned ones exactly; any other value on that key, or a key
+    not pinned at all, is OK when reader == v10 and DIFF otherwise."""
+    pinned = KNOWN_DIFFS.get((sample, key))
+    if pinned is not None and reader == pinned[0] and v10 == pinned[1]:
+        status = "KNOWN"
+    else:
+        status = "OK" if reader == v10 else "DIFF"
+    lines.append(f"{sample}\t{key}\t{reader!r}\t{v10!r}\t{status}")
+    ok.append(status != "DIFF")
 
 
 def _rows_by_key(df: pl.DataFrame, key_cols: list[str], none_as: str = "none") -> dict:
@@ -161,6 +181,8 @@ def main(argv: list[str] | None = None) -> int:
         _compare_sample(lines, ok, sample, summary, golden)
 
     print("\n".join(lines))
+    counts = Counter(line.rsplit("\t", 1)[1] for line in lines)
+    print(f"OK={counts['OK']} KNOWN={counts['KNOWN']} DIFF={counts['DIFF']}")
     return 0 if all(ok) else 1
 
 
