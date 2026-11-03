@@ -67,3 +67,17 @@ def test_out_dir_creates_directory(tmp_path):
 
     assert path == tmp_path / "BD144_ND"
     assert path.is_dir()
+
+
+def test_out_dir_puts_a_hash_sample_under_hash_fraction(tmp_path):
+    assert out_dir(tmp_path, "BD144_ND", 1) == tmp_path / "BD144_ND"
+    path = out_dir(tmp_path, "BD144_ND", 0.18)
+    assert path == tmp_path / "hash_0.18" / "BD144_ND"
+    assert path.is_dir()
+
+
+@pytest.mark.parametrize("fraction", [0, -0.1, 1.5])
+def test_out_dir_rejects_fraction_outside_0_1(tmp_path, fraction):
+    with pytest.raises(ValueError, match="fraction"):
+        out_dir(tmp_path, "BD144_ND", fraction)
+    assert not (tmp_path / "BD144_ND").exists()

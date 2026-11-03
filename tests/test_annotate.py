@@ -148,3 +148,16 @@ class TestSegmentHits:
         assert [c.end_class for c in calls] == ["proper"] * 8
         assert all(c.bead_ok for c in calls)
         assert [c.insert_len for c in calls] == [20 + n + len(TSO_EXT) for n in ns]
+
+
+@pytest.mark.real
+class TestMiniData:
+    def test_patterns_by_sample(self, mini):
+        from pipeline_helpers import bam_records, mini_samples
+        samples = mini_samples(mini)
+        kin = bam_records(samples["BD144_kin"].hifi_bam)[:100]
+        pats = collections.Counter(primary_pattern(chain_flags(adapter_chain(annotate_read(r.query_sequence))[0])) for r in kin)
+        assert pats["complete"] >= 90
+        nd = bam_records(samples["BD144_ND"].non_passing_bam)[:100]
+        pats = collections.Counter(primary_pattern(chain_flags(adapter_chain(annotate_read(r.query_sequence))[0])) for r in nd)
+        assert pats["mirror"] >= 50

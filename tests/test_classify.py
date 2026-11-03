@@ -1,5 +1,6 @@
 """Tests for classify.py."""
 import random
+import time
 
 import pytest
 
@@ -153,3 +154,23 @@ class TestTsoTowardLower:
         assert tso_toward_lower(tail, 4, 3) is True
         assert tso_toward_lower(tail, 3, 4) is False
         assert tso_toward_lower(classify_segment(CDNA), 3, 4) is None
+
+
+@pytest.mark.real
+class TestMiniData:
+    def test_nd_and_kin(self, mini):
+        from pipeline_helpers import bam_records, mini_samples
+        samples = mini_samples(mini)
+        stats = {}
+        for sample in ("BD144_ND", "BD144_kin"):
+            recs = bam_records(samples[sample].segmented_bam)
+            t0 = time.perf_counter()
+            calls = [classify_segment(r.query_sequence) for r in recs]
+            us = (time.perf_counter() - t0) / len(recs) * 1e6
+            n = len(calls)
+            stats[sample] = {c: sum(x.end_class == c for x in calls) / n for c in END_CLASSES}
+            print(f"{sample}: {n} S-reads, {us:.0f} us/segment, {stats[sample]}")
+            assert stats[sample]["proper"] > 0.85
+            # a non-positive insert only happens for empty molecules (TSO on a truncated bead oligo)
+            assert all(c.insert_len > 0 for r, c in zip(recs, calls) if c.end_class == "proper" and len(r.query_sequence) >= 150)
+        assert stats["BD144_kin"]["tso_tso"] < stats["BD144_ND"]["tso_tso"]

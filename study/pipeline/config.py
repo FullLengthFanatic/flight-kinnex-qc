@@ -89,8 +89,11 @@ def load_config(path: Path | str = "study/study.toml") -> dict:
     return config
 
 
-def out_dir(out_root: Path | str, sample: str) -> Path:
-    """Output directory for a sample under out_root. Created if needed."""
-    path = Path(out_root) / sample
+def out_dir(out_root: Path | str, sample: str, fraction: float = 1) -> Path:
+    """Output directory for a sample, created if needed: out_root/sample at fraction 1, and
+    out_root/hash_<fraction>/sample for a hash sample of the cell's ZMWs (0 < fraction < 1)."""
+    if not 0 < fraction <= 1:
+        raise ValueError(f"fraction must lie in (0, 1], got {fraction}")
+    path = Path(out_root) / sample if fraction == 1 else Path(out_root) / f"hash_{fraction:g}" / sample
     path.mkdir(parents=True, exist_ok=True)
     return path

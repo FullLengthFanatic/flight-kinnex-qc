@@ -67,9 +67,9 @@ def _fail_patterns(chem: Chemistry):
 
 
 def annotate_batch(batch: list[tuple], chem: Chemistry = KINNEX8_SC3) -> tuple[dict, dict, dict]:
-    """Port of the study's stage 02 annotate_batch: same batch items (zm, source, seq, np, rq,
-    skera_passing) and the same three column dicts out, with the chemistry's adapters, primers and
-    MAS order in place of the study's fixed defaults."""
+    """Annotate a batch of reads: items (zm, source, seq, np, rq, skera_passing) in, three column
+    dicts out (READ_FEATURES, READ_SUMMARY, ANNOT_SEGMENTS), with the chemistry's adapters, primers
+    and MAS order. study/pipeline/s02_annotate_reads.py uses it with the default chemistry."""
     feats = {f.name: [] for f in READ_FEATURES}
     summ = {f.name: [] for f in READ_SUMMARY}
     segs = {f.name: [] for f in ANNOT_SEGMENTS}
