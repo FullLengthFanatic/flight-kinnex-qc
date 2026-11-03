@@ -23,16 +23,23 @@ from pathlib import Path, PurePosixPath
 import polars as pl
 import pysam
 
-SKIP_DIRS = {"logs", "figures", ".staging"}
-SKIP_SUFFIXES = (".log", ".ok", ".done.json")
+# Run bookkeeping skipped everywhere, never compared even if it differs. A trailing "/" marks a
+# directory component anywhere in the path (figures/ holds rendered plots, not reproducible byte
+# for byte; .staging/ holds in-progress files); otherwise the entry is a filename suffix (*.log
+# and *.ok are run logs and per-step completion markers; *.done.json records run times).
+SKIP = ("logs/", ".log", ".ok", ".done.json", "figures/", ".staging/")
 
 KEY_COLUMN_SETS = (("zm", "di"), ("zm", "seg_index"), ("zm", "start"))
 
 
 def _is_skipped(rel: PurePosixPath) -> bool:
-    if any(part in SKIP_DIRS for part in rel.parts[:-1]):
-        return True
-    return rel.name.endswith(SKIP_SUFFIXES)
+    for pattern in SKIP:
+        if pattern.endswith("/"):
+            if pattern[:-1] in rel.parts[:-1]:
+                return True
+        elif rel.name.endswith(pattern):
+            return True
+    return False
 
 
 def _collect_files(root: Path) -> set[PurePosixPath]:
@@ -184,14 +191,17 @@ def _compare_file(rel: PurePosixPath, path_a: Path, path_b: Path, bam_names: boo
     if suffix == ".json":
         return _compare_json(rel, path_a, path_b)
     if suffix == ".bam":
-        return _compare_bam(rel, path_a, path_b) if bam_names else []
+        if not bam_names:
+            print(f"{rel}: not compared")
+            return []
+        return _compare_bam(rel, path_a, path_b)
     return _compare_bytes(rel, path_a, path_b)
 
 
-def compare_trees(a: Path | str, b: Path | str, *, bam_names: bool = False, max_rows: int = 10) -> list[str]:
+def compare_trees(a: Path | str, b: Path | str, bam_names: bool = False, max_rows: int = 10) -> list[str]:
     """Compare the output trees rooted at a and b, file by file, skipping run bookkeeping (see
-    SKIP_DIRS and SKIP_SUFFIXES). Returns the differences, one string each; a TSV whose rows are
-    merely reordered prints a note (not a difference) instead of adding to this list."""
+    SKIP). Returns the differences, one string each. A TSV whose rows are merely reordered, and a
+    BAM compared with bam_names left False, print a note instead of adding to this list."""
     a, b = Path(a), Path(b)
     files_a = _collect_files(a)
     files_b = _collect_files(b)

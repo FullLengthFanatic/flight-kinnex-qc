@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import polars as pl
+import pysam
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "study"))
 
@@ -97,3 +98,33 @@ def test_parquet_rows_reordered_with_zm_di_key_compare_equal(tmp_path):
     _parquet(b / "segments.parquet", [3, 1, 2], [0, 0, 0], [3.5, 1.5, 2.5])
 
     assert compare_trees(a, b) == []
+
+
+def _bam(path: Path, names: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with pysam.AlignmentFile(str(path), "wb", header={"HD": {"VN": "1.6"}}) as out:
+        for name in names:
+            a = pysam.AlignedSegment()
+            a.query_name = name
+            a.query_sequence = "ACGT"
+            a.flag = 4
+            out.write(a)
+
+
+def test_bam_not_compared_without_bam_names_even_if_it_differs(tmp_path, capsys):
+    a, b = tmp_path / "a", tmp_path / "b"
+    _bam(a / "molecules.bam", ["m/1/ccs/0"])
+    _bam(b / "molecules.bam", ["m/2/ccs/0", "m/3/ccs/0"])
+
+    assert compare_trees(a, b) == []
+    assert "molecules.bam: not compared" in capsys.readouterr().out
+
+
+def test_bam_names_compares_record_count_and_names(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    _bam(a / "molecules.bam", ["m/1/ccs/0"])
+    _bam(b / "molecules.bam", ["m/2/ccs/0", "m/3/ccs/0"])
+
+    diffs = compare_trees(a, b, bam_names=True)
+    assert len(diffs) == 2
+    assert all("molecules.bam" in d for d in diffs)
