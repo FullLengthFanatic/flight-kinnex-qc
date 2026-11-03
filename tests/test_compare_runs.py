@@ -81,6 +81,49 @@ def test_json_bool_vs_int_same_value_is_a_difference(tmp_path):
     assert "flag" in diffs[0]
 
 
+def test_json_key_on_one_side_only_prints_its_path(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "summary.json").write_text(json.dumps({"q1": {"n": 3, "extra": 1}}))
+    (b / "summary.json").write_text(json.dumps({"q1": {"n": 3}}))
+
+    diffs = compare_trees(a, b)
+    assert len(diffs) == 1
+    assert "q1.extra" in diffs[0]
+    assert "missing on B" in diffs[0]
+
+
+def test_json_ignored_keys_are_not_compared(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "report.json").write_text(json.dumps({
+        "uuid": "11111111-1111-1111-1111-111111111111",
+        "createdAt": "2026-10-05T12:00:00Z",
+        "_comment": "Created by pbcopper v2.7.0",
+        "value": 42,
+    }))
+    (b / "report.json").write_text(json.dumps({
+        "uuid": "22222222-2222-2222-2222-222222222222",
+        "createdAt": "2026-10-05T13:30:00Z",
+        "_comment": "Created by pbcopper v2.8.0",
+        "value": 42,
+    }))
+
+    assert compare_trees(a, b) == []
+
+
+def test_json_ignored_key_missing_on_one_side_is_not_reported(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "report.json").write_text(json.dumps({"uuid": "11111111-1111-1111-1111-111111111111", "value": 1}))
+    (b / "report.json").write_text(json.dumps({"value": 1}))
+
+    assert compare_trees(a, b) == []
+
+
 def test_missing_and_extra_file(tmp_path):
     a, b = tmp_path / "a", tmp_path / "b"
     a.mkdir()
@@ -107,6 +150,32 @@ def test_tsv_rows_reordered_gives_a_note_not_a_difference(tmp_path, capsys):
     assert "rows in a different order" in capsys.readouterr().out
 
 
+def test_tsv_crlf_line_endings_is_a_difference(tmp_path, capsys):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "table.tsv").write_text("zm\tgate\n1\tpass\n2\tfail\n")
+    (b / "table.tsv").write_bytes(b"zm\tgate\r\n1\tpass\r\n2\tfail\r\n")
+
+    diffs = compare_trees(a, b)
+    assert len(diffs) == 1
+    assert "table.tsv" in diffs[0]
+    assert "rows in a different order" not in capsys.readouterr().out
+
+
+def test_tsv_missing_trailing_newline_is_a_difference(tmp_path, capsys):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "table.tsv").write_text("zm\tgate\n1\tpass\n")
+    (b / "table.tsv").write_text("zm\tgate\n1\tpass")
+
+    diffs = compare_trees(a, b)
+    assert len(diffs) == 1
+    assert "table.tsv" in diffs[0]
+    assert "rows in a different order" not in capsys.readouterr().out
+
+
 def test_skipped_marker_file_ignored_even_if_it_differs(tmp_path):
     a, b = tmp_path / "a", tmp_path / "b"
     (a / "logs").mkdir(parents=True)
@@ -117,10 +186,85 @@ def test_skipped_marker_file_ignored_even_if_it_differs(tmp_path):
     assert compare_trees(a, b) == []
 
 
+def test_xml_and_pbi_files_skipped_even_if_they_differ(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    (a / "lima").mkdir(parents=True)
+    (b / "lima").mkdir(parents=True)
+    (a / "lima" / "sample.consensusreadset.xml").write_text('<x UniqueId="aaa" CreatedAt="t1"/>')
+    (b / "lima" / "sample.consensusreadset.xml").write_text('<x UniqueId="bbb" CreatedAt="t2"/>')
+    (a / "lima" / "sample.bam.pbi").write_bytes(b"\x00\x01")
+    (b / "lima" / "sample.bam.pbi").write_bytes(b"\x02\x03\x04")
+
+    assert compare_trees(a, b) == []
+
+
 def test_parquet_rows_reordered_with_zm_di_key_compare_equal(tmp_path):
     a, b = tmp_path / "a", tmp_path / "b"
     _parquet(a / "segments.parquet", [1, 2, 3], [0, 0, 0], [1.5, 2.5, 3.5])
     _parquet(b / "segments.parquet", [3, 1, 2], [0, 0, 0], [3.5, 1.5, 2.5])
+
+    assert compare_trees(a, b) == []
+
+
+def test_parquet_duplicate_keys_in_different_row_order_compare_equal(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    # zm=1, di=0 appears twice on each side; the two files list those two rows in opposite
+    # order. Sorting by the key columns alone is not guaranteed stable for the tie, so without
+    # also sorting by "value" the two sides could end up misaligned and report a false diff.
+    _parquet(a / "segments.parquet", [1, 1, 2], [0, 0, 0], [1.0, 2.0, 3.0])
+    _parquet(b / "segments.parquet", [1, 1, 2], [0, 0, 0], [2.0, 1.0, 3.0])
+
+    assert compare_trees(a, b) == []
+
+
+def test_parquet_columns_differ(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    _parquet(a / "segments.parquet", [1, 2], [0, 0], [1.5, 2.5])
+    a_df = pl.read_parquet(a / "segments.parquet")
+    b.mkdir()
+    a_df.rename({"value": "other"}).write_parquet(b / "segments.parquet")
+
+    diffs = compare_trees(a, b)
+    assert len(diffs) == 1
+    assert "columns differ" in diffs[0]
+
+
+def test_parquet_dtype_difference_is_a_difference(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    pl.DataFrame({"zm": [1, 2], "di": [0, 0], "value": [1, 2]},
+                 schema={"zm": pl.UInt32, "di": pl.Int16, "value": pl.Int32}).write_parquet(a / "segments.parquet")
+    pl.DataFrame({"zm": [1, 2], "di": [0, 0], "value": [1, 2]},
+                 schema={"zm": pl.UInt32, "di": pl.Int16, "value": pl.Int64}).write_parquet(b / "segments.parquet")
+
+    diffs = compare_trees(a, b)
+    assert len(diffs) == 1
+    assert "dtypes differ" in diffs[0]
+
+
+def test_parquet_null_vs_value_is_a_difference(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    pl.DataFrame({"zm": [1, 2], "di": [0, 0], "value": [None, 2.5]},
+                 schema={"zm": pl.UInt32, "di": pl.Int16, "value": pl.Float64}).write_parquet(a / "segments.parquet")
+    pl.DataFrame({"zm": [1, 2], "di": [0, 0], "value": [1.5, 2.5]},
+                 schema={"zm": pl.UInt32, "di": pl.Int16, "value": pl.Float64}).write_parquet(b / "segments.parquet")
+
+    diffs = compare_trees(a, b)
+    assert len(diffs) == 1
+    assert "zm=1" in diffs[0]
+
+
+def test_parquet_nan_equals_nan_no_difference(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    pl.DataFrame({"zm": [1, 2], "di": [0, 0], "value": [math.nan, 2.5]},
+                 schema={"zm": pl.UInt32, "di": pl.Int16, "value": pl.Float64}).write_parquet(a / "segments.parquet")
+    pl.DataFrame({"zm": [1, 2], "di": [0, 0], "value": [math.nan, 2.5]},
+                 schema={"zm": pl.UInt32, "di": pl.Int16, "value": pl.Float64}).write_parquet(b / "segments.parquet")
 
     assert compare_trees(a, b) == []
 
@@ -153,6 +297,8 @@ def test_bam_names_compares_record_count_and_names(tmp_path):
     diffs = compare_trees(a, b, bam_names=True)
     assert len(diffs) == 2
     assert all("molecules.bam" in d for d in diffs)
+    assert any("record count differs" in d for d in diffs)
+    assert any("record names differ" in d for d in diffs)
 
 
 def test_missing_roots_exit_2(tmp_path):
@@ -192,3 +338,28 @@ def test_max_rows_negative_exits_2(tmp_path):
     with pytest.raises(SystemExit) as exc_info:
         main([str(a), str(b), "--max-rows", "-1"])
     assert exc_info.value.code == 2
+
+
+def test_main_summary_line_counts_differences_and_files(tmp_path, capsys):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "only_in_a.json").write_text("{}")
+    (b / "only_in_b.json").write_text("{}")
+    (a / "summary.json").write_text(json.dumps({"n": 1, "m": 2}))
+    (b / "summary.json").write_text(json.dumps({"n": 9, "m": 8}))
+
+    assert main([str(a), str(b)]) == 1
+    out = capsys.readouterr().out
+    assert "4 differences in 3 files" in out
+
+
+def test_main_no_differences_summary_line(tmp_path, capsys):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "summary.json").write_text('{"n": 1}')
+    (b / "summary.json").write_text('{"n": 1}')
+
+    assert main([str(a), str(b)]) == 0
+    assert capsys.readouterr().out.strip() == "no differences"
