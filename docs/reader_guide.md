@@ -44,18 +44,26 @@ Kinnex HiFi dataset has been checked against it yet.
 
 The check: `study/validate_reader.py` ran commit `1a33bbf` (package version 0.1.0) against three
 BD Rhapsody libraries, BD144_ND, BD144_HM and BD144_kin, at `--fraction 0.18` and `--threads 10`,
-and compared every number in each run's `summary.json` against the frozen tables from the same
-study's own, independent analysis (`tests/golden`). Later commits changed how `--write-molecules`
-streams its output, added progress lines to `run.log`, and changed row order on ties; none of them
-touch `summary.json`'s numbers, which their own tests confirm against a fixed calibration BAM.
+and compared 229 numbers from each run's `summary.json` (129 for BD144_ND, 50 each for BD144_HM
+and BD144_kin) against the frozen tables from the same study's own, independent analysis
+(`tests/golden`): patterns, artifact rates, false cut letters and the molecule budget in all three
+libraries, plus BD144_ND's mirror junction letters, junction composition, array size rule and
+mirror arm tables. BD144_HM and BD144_kin have no v10 tables for those last four, so they are not
+compared; `skera.complete_reads`, `skera.budget.artifact` and `skera.budget.usable_clean` also
+have no v10 counterpart and are not compared in any library. Later commits changed how
+`--write-molecules` streams its output, added progress lines to `run.log`, and changed row order
+on ties; none of them touch `summary.json`'s numbers, which their own tests confirm against a
+fixed calibration BAM.
 
 Across the three libraries, 33,628,976 HiFi reads were read from the BAMs and 6,054,028 of them
-fell in the 0.18 hash sample the summary and report describe. Every compared number matched the
-study's to the last digit, with one documented exception: one derived rate, in BD144_ND's mirror
-junction composition, is off by one read out of 313,852. The cause is that the reader has no
-`--non-passing` option, so it derives skera's pass or fail verdict from the S-read labels alone
+fell in the 0.18 hash sample the summary and report describe. One of the 229 compared numbers does
+not match: BD144_ND's mirror junction composition "TSO-TSO only" bucket's `skera_pass_share` is
+off by one read out of 313,852. The cause is that the reader has no `--non-passing` option, so it
+derives skera's pass or fail verdict from the S-read labels alone
 (`kinnex_qc.skera.passing_from_labels`), a rule already measured to disagree with skera's real
-verdict on 20 of BD144_ND's 1,969,703 sampled reads; one of those 20 falls in this one bucket. See
+verdict on 20 of BD144_ND's 1,969,703 sampled reads; one of those 20 falls in this one bucket. This
+is not an approved difference: `study/validate_reader.py` exits 1 on it and
+`tests/test_reader_validation.py` fails until it is fixed or the controller approves it. See
 `CHANGELOG.md` for the exact numbers.
 
 Run time and peak memory, as measured on the machine that ran these three checks (a machine shared
