@@ -7,6 +7,7 @@ from pathlib import Path
 
 import polars as pl
 import pysam
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "study"))
 
@@ -54,6 +55,30 @@ def test_json_float_changed_in_last_bit_is_a_difference(tmp_path):
     diffs = compare_trees(a, b)
     assert len(diffs) == 1
     assert "q1.rate" in diffs[0]
+
+
+def test_json_int_vs_float_same_value_is_a_difference(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "summary.json").write_text(json.dumps({"n": 1}))
+    (b / "summary.json").write_text(json.dumps({"n": 1.0}))
+
+    diffs = compare_trees(a, b)
+    assert len(diffs) == 1
+    assert "n" in diffs[0]
+
+
+def test_json_bool_vs_int_same_value_is_a_difference(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "summary.json").write_text(json.dumps({"flag": True}))
+    (b / "summary.json").write_text(json.dumps({"flag": 1}))
+
+    diffs = compare_trees(a, b)
+    assert len(diffs) == 1
+    assert "flag" in diffs[0]
 
 
 def test_missing_and_extra_file(tmp_path):
@@ -128,3 +153,42 @@ def test_bam_names_compares_record_count_and_names(tmp_path):
     diffs = compare_trees(a, b, bam_names=True)
     assert len(diffs) == 2
     assert all("molecules.bam" in d for d in diffs)
+
+
+def test_missing_roots_exit_2(tmp_path):
+    a, b = tmp_path / "nonexistent_a", tmp_path / "nonexistent_b"
+
+    with pytest.raises(SystemExit) as exc_info:
+        main([str(a), str(b)])
+    assert exc_info.value.code == 2
+
+
+def test_root_that_is_a_file_exits_2(tmp_path):
+    a = tmp_path / "a"
+    a.write_text("not a directory")
+    b = tmp_path / "b"
+    b.mkdir()
+
+    with pytest.raises(SystemExit) as exc_info:
+        main([str(a), str(b)])
+    assert exc_info.value.code == 2
+
+
+def test_max_rows_zero_exits_2(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+
+    with pytest.raises(SystemExit) as exc_info:
+        main([str(a), str(b), "--max-rows", "0"])
+    assert exc_info.value.code == 2
+
+
+def test_max_rows_negative_exits_2(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+
+    with pytest.raises(SystemExit) as exc_info:
+        main([str(a), str(b), "--max-rows", "-1"])
+    assert exc_info.value.code == 2

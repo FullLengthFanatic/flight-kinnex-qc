@@ -120,7 +120,9 @@ def _compare_tsv(rel: PurePosixPath, path_a: Path, path_b: Path, max_rows: int) 
 
 
 def _json_values_equal(a, b) -> bool:
-    if isinstance(a, float) and isinstance(b, float) and math.isnan(a) and math.isnan(b):
+    if type(a) is not type(b):
+        return False
+    if isinstance(a, float) and math.isnan(a) and math.isnan(b):
         return True
     return a == b
 
@@ -216,19 +218,31 @@ def compare_trees(a: Path | str, b: Path | str, bam_names: bool = False, max_row
     return diffs
 
 
+def _max_rows(value: str) -> int:
+    n = int(value)
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"--max-rows must be >= 1, got {value}")
+    return n
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="compare_runs.py", description="Compare two study output trees file by file.")
     ap.add_argument("a", help="first output tree")
     ap.add_argument("b", help="second output tree")
     ap.add_argument("--bam-names", action="store_true",
                      help="also compare BAM record counts and names (default: list BAMs as not compared)")
-    ap.add_argument("--max-rows", type=int, default=10,
+    ap.add_argument("--max-rows", type=_max_rows, default=10,
                      help="differing rows printed per parquet or TSV file (default: 10)")
     return ap
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not Path(args.a).is_dir():
+        parser.error(f"not a directory: {args.a}")
+    if not Path(args.b).is_dir():
+        parser.error(f"not a directory: {args.b}")
     diffs = compare_trees(args.a, args.b, bam_names=args.bam_names, max_rows=args.max_rows)
     for line in diffs:
         print(line)
