@@ -41,9 +41,13 @@ SKIP = ("logs/", ".log", ".ok", ".done.json", "figures/", ".staging/", ".xml", "
 # not analysis output (controller ruling 2026-11-03). A key present on only one side because of
 # this is not reported as missing either.
 JSON_IGNORED_KEYS = {
-    "uuid",       # random id lima/isoseq assigns to a dataset or report, regenerated every run
-    "createdAt",  # PacBio tool timestamp on a dataset, file or report entry
-    "_comment",   # pbcommand's report-generation timestamp comment (e.g. "Created by pbcopper v2.7.0")
+    "uuid",        # random id lima/isoseq assigns to a dataset or report, regenerated every run
+    "createdAt",   # PacBio tool timestamp on a dataset, file or report entry
+    "_comment",    # pbcommand's report-generation timestamp comment (e.g. "Created by pbcopper v2.7.0")
+    "updatedAt",   # PacBio tool timestamp on a datastore manifest or its file entries (controller ruling 2026-11-03)
+    "modifiedAt",  # PacBio tool timestamp on a datastore manifest's per-file entry (controller ruling 2026-11-03)
+    "uniqueId",    # random id a datastore manifest's per-file entry carries, regenerated every run (controller ruling 2026-11-03)
+    "fileSize",    # size of the dataset XML the file entry names, a file compare_runs.py skips, not compares (controller ruling 2026-11-03)
 }
 
 KEY_COLUMN_SETS = (("zm", "di"), ("zm", "seg_index"), ("zm", "start"))

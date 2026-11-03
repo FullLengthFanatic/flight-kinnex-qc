@@ -124,6 +124,71 @@ def test_json_ignored_key_missing_on_one_side_is_not_reported(tmp_path):
     assert compare_trees(a, b) == []
 
 
+def _datastore_manifest(created_at: str, updated_at: str, file_created_at: str, file_modified_at: str,
+                         unique_id: str, file_size: int, path: str, name: str) -> dict:
+    return {
+        "createdAt": created_at,
+        "files": [
+            {
+                "createdAt": file_created_at,
+                "description": "Split BAM file by lima",
+                "fileSize": file_size,
+                "fileTypeId": "PacBio.DataSet.ConsensusReadSet",
+                "isChunked": False,
+                "modifiedAt": file_modified_at,
+                "name": name,
+                "path": path,
+                "sourceId": "barcoding.tasks.lima-0",
+                "uniqueId": unique_id,
+            }
+        ],
+        "updatedAt": updated_at,
+        "version": "0.2.2",
+    }
+
+
+def test_json_datastore_manifest_ignored_keys_are_not_compared(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "lima").mkdir()
+    (b / "lima").mkdir()
+    manifest_a = _datastore_manifest(
+        "2026-10-05T12:05:52.56Z", "2026-10-05T12:05:52.56Z", "2026-10-05T12:05:52.56Z",
+        "2026-10-05T12:05:52.56Z", "f0903c78-2deb-4d2f-bb2d-3dedd9c01d55", -968319015,
+        "sample.isoseq.FlashBD_5p--FlashBD_3p.consensusreadset.xml", "Barcodes FlashBD_5p--FlashBD_3p")
+    manifest_b = _datastore_manifest(
+        "2026-10-06T09:11:03.12Z", "2026-10-06T09:11:03.12Z", "2026-10-06T09:11:03.12Z",
+        "2026-10-06T09:11:03.12Z", "a1b2c3d4-0000-0000-0000-000000000000", 123456,
+        "sample.isoseq.FlashBD_5p--FlashBD_3p.consensusreadset.xml", "Barcodes FlashBD_5p--FlashBD_3p")
+    (a / "lima" / "sample.isoseq.json").write_text(json.dumps(manifest_a))
+    (b / "lima" / "sample.isoseq.json").write_text(json.dumps(manifest_b))
+
+    assert compare_trees(a, b) == []
+
+
+def test_json_datastore_manifest_path_difference_is_still_reported(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "lima").mkdir()
+    (b / "lima").mkdir()
+    manifest_a = _datastore_manifest(
+        "2026-10-05T12:05:52.56Z", "2026-10-05T12:05:52.56Z", "2026-10-05T12:05:52.56Z",
+        "2026-10-05T12:05:52.56Z", "f0903c78-2deb-4d2f-bb2d-3dedd9c01d55", -968319015,
+        "sample.isoseq.FlashBD_5p--FlashBD_3p.consensusreadset.xml", "Barcodes FlashBD_5p--FlashBD_3p")
+    manifest_b = _datastore_manifest(
+        "2026-10-06T09:11:03.12Z", "2026-10-06T09:11:03.12Z", "2026-10-06T09:11:03.12Z",
+        "2026-10-06T09:11:03.12Z", "a1b2c3d4-0000-0000-0000-000000000000", 123456,
+        "sample.isoseq.OTHER_5p--OTHER_3p.consensusreadset.xml", "Barcodes FlashBD_5p--FlashBD_3p")
+    (a / "lima" / "sample.isoseq.json").write_text(json.dumps(manifest_a))
+    (b / "lima" / "sample.isoseq.json").write_text(json.dumps(manifest_b))
+
+    diffs = compare_trees(a, b)
+    assert len(diffs) == 1
+    assert "files[0].path" in diffs[0]
+
+
 def test_missing_and_extra_file(tmp_path):
     a, b = tmp_path / "a", tmp_path / "b"
     a.mkdir()
