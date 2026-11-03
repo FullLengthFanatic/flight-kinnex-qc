@@ -13,6 +13,7 @@ import math
 import shlex
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Optional
 
@@ -33,6 +34,7 @@ from .sampling import in_hash_sample
 from .schemas import ANNOT_SEGMENTS, READ_FEATURES, READ_SUMMARY
 
 BATCH = 200
+PROGRESS_EVERY = 1_000_000   # HiFi records read between two progress lines of the annotation pass
 SREAD_CHUNK = 100_000
 _SREADS = pa.schema([("zm", pa.uint32()), ("di", pa.int16()), ("qs", pa.int32()), ("qe", pa.int32()),
                      ("dl", pa.int8()), ("dr", pa.int8())])
@@ -117,7 +119,8 @@ def _frame(schema: pa.Schema, batches: list[pa.RecordBatch]) -> pl.DataFrame:
 
 
 def annotate(hifi, chem: Chemistry, fraction: float, threads: int, counts: Optional[dict] = None,
-             molecules_out: Optional[MoleculeSink] = None) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+             molecules_out: Optional[MoleculeSink] = None, progress: Optional[Callable[[int, int], None]] = None
+             ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     """Annotate the records of a HiFi BAM in the hash sample given by fraction (every record at fraction 1), parallel
     over batches of BATCH.
 
@@ -135,24 +138,32 @@ def annotate(hifi, chem: Chemistry, fraction: float, threads: int, counts: Optio
     file. When every record is read (fraction 1, or molecules_out given) every yielded record is counted; otherwise
     iter_bam calls keep(zm) once per record (a HiFi BAM has one record per ZMW), so counting those
     calls counts the whole file even though only the sampled records are yielded.
+
+    progress: when given, called as progress(records read, records read that are in the hash sample) every
+    PROGRESS_EVERY records read from the BAM.
     """
-    seen = 0
+    seen = in_sample_seen = 0
 
-    def _keep(zm):
-        nonlocal seen
+    def _count(zm) -> bool:
+        """Count one record read from the BAM; True when its ZMW is in the hash sample."""
+        nonlocal seen, in_sample_seen
         seen += 1
-        return in_hash_sample(zm, fraction)
+        in_sample = fraction >= 1 or in_hash_sample(zm, fraction)
+        in_sample_seen += in_sample
+        if progress is not None and seen % PROGRESS_EVERY == 0:
+            progress(seen, in_sample_seen)
+        return in_sample
 
-    keep = None if fraction >= 1 or molecules_out is not None else _keep
+    keep = None if fraction >= 1 or molecules_out is not None else _count
     # the records of each batch submitted and not yet returned, in submission order, which is the order bounded_imap
     # returns the results in
     in_flight = collections.deque()
 
     def item_batches():
-        nonlocal seen
         for records in batched(iter_bam(hifi, threads=threads, keep=keep), BATCH):
             if keep is None:
-                seen += len(records)
+                for r in records:
+                    _count(r.get_tag("zm"))
             if molecules_out is not None:
                 in_flight.append(records)
             yield [(r.get_tag("zm"), "hifi", r.query_sequence, r.get_tag("np"), r.get_tag("rq"), True) for r in records]
@@ -269,6 +280,11 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
         lines.append(msg)
 
     t0 = time.time()
+
+    def elapsed() -> str:
+        s = int(time.time() - t0)
+        return f"{s // 3600}:{s // 60 % 60:02d}:{s % 60:02d}"
+
     log(f"kinnex-qc run: start {time.strftime('%Y-%m-%d %H:%M:%S')}")
     log("command: " + shlex.join(["kinnex-qc", *argv]))
     log(f"options: hifi={hifi} sreads={sreads} out={out} adapters={adapters} primers={primers} "
@@ -285,14 +301,18 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
     # frames, and so every number below, hold the hash sample alone
     counts: dict = {}
     with (MoleculeSink(template, out / "molecules.bam") if write_molecules else contextlib.nullcontext()) as sink:
-        read_summary, molecules, features = annotate(hifi, chem, fraction, threads, counts=counts, molecules_out=sink)
+        read_summary, molecules, features = annotate(
+            hifi, chem, fraction, threads, counts=counts, molecules_out=sink,
+            progress=lambda n, m: log(f"annotated: {n} records read, {m} in the sample, elapsed {elapsed()}"))
     hifi_reads_in_file = counts["hifi_reads_in_file"]
 
     molecules_written = None
     if write_molecules:
         molecules_written = sink.written
+        source = (f"all {hifi_reads_in_file} reads" if fraction >= 1 else
+                  f"the hash sample (fraction {fraction}, {read_summary.height} of {hifi_reads_in_file} reads)")
         log(f"molecules written: {molecules_written}, for all {hifi_reads_in_file} HiFi reads in the file; summary "
-            f"numbers come from the hash sample (fraction {fraction}, {read_summary.height} of {hifi_reads_in_file} reads)")
+            f"numbers come from {source}")
 
     # The S-read BAM is read only after annotate()'s process pool has been created and shut down
     # (fork safety: a pysam file opened with threads > 1 before a fork can leave the child with a
@@ -304,7 +324,9 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
     read_summary_for_junctions = read_summary.with_columns(pl.lit(None, dtype=pl.Boolean).alias("skera_passing"))
     if sreads is not None:
         keep = None if fraction >= 1 else (lambda zm: in_hash_sample(zm, fraction))
+        log(f"S-read pass: start, elapsed {elapsed()}")
         sreads_df = read_sreads(sreads, threads, keep=keep)
+        log(f"S-read pass: end, {sreads_df.height} S-reads of the checked reads, elapsed {elapsed()}")
         order_len = len(chem.order)
 
         passing = skera.passing_from_labels(sreads_df, order_len=order_len)
@@ -374,7 +396,11 @@ def run(hifi: Path, sreads: Optional[Path], out: Path, chem: Chemistry, fraction
 
     picks = reader_report.pick_examples(read_summary, molecules, features, examples, order=chem.order,
                                         sreads=sreads_df, passing=passing, fc=fc_all)
-    seqs = example_sequences(hifi, {p["zm"] for p in picks}, threads)
+    seqs, zms = {}, {p["zm"] for p in picks}
+    if zms:
+        log(f"examples pass: start, {len(zms)} example reads, elapsed {elapsed()}")
+        seqs = example_sequences(hifi, zms, threads)
+        log(f"examples pass: end, elapsed {elapsed()}")
     report = reader_report.write(out, summary, [{**p, "seq": seqs[p["zm"]]} for p in picks])
     log(f"report: {report} ({len(picks)} example reads)")
 

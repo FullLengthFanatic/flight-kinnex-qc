@@ -329,6 +329,23 @@ def test_molecules_written_row_says_it_counts_every_read(with_sreads, tmp_path):
     assert "<td>Molecules written to molecules.bam, from every read in the file</td><td>30</td>" in page
 
 
+@pytest.mark.parametrize("molecules_written", [None, 30])
+def test_inputs_paragraph_names_the_numbers_that_count_the_whole_file(with_sreads, tmp_path, molecules_written):
+    """Below a hash sample's inputs table: the reads in the file (also under the title) and, with --write-molecules,
+    the molecules written count the whole file; every other number describes the sample."""
+    summary = json.loads((with_sreads / "summary.json").read_text())
+    summary["fraction"] = 0.1
+    whole = '"HiFi reads in the file" (in this table and under the title) counts'
+    if molecules_written is not None:
+        summary["molecules_written"] = molecules_written
+        whole = ('"HiFi reads in the file" (in this table and under the title) and "Molecules written to molecules.bam" '
+                 'count')
+    page = reader_report.write(tmp_path, summary, []).read_text(encoding="utf-8")
+    assert "every number above describes that sample" not in page
+    assert (f"whatever the order of the file. Only {whole} the whole file; every other number above describes that "
+            "sample.") in page
+
+
 def test_html_sequence_draws_adapters_on_top_with_1_based_titles():
     seq = "acgtACGTacgt"
     out = viewer.html_sequence(seq, [("A", 4, 8, "adapter"), ("TSO", 2, 6, "tso")], wrap=5)

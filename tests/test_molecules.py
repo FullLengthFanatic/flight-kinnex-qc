@@ -2,6 +2,7 @@
 import subprocess
 import sys
 import tracemalloc
+from concurrent.futures.process import BrokenProcessPool
 from pathlib import Path
 
 import numpy as np
@@ -153,6 +154,37 @@ def test_streamed_molecules_bam_is_byte_identical_to_write_molecules(test_bams, 
         runner.annotate(hifi, KINNEX8_SC3, fraction, 2, molecules_out=sink)
     assert (n, sink.written) == (30, 30)
     assert got.read_bytes() == want.read_bytes()
+
+
+def test_sink_writes_molecules_bam_part_and_renames_it_when_the_block_ends(test_bams, tmp_path):
+    """Until the with-block ends without an error the records go to molecules.bam.part; molecules.bam appears only
+    then, complete."""
+    hifi, sreads = test_bams
+    mols = _annotated(hifi)
+    out = tmp_path / "molecules.bam"
+    with molecules.MoleculeSink(sreads, out) as sink:
+        sink.add(list(pysam.AlignmentFile(str(hifi), "rb", check_sq=False)), mols)
+        assert [p.name for p in tmp_path.iterdir()] == ["molecules.bam.part"]
+    assert [p.name for p in tmp_path.iterdir()] == ["molecules.bam"]
+    assert sum(1 for _ in pysam.AlignmentFile(str(out), "rb", check_sq=False)) == 30
+
+
+@pytest.mark.parametrize("error", [BrokenProcessPool, KeyboardInterrupt])
+@pytest.mark.parametrize("written", [True, False])
+def test_sink_leaves_neither_file_when_the_block_raises(test_bams, tmp_path, error, written):
+    """A run that fails (a killed worker: BrokenProcessPool) or is interrupted (Ctrl-C) inside the with-block leaves
+    neither molecules.bam nor molecules.bam.part, whether or not records were written, never a truncated BAM that
+    looks complete."""
+    hifi, sreads = test_bams
+    mols = _annotated(hifi)
+    out = tmp_path / "molecules.bam"
+    with pytest.raises(error):
+        with molecules.MoleculeSink(sreads, out) as sink:
+            if written:
+                sink.add(list(pysam.AlignmentFile(str(hifi), "rb", check_sq=False)), mols)
+                assert sink.written == 30
+            raise error()
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_write_molecules_does_not_hold_molecules_as_python_tuples(test_bams, tmp_path):

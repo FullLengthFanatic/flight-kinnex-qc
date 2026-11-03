@@ -39,19 +39,24 @@ class MoleculeSink:
     among its read's written molecules sorted by start, qs and qe the slice bounds, RG the template's first read
     group. The header is the template's header (to_dict()), unchanged. The output is opened at the first write (or at
     close, for a BAM of no records), not here, so a sink made before annotate() forks its workers is not open in them.
+
+    The records go to out with ".part" appended, renamed to out by close, when the with-block ends without an error. A
+    with-block that raises (a killed worker, Ctrl-C) closes the writer and deletes the .part file, so a failed run
+    leaves no truncated BAM that looks complete.
     """
 
     def __init__(self, template: Path, out: Path):
         with pysam.AlignmentFile(str(template), "rb", check_sq=False) as t:
             self._header = t.header.to_dict()
         self._rg = self._header["RG"][0]["ID"]
-        self._out = out
+        self._out = Path(out)
+        self._part = self._out.with_name(self._out.name + ".part")
         self._w = None
         self.written = 0
 
     def _writer(self) -> pysam.AlignmentFile:
         if self._w is None:
-            self._w = pysam.AlignmentFile(str(self._out), "wb", header=self._header)
+            self._w = pysam.AlignmentFile(str(self._part), "wb", header=self._header)
         return self._w
 
     def write_read(self, r: pysam.AlignedSegment, starts: np.ndarray, ends: np.ndarray) -> None:
@@ -86,12 +91,18 @@ class MoleculeSink:
 
     def close(self) -> None:
         self._writer().close()
+        self._part.replace(self._out)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        if exc_type is None:
+            self.close()
+            return
+        if self._w is not None:
+            self._w.close()
+        self._part.unlink(missing_ok=True)
 
 
 def write_molecules(hifi: Path, molecules: pl.DataFrame, template: Path, out: Path,

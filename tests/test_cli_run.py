@@ -2,9 +2,11 @@
 import csv
 import gzip
 import json
+import re
 import subprocess
 import tracemalloc
 import warnings
+from concurrent.futures.process import BrokenProcessPool
 
 import polars as pl
 import pyarrow as pa
@@ -663,6 +665,67 @@ def test_write_molecules_writes_molecules_bam_and_records_count(test_bams, tmp_p
     assert summary["molecules_written"] == 30
     assert ("molecules written: 30, for all 6 HiFi reads in the file; summary numbers come from the hash sample "
             "(fraction 0.1, 1 of 6 reads)") in (out / "run.log").read_text()
+
+
+def test_write_molecules_at_fraction_1_logs_that_summary_numbers_come_from_all_reads(test_bams, tmp_path):
+    """At fraction 1 there is no hash sample to name: the summary numbers come from every read."""
+    hifi, sreads = test_bams
+    out = tmp_path / "out"
+    _run("--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--write-molecules", "--fraction", "1",
+         "--threads", "2", check=True)
+    log = (out / "run.log").read_text()
+    assert "molecules written: 30, for all 6 HiFi reads in the file; summary numbers come from all 6 reads\n" in log
+    assert "hash sample" not in log
+
+
+@_IGNORE_FORK_WARNING
+def test_run_that_breaks_while_writing_molecules_leaves_no_molecules_bam(test_bams, tmp_path, monkeypatch):
+    """A run that breaks in the annotation pass (a killed worker: BrokenProcessPool) after molecules were written leaves
+    neither molecules.bam nor molecules.bam.part in DIR."""
+    hifi, sreads = test_bams
+    real_annotate = runner.annotate
+
+    def breaks(*args, molecules_out=None, **kwargs):
+        real_annotate(*args, molecules_out=molecules_out, **kwargs)
+        assert molecules_out.written == 30
+        raise BrokenProcessPool("a worker died")
+
+    monkeypatch.setattr(runner, "annotate", breaks)
+    out = tmp_path / "out"
+    with pytest.raises(BrokenProcessPool):
+        cli.main(["run", "--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--write-molecules",
+                  "--threads", "1"])
+    assert not (out / "molecules.bam").exists()
+    assert not (out / "molecules.bam.part").exists()
+
+
+@_IGNORE_FORK_WARNING
+@pytest.mark.parametrize(("fraction", "extra"), [("1", []), ("0.5", []), ("0.5", ["--write-molecules"])])
+def test_run_logs_the_progress_of_each_pass(test_bams, tmp_path, monkeypatch, capsys, fraction, extra):
+    """run.log and stderr get a line every PROGRESS_EVERY HiFi records read in the annotation pass (2 here: lines at 2, 4
+    and 6 of the fixture's 6 reads), and one at the start and end of the S-read pass and of the examples pass, in that
+    order. Every read at fraction 1, a hash sample, and a hash sample with --write-molecules (every read annotated)."""
+    hifi, sreads = test_bams
+    monkeypatch.setattr(runner, "PROGRESS_EVERY", 2)
+    out = tmp_path / "out"
+    rc = cli.main(["run", "--hifi", str(hifi), "--sreads", str(sreads), "--out", str(out), "--fraction", fraction,
+                   "--threads", "1", *extra])
+    assert rc == 0
+    log = (out / "run.log").read_text().splitlines()
+    assert capsys.readouterr().err.splitlines() == log
+
+    elapsed = r", elapsed \d+:\d\d:\d\d"
+    zms = [r.get_tag("zm") for r in pysam.AlignmentFile(str(hifi), "rb", check_sq=False)]
+    n_sreads = sum(in_hash_sample(r.get_tag("zm"), float(fraction))
+                   for r in pysam.AlignmentFile(str(sreads), "rb", check_sq=False))
+    want = [f"annotated: {n} records read, {sum(in_hash_sample(zm, float(fraction)) for zm in zms[:n])} in the sample"
+            + elapsed for n in (2, 4, 6)]
+    want += ["S-read pass: start" + elapsed, f"S-read pass: end, {n_sreads} S-reads of the checked reads" + elapsed,
+             r"examples pass: start, \d+ example reads" + elapsed, "examples pass: end" + elapsed]
+    got = [line for line in log if line.startswith(("annotated:", "S-read pass:", "examples pass:"))]
+    assert len(got) == len(want)
+    for line, pattern in zip(got, want):
+        assert re.fullmatch(pattern, line), line
 
 
 def test_threads_1_and_3_give_the_same_output(test_bams, tmp_path):

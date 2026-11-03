@@ -598,9 +598,12 @@ def _section_inputs(s: dict, n_section: int) -> str:
         rows.append(["Molecules written to molecules.bam, from every read in the file", f"{s['molecules_written']:,}"])
     sk = f"skera {_e(s['skera_version'] or 'n/a')} (from the S-read BAM's header), " if inp["sreads"] else ""
     rows.append(["Software", f"kinnex-qc {_e(s['version'])}, {sk}Python {platform.python_version()}, {_versions()}"])
+    whole = ('"HiFi reads in the file" (in this table and under the title) and "Molecules written to molecules.bam" count'
+             if "molecules_written" in s else '"HiFi reads in the file" (in this table and under the title) counts')
     fraction = ("Every ZMW in the file was checked." if s["fraction"] >= 1 else
                 f"A ZMW is checked when a salted hash of its number falls in the lowest {_pct(s['fraction'])} of the hash range, so the "
-                "sample spreads over the whole cell whatever the order of the file; every number above describes that sample.")
+                f"sample spreads over the whole cell whatever the order of the file. Only {whole} the whole file; every other number "
+                "above describes that sample.")
     limits = [
         "lima, isoseq refine and mapping are not run: the report does not say which S-reads or molecules survive the standard workflow.",
         "Fail reads (ZMWs whose consensus did not reach HiFi quality) are not checked.",
