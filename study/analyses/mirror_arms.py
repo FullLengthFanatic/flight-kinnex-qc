@@ -4,7 +4,8 @@
 A mirror read Q' .. X' [TSO-TSO] X .. Q carries reverse-complement adapters on the arm BEFORE the junction molecule and
 forward adapters on the arm AFTER it (skera.single_tso_tso_mirrors). Molecules come from our full-read annotation
 (annot_segments of a truth or sample directory); S-reads from skera's own tags (zm, di, qs, qe, dl, dr), given as a
-segments parquet or as a skera S-read BAM (read as the reader command reads one, di the record's index within its ZMW).
+segments parquet or as a skera S-read BAM (read as the reader command reads one, di the record's index within its ZMW;
+observed in the skera 1.2.0 S-read BAM of the calibration set too: the S-reads of one ZMW are consecutive records).
 Per proper, unfused molecule, skera.mirror_arm_classes and skera.molecule_coverage: CLEAN if one S-read covers at least
 80% of it and at least 20% of no other molecule; FUSED if an S-read covers at least 80% of it and at least 20% of
 another molecule; PARTIAL if the best S-read covers 20 to 80%; NOT_WRITTEN otherwise. Per read: NO_SREAD;

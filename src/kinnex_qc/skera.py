@@ -172,7 +172,7 @@ def skipped_adapters(fc: pl.DataFrame, sreads: pl.DataFrame, features: pl.DataFr
     tie-break. Columns zm, cut_start, missed, in_sread (1 before, 2 after), dist; null missed when
     neither S-read holds one. The rule: the adapter skera's call skipped at a false cut is the one of
     ours, among those still inside a flanking S-read, closest to the cut. study/analyses/false_cut_anatomy.py
-    will use this same rule in this repo's layout."""
+    uses this same rule in this repo's layout."""
     base = fc.with_row_index("gid").with_columns(((pl.col("cut_start") + pl.col("cut_end")) // 2).alias("cut"))
     inside = adapters_inside_sreads(sreads, features, tol=tol, strict=False).select("zm", "di", "name", "start")
     before = base.select("gid", "zm", pl.col("di_before").alias("di"), "cut").join(inside, on=["zm", "di"]) \
@@ -233,7 +233,7 @@ def mirror_arm_classes(molecules: pl.DataFrame, sreads: pl.DataFrame) -> pl.Data
     with its region before (end <= js) or after (start >= je) the junction, and its class under
     molecule_coverage computed on all molecules of that read. The region rule: a molecule lies before
     the junction when it ends at or before the junction's start, after when it starts at or after the
-    junction's end. study/analyses/mirror_arms.py will use this same rule in this repo's layout."""
+    junction's end. study/analyses/mirror_arms.py uses this same rule in this repo's layout."""
     st = single_tso_tso_mirrors(molecules)
     mols = molecules.join(st.select("zm", "js", "je"), on="zm")
     sr = sreads.filter(pl.col("zm").is_in(st["zm"]))
@@ -249,7 +249,7 @@ def mirror_arm_stats(molecules: pl.DataFrame, sreads: pl.DataFrame) -> dict:
     """summary.json["skera"]'s mirror_arms: CLEAN shares (and counts by class) on the arm after and
     before a single TSO-TSO mirror junction (mirror_arm_classes' before/after region rule), as the
     share of each arm's molecules that molecule_coverage classifies CLEAN, plus the raw counts per
-    class. study/analyses/mirror_arms.py will use this same rule in this repo's layout."""
+    class. study/analyses/mirror_arms.py uses this same rule in this repo's layout."""
     arm = mirror_arm_classes(molecules, sreads)
     out = {}
     for region in ("after", "before"):
@@ -265,15 +265,15 @@ def budget_classes(molecules: pl.DataFrame, sreads: pl.DataFrame) -> pl.DataFram
     """Every molecule's slot-budget role: usable (proper, not internal) and, from molecule_coverage
     computed on all molecules of the read, its class (CLEAN/FUSED/PARTIAL/NOT_WRITTEN). The usable
     rule: a molecule is usable when its end_class is proper and it is not internal (fused).
-    study/analyses/molecule_budget.py will use this same rule, without the lima, refine or mapping
-    columns (no lima, refine or mapping run here)."""
+    study/analyses/molecule_budget.py uses this same rule and adds the lima, refine and mapping
+    fates of stage 05 (no lima, refine or mapping run here)."""
     return molecule_coverage(molecules, sreads).with_columns(USABLE.alias("usable"))
 
 
 def budget_per_read(cls: pl.DataFrame) -> pl.DataFrame:
     """Per ZMW with at least one molecule in `cls` (skera.budget_classes' output): molecule count, the
     four artifact kinds, usable molecules and their clean/not-clean split, one row per ZMW.
-    study/analyses/molecule_budget.py will use this same per-read aggregation."""
+    study/analyses/molecule_budget.py uses this same per-read aggregation."""
     return (cls.group_by("zm", maintain_order=True).agg(
         pl.len().alias("molecules"),
         (~pl.col("usable") & (pl.col("end_class") == "tso_tso")).sum().alias("artifact_tso_tso"),
