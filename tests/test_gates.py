@@ -3,6 +3,7 @@ replaced, the synthetic benchmark on built molecules, the stage CLI on a toy tre
 and on the v10 hash sample."""
 import json
 import random
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -24,6 +25,7 @@ GOLDEN = Path(__file__).parent / "golden" / "v10_inputs" / "hash_0.18"
 SAMPLES = ("BD144_ND", "BD144_HM", "BD144_kin")
 HEADER = "sample\tcell\tdepletion\thifi_bam\tfail_bam\tsegmented_bam\tnon_passing_bam\tzmw_metrics\tskera_report\tfltnc_bam\n"
 U32 = {"zm": pl.UInt32}
+V10_SKERA_TEXT = "reported only (spec 17)"      # v10's threshold text in the frozen gate_skera.json files
 
 
 def per_read_agreement(segments: pl.DataFrame, features: pl.DataFrame, passing: set[int], tol: int = 5) -> dict:
@@ -241,7 +243,7 @@ def test_cli_skera_lima_adapter_index_on_toy_tree(tmp_path):
     assert sorted(p.name for p in gate_dir.iterdir()) == ["gate_skera.json"]
     g = json.loads((gate_dir / "gate_skera.json").read_text())
     assert g == {"gate": "skera", "passed": True, "metrics": {"compared_reads": 2, "agreeing_reads": 1, "agreement": 0.5},
-                 "threshold": {"agreement": "reported only (spec 17)"}}
+                 "threshold": {"agreement": "reported only"}}
     r = run_gates(samples, tmp_path, "--gate", "lima", "--fail-subsample", "3")
     assert r.returncode == 0, r.stderr
     assert json.loads((gate_dir / "gate_lima.json").read_text())["passed"] is True
@@ -319,7 +321,12 @@ def test_gates_on_v10_hash_sample_equal_golden(local, tmp_path, sample):
                        cwd=REPO, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     assert sorted(p.name for p in (out / "gates").iterdir()) == sorted(p.name for p in (GOLDEN / sample / "gates").iterdir())
-    assert compare_trees(out / "gates", GOLDEN / sample / "gates") == []
+    golden = tmp_path / "golden_gates"
+    shutil.copytree(GOLDEN / sample / "gates", golden)
+    skera = golden / "gate_skera.json"
+    assert skera.read_text().count(V10_SKERA_TEXT) == 1                  # the one known difference, pinned
+    skera.write_text(skera.read_text().replace(V10_SKERA_TEXT, "reported only"))
+    assert compare_trees(out / "gates", golden) == []                    # every other key of all 12 files, exactly
     seg, feats, reads = agreement_inputs(out, 10)
     want = per_read_agreement(seg, feats, set(reads.filter(pl.col("passing"))["zm"]))
     assert json.loads((out / "gates" / "gate_skera.json").read_text())["metrics"] == want

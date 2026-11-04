@@ -10,7 +10,9 @@
 
 skera and adapter_index read 1 in N HiFi ZMWs (sampling.keep_zmw_array, N = --fail-subsample, the modulo stage 02
 subsamples fail reads with). synthetic reads only the segmented BAM; the others read stage 02, 03 and 05 outputs.
-Exits 1 when a hard gate that ran failed, after running every gate asked for.
+Exits 1 when a hard gate that ran failed, after running every gate asked for: a verdict failure (a hard gate below
+its threshold) still lets the other gates run, while an exception stops the stage. The runner runs the skera gate as
+its own step.
 Usage, from the repository root:
   study/pipeline/gates.py --sample <name> [--gate synthetic|skera|lima|adapter_index|all] [--samples PATH]
       [--out-root DIR] [--fraction F] [--fail-subsample N] [--processes N]
@@ -38,10 +40,10 @@ FAIL_RATES = (0.05, 0.08, 0.12)
 LIMA_MAP = {"proper": "5p--3p", "tso_tso": "5p--5p", "r1_r1": "3p--3p"}   # every other class maps to "none"
 N_SREADS = 3000
 GATES = ("synthetic", "skera", "lima", "adapter_index")
-# The threshold texts are v10's, verbatim, so the gate files equal the frozen ones.
+# The threshold texts are v10's, verbatim, except the skera one, which no longer cites an internal reference.
 THRESHOLDS = {
     "synthetic": {"hifi_rates": "MAS/TSO/R1 recall >= 0.99 and precision >= 0.999", "fused_internal_recall": ">= 0.99"},
-    "skera": {"agreement": "reported only (spec 17)"},
+    "skera": {"agreement": "reported only"},
     "lima": {"class_pair_agreement": ">= 0.98", "fltnc_in_lima_pass": ">= 0.995"},
     "adapter_index": {"agreement": ">= 0.99"},
 }
