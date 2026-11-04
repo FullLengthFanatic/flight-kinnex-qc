@@ -66,11 +66,11 @@ def run_analysis(script: str, *args: str) -> subprocess.CompletedProcess:
     return r
 
 
-def golden_diffs(out: Path, golden: Path, scratch: Path) -> list[str]:
-    """compare_runs' differences between the golden files of one analysis and the files of the same names in out (the
-    analysis may write more files than were frozen). Copies both sides into scratch, so compare_trees sees the same
-    file set on each."""
-    names = [p.relative_to(golden) for p in golden.rglob("*") if p.is_file()]
+def golden_diffs(out: Path, golden: Path, scratch: Path, pattern: str = "*") -> list[str]:
+    """compare_runs' differences between the golden files of one analysis whose names match pattern and the files of
+    the same names in out (the analysis may write more files than were frozen). Copies both sides into scratch, so
+    compare_trees sees the same file set on each; a golden file missing from out is a difference."""
+    names = [p.relative_to(golden) for p in golden.rglob(pattern) if p.is_file()]
     for side, root in (("out", out), ("golden", golden)):
         for rel in names:
             if (root / rel).exists():
