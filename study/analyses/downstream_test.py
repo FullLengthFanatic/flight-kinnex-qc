@@ -5,12 +5,13 @@ From the first 200,000 BD144_ND HiFi reads (a local BAM of them, MM/ML removed),
 complete reads (our full-read calls, in --truth), cut every molecule we call proper and not fused at our segment
 coordinates (kinnex_qc.molecules.write_molecules), and run them through lima --isoseq --peek-guess and isoseq refine
 with the existing pipeline's primers, then minimap2 -ax splice:hq -uf to the reference genome (the study's reference is
-the GRCh38 primary assembly). Groups: molecules of mirror reads that no delivered skera S-read covers (skera never
-wrote them), molecules of mirror reads that skera did write, and molecules of complete reads. Written by skera here
-means one S-read covers at least 80% of the molecule (skera.best_cover), looser than the CLEAN rule of mirror_arms.py.
+the GRCh38 primary assembly). Groups: molecules of mirror reads that skera did not write, molecules of mirror reads
+that skera did write, and molecules of complete reads. Written by skera here means one delivered S-read covers at least
+80% of the molecule (skera.best_cover), looser than the CLEAN rule of mirror_arms.py.
 Writes per-group pass rates (downstream_summary.tsv) and per-molecule results (downstream_molecules.tsv).
-The molecules are written with the header and read group of a skera S-read BAM of the same cell (--template), so lima
-reads them as segments (READTYPE=SEGMENT), one record per molecule, not as one CCS read per ZMW.
+The molecules are written with the header and read group of a skera S-read BAM of the same cell (--template, whose
+read group says READTYPE=SEGMENT), so lima takes each record as a molecule of its own, not one CCS read per ZMW
+(observed on the calibration set: lima's output holds one record per molecule it passes, named by that molecule).
 --truth holds read_summary, annot_segments and segments (the delivered skera S-reads) for these reads. lima and isoseq
 run in the conda environment --pbtools-env (default: pbtools_env of study/study.toml), and so does minimap2 unless
 --minimap2 (default: minimap2 of study/study.toml, when set) names an executable. The three tools' versions go to
