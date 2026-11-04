@@ -30,7 +30,7 @@ from kinnex_qc.io import iter_bam
 from kinnex_qc.molecules import USABLE
 from kinnex_qc.runner import read_sreads
 from kinnex_qc.sampling import in_hash_sample
-from kinnex_qc.skera import COVER, TOUCH, mirror_arm_classes, molecule_coverage, single_tso_tso_mirrors, sread_overlaps
+from kinnex_qc.skera import COVER, TOUCH, mirror_arm_classes, mirror_regions, molecule_coverage, single_tso_tso_mirrors, sread_overlaps
 
 JUNCTION_TOL = 5        # bp: an adapter of ours ending (starting) this close to the junction molecule's start (end) flanks it
 FOUND_TOL = 10          # bp: a found_adapters entry matches an adapter of ours when either end is this close
@@ -43,12 +43,9 @@ def shares(df: pl.DataFrame, by: list[str], key: str) -> pl.DataFrame:
 
 def read_classes(segs: pl.DataFrame, st: pl.DataFrame, sk: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
     """For the single TSO-TSO mirror reads st: one row per read with its letter and read_class, and the S-reads
-    covering at least COVER of a molecule, by the molecule's region (junction, before, after, other) and the S-read's
-    orientation (orientation table)."""
-    mols = (segs.join(st, on="zm").with_columns(
-        pl.when((pl.col("start") == pl.col("js")) & (pl.col("end") == pl.col("je"))).then(pl.lit("junction"))
-        .when(pl.col("end") <= pl.col("js")).then(pl.lit("before")).when(pl.col("start") >= pl.col("je")).then(pl.lit("after"))
-        .otherwise(pl.lit("other")).alias("region")).select("zm", "start", "end", "region"))
+    covering at least COVER of a molecule, by the molecule's region (skera.mirror_regions: junction, before, after,
+    other) and the S-read's orientation (orientation table)."""
+    mols = mirror_regions(segs).select("zm", "start", "end", "region")
     msk = sk.filter(pl.col("zm").is_in(st["zm"]))
     pairs = sread_overlaps(mols, msk)
     arms = (pairs.filter(pl.col("ov") >= TOUCH).group_by("zm")

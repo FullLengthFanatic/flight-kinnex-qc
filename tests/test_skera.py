@@ -109,6 +109,21 @@ def test_false_cut_stats_uses_the_passed_in_passing_and_fc():
     assert stats_dup["false_cuts"] == 2
 
 
+def test_mirror_regions():
+    """Every molecule of a single TSO-TSO mirror read with its columns and region: the TSO-TSO molecule (1031-3031) is
+    junction; a molecule ending at or before 1031 is before, one starting at or after 3031 after, any other other.
+    zm 1 (no mirror junction) and zm 3 (two junctions) are not single TSO-TSO mirror reads."""
+    reads = {**complete_with_false_cut(), **tso_tso_mirror(), **double_mirror()}
+    reads[2]["molecules"] += [(1000, 1031, "proper", False, None, None), (2000, 2500, "proper", True, None, None),
+                              (3031, 3040, "none", False, None, None)]
+    f, m, s = frames(reads)
+    reg = skera.mirror_regions(m)
+    assert reg.columns == [*m.columns, "region"]
+    assert reg.sort("start").select("zm", "start", "end", "region").rows() == [
+        (2, 14, 1014, "before"), (2, 1000, 1031, "before"), (2, 1031, 3031, "junction"), (2, 2000, 2500, "other"),
+        (2, 3031, 3040, "after"), (2, 3048, 4048, "after")]
+
+
 def test_mirror_arm_classes_regions():
     f, m, s = frames(tso_tso_mirror())
     arm = skera.mirror_arm_classes(m, s).sort("region")
@@ -183,6 +198,7 @@ def test_every_public_function_on_empty_frames():
         ("sread_overlaps", skera.sread_overlaps(m, s), [*m.columns, "di", "qs", "qe", "dl", "dr", "ov"]),
         ("mirror_junctions", skera.mirror_junctions(m), [*m.columns, "letter"]),
         ("single_tso_tso_mirrors", skera.single_tso_tso_mirrors(m), ["zm", "js", "je", "letter"]),
+        ("mirror_regions", skera.mirror_regions(m), [*m.columns, "region"]),
         ("passing_from_labels", passing, ["zm", "passing"]),
         ("skipped_adapters", skera.skipped_adapters(fc, s, f), ["zm", "cut_start", "missed", "in_sread", "dist"]),
         ("mirror_arm_classes", skera.mirror_arm_classes(m, s), ["zm", "region", "cls"]),

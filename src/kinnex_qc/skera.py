@@ -129,6 +129,20 @@ def single_tso_tso_mirrors(molecules: pl.DataFrame) -> pl.DataFrame:
             .select("zm", "js", "je", "letter").sort("zm"))
 
 
+def mirror_regions(molecules: pl.DataFrame) -> pl.DataFrame:
+    """Every molecule of a single TSO-TSO mirror read (single_tso_tso_mirrors), with its columns and its region:
+    junction for the TSO-TSO molecule itself (start == js and end == je), before when it ends at or before the
+    junction's start (end <= js), after when it starts at or after the junction's end (start >= je), other otherwise.
+    mirror_arm_classes and study/analyses/mirror_arms.py take every region from here."""
+    st = single_tso_tso_mirrors(molecules)
+    return (molecules.join(st.select("zm", "js", "je"), on="zm")
+            .with_columns(pl.when((pl.col("start") == pl.col("js")) & (pl.col("end") == pl.col("je"))).then(pl.lit("junction"))
+                          .when(pl.col("end") <= pl.col("js")).then(pl.lit("before"))
+                          .when(pl.col("start") >= pl.col("je")).then(pl.lit("after"))
+                          .otherwise(pl.lit("other")).alias("region"))
+            .drop("js", "je"))
+
+
 def passing_from_labels(sreads: pl.DataFrame, order_len: int = 9) -> pl.DataFrame:
     """Derive skera's pass/fail verdict from the S-read adapter labels alone, for the reader command's
     case (it gets only segmented.bam, not segmented.non_passing.bam): a ZMW is passing when, in read
@@ -230,19 +244,12 @@ def false_cut_stats(read_summary: pl.DataFrame, features: pl.DataFrame, sreads: 
 
 def mirror_arm_classes(molecules: pl.DataFrame, sreads: pl.DataFrame) -> pl.DataFrame:
     """Every proper, non-internal molecule of a single TSO-TSO mirror read (skera.single_tso_tso_mirrors),
-    with its region before (end <= js) or after (start >= je) the junction, and its class under
-    molecule_coverage computed on all molecules of that read. The region rule: a molecule lies before
-    the junction when it ends at or before the junction's start, after when it starts at or after the
-    junction's end. study/analyses/mirror_arms.py uses this same rule in this repo's layout."""
-    st = single_tso_tso_mirrors(molecules)
-    mols = molecules.join(st.select("zm", "js", "je"), on="zm")
-    sr = sreads.filter(pl.col("zm").is_in(st["zm"]))
-    cov = molecule_coverage(mols, sr)
-    return (cov.filter(USABLE)
-            .with_columns(pl.when(pl.col("end") <= pl.col("js")).then(pl.lit("before"))
-                          .when(pl.col("start") >= pl.col("je")).then(pl.lit("after"))
-                          .otherwise(pl.lit("other")).alias("region"))
-            .select("zm", "region", "cls"))
+    with its region from mirror_regions (before: end <= js; after: start >= je), and its class under
+    molecule_coverage computed on all molecules of that read. study/analyses/mirror_arms.py uses this
+    function for its molecules table and mirror_regions for its reads and orientation tables."""
+    mols = mirror_regions(molecules)
+    sr = sreads.filter(pl.col("zm").is_in(mols["zm"].unique()))
+    return molecule_coverage(mols, sr).filter(USABLE).select("zm", "region", "cls")
 
 
 def mirror_arm_stats(molecules: pl.DataFrame, sreads: pl.DataFrame) -> dict:

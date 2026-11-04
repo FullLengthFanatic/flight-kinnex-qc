@@ -8,6 +8,7 @@ import polars as pl
 import pysam
 import pytest
 
+from kinnex_qc import skera
 from pipeline_helpers import GOLDEN_INPUTS, golden_diffs, run_analysis
 from synth import complete_with_false_cut, double_mirror, frames, tso_tso_mirror
 
@@ -80,6 +81,26 @@ def test_mirror_arms_on_hand_built_reads(tmp_path):
                                                          ("G", "NO_SREAD", 1, 1.0), ("H", "AFTER_ONLY", 1, 1.0)]
     assert _table(tmp_path, "orientation").rows() == [("after", True, 2), ("before", False, 1), ("junction", False, 1)]
     assert not (tmp_path / "out" / "toy_found_adapters.tsv").exists()
+
+
+def test_every_table_takes_its_regions_from_the_package_rule(tmp_path, monkeypatch):
+    """The molecules table (through skera.mirror_arm_classes) and the reads and orientation tables take a molecule's
+    region from the one package rule, skera.mirror_regions: swapping before and after there swaps them in every table."""
+    rule = skera.mirror_regions
+
+    def swapped(molecules):
+        return rule(molecules).with_columns(pl.col("region").replace({"before": "after", "after": "before"}))
+
+    monkeypatch.setattr(skera, "mirror_regions", swapped)
+    monkeypatch.setattr(ma, "mirror_regions", swapped)
+    _truth_dir(tmp_path / "t")
+    _run(tmp_path, "--segments", str(tmp_path / "t" / "segments.parquet"))
+    assert _table(tmp_path, "molecules").rows()[:5] == [
+        ("after", "CLEAN", 1, 0.2), ("after", "NOT_WRITTEN", 3, 0.6), ("after", "PARTIAL", 1, 0.2),
+        ("before", "CLEAN", 2, 0.4), ("before", "NOT_WRITTEN", 3, 0.6)]
+    assert _table(tmp_path, "reads").rows() == [("BEFORE_ONLY", 1, 0.2), ("BOTH_ARMS", 1, 0.2), ("NO_SREAD", 1, 0.2), ("OTHER", 1, 0.2),
+                                               ("SPANS_JUNCTION", 1, 0.2)]
+    assert _table(tmp_path, "orientation").rows() == [("after", False, 1), ("before", True, 2), ("junction", False, 1)]
 
 
 def test_sreads_from_a_bam_non_passing_found_adapters_and_ligations(tmp_path):
