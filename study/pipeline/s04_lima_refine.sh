@@ -9,7 +9,9 @@
 # /dev/stdin with "unsupported extension", and on "-" and /dev/fd/N).
 # Usage, from the repository root:
 #   study/pipeline/s04_lima_refine.sh --sample <name> [--samples PATH] [--out-root DIR] [--fraction F] [--threads N]
-# Defaults come from study/study.toml; lima and isoseq run in its conda environment pbtools_env (a name, or a path).
+#       [--pbtools-env NAME|PATH]
+# lima and isoseq run in the conda environment --pbtools-env (a name, or a path).
+# Defaults come from study/study.toml.
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -38,12 +40,13 @@ ap.add_argument("--samples", default=config["samples"], help="samples table")
 ap.add_argument("--out-root", default=config["out_root"], help="output root")
 ap.add_argument("--fraction", type=float, default=config["fraction"], help="hash sample of the cell's ZMWs; 1 reads them all")
 ap.add_argument("--threads", type=int, default=config["threads"], help="lima and isoseq threads")
+ap.add_argument("--pbtools-env", default=config["pbtools_env"], help="conda environment with lima and isoseq (a name, or a path)")
 with contextlib.redirect_stdout(sys.stderr):        # stdout carries the values only
     args = ap.parse_args(sys.argv[2:])
 sample = load_samples(args.samples)[args.sample]
 out = out_dir(args.out_root, sample.sample, args.fraction)
 tmp = Path(args.out_root) / "tmp" / f"{sample.sample}_{out.parent.name}" if args.fraction < 1 else ""   # e.g. BD144_ND_hash_0.18
-print(sample.sample, args.fraction, args.threads, out, sample.segmented_bam, config["pbtools_env"], tmp, sep="\t")
+print(sample.sample, args.fraction, args.threads, out, sample.segmented_bam, args.pbtools_env, tmp, sep="\t")
 EOF
 )
 if [[ "$PB" == */* ]]; then RUN=(conda run --no-capture-output -p "$PB"); else RUN=(conda run --no-capture-output -n "$PB"); fi

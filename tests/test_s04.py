@@ -1,5 +1,6 @@
 """Tests for study/pipeline/s04_lima_refine.sh on the mini dataset. The run at fraction 1, which reads the segmented
 BAM as it is, is covered with stage 05 in test_s05.py."""
+import os
 import subprocess
 
 import pytest
@@ -22,6 +23,28 @@ def test_lima_refine_hash_sample(mini, tmp_path):
     summary = (out / "lima" / "BD144_ND.pairs.lima.summary").read_text()
     assert f"Reads input                    : {len(sreads)}\n" in summary
     assert 0 < len(sreads) < len(bam_records(mini_samples(mini)["BD144_ND"].segmented_bam))
+
+
+@pytest.mark.parametrize("env, flag", [("pbname", "-n pbname"), ("/envs/pb", "-p /envs/pb")])
+def test_pbtools_env_names_the_conda_environment(tmp_path, env, flag):
+    """--pbtools-env names the conda environment lima and isoseq run in: a name with -n, a path with -p. A stand-in
+    conda records its calls; at fraction 1 the segmented BAM goes to lima as it is, so no data is read."""
+    from pipeline_helpers import PIPELINE, REPO
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin" / "conda").write_text('#!/bin/bash\necho "$*" >> "$CONDA_LOG"\n')
+    (tmp_path / "bin" / "conda").chmod(0o755)
+    cols = ("sample", "cell", "depletion", "hifi_bam", "fail_bam", "segmented_bam", "non_passing_bam", "zmw_metrics",
+            "skera_report", "fltnc_bam")
+    (tmp_path / "samples.tsv").write_text("\t".join(cols) + "\n" + "\t".join(["toy"] + [f"/x/{c}" for c in cols[1:]]) + "\n")
+    log = tmp_path / "conda.log"
+    r = subprocess.run(["bash", str(PIPELINE / "s04_lima_refine.sh"), "--sample", "toy", "--samples", str(tmp_path / "samples.tsv"),
+                        "--out-root", str(tmp_path / "out"), "--fraction", "1", "--pbtools-env", env], cwd=REPO,
+                       env={**os.environ, "PATH": f"{tmp_path / 'bin'}:{os.environ['PATH']}", "CONDA_LOG": str(log)},
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    calls = log.read_text().splitlines()
+    assert len(calls) == 7                                              # lima twice, isoseq refine five times
+    assert all(c.startswith(f"run --no-capture-output {flag} ") for c in calls)
 
 
 def test_help_exits_0_and_prints_the_usage_line():
