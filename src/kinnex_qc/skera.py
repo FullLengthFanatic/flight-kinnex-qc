@@ -49,6 +49,22 @@ def adapters_inside_sreads(sreads: pl.DataFrame, features: pl.DataFrame, tol: in
     return out.select("zm", "di", "name", "strand", "start", "end", "edits").sort("zm", "di", "start")
 
 
+def _overlaps(mols: pl.DataFrame, sreads: pl.DataFrame) -> pl.DataFrame:
+    """mols joined with the S-reads of the same ZMW, with ov: the fraction of the molecule the S-read covers."""
+    return (mols.join(sreads, on="zm")
+            .with_columns(((pl.min_horizontal("end", "qe") - pl.max_horizontal("start", "qs")).clip(0)
+                           / (pl.col("end") - pl.col("start"))).alias("ov")))
+
+
+def sread_overlaps(molecules: pl.DataFrame, sreads: pl.DataFrame) -> pl.DataFrame:
+    """Every molecule paired with every S-read of its ZMW: the molecule's columns, the S-read's, and ov, the fraction of
+    the molecule the S-read covers (the overlap molecule_coverage classifies by). Sorted by zm, start and qs."""
+    mols = molecules.with_columns(pl.col("start", "end").cast(pl.Int64))
+    sr = sreads.with_columns(pl.col("qs", "qe").cast(pl.Int64))
+    parts = [_overlaps(mols.filter(pl.col("zm") % _CHUNKS == c), sr.filter(pl.col("zm") % _CHUNKS == c)) for c in range(_CHUNKS)]
+    return pl.concat(parts).sort("zm", "start", "qs")
+
+
 def molecule_coverage(molecules: pl.DataFrame, sreads: pl.DataFrame, cover: float = COVER, touch: float = TOUCH) -> pl.DataFrame:
     """Classify every molecule by how the S-reads of its ZMW cover it.
 
@@ -62,9 +78,7 @@ def molecule_coverage(molecules: pl.DataFrame, sreads: pl.DataFrame, cover: floa
     for c in range(_CHUNKS):
         mc = mols.filter(pl.col("zm") % _CHUNKS == c)
         sc = sr.filter(pl.col("zm") % _CHUNKS == c)
-        pairs = (mc.join(sc, on="zm")
-                 .with_columns(((pl.min_horizontal("end", "qe") - pl.max_horizontal("start", "qs")).clip(0)
-                                / (pl.col("end") - pl.col("start"))).alias("ov")))
+        pairs = _overlaps(mc, sc)
         n_touch = pairs.filter(pl.col("ov") >= touch).group_by("zm", "di").agg(pl.len().alias("n_touch"))
         pairs = pairs.join(n_touch, on=["zm", "di"], how="left").with_columns(pl.col("n_touch").fill_null(0))
         per = pairs.group_by("mid").agg(

@@ -46,6 +46,14 @@ def test_mirror_one_arm_written():
     assert st.select("zm", "letter").rows() == [(2, "H")]
 
 
+def test_sread_overlaps_fractions():
+    """Every molecule with every S-read of its ZMW, and the fraction of the molecule the S-read covers."""
+    f, m, s = frames(complete_with_false_cut())
+    ov = skera.sread_overlaps(m, s)
+    assert ov.columns == [*m.columns, "di", "qs", "qe", "dl", "dr", "ov"]
+    assert ov.select("start", "di", "ov").rows() == [(17, 0, 1.0), (17, 1, 0.0), (1034, 0, 0.466), (1034, 1, 0.52)]
+
+
 def test_best_cover_is_looser_than_clean():
     f, m, s = frames(complete_with_false_cut())
     bc = skera.best_cover(m, s).sort("start")
@@ -172,6 +180,7 @@ def test_every_public_function_on_empty_frames():
         ("adapters_inside_sreads strict", skera.adapters_inside_sreads(s, f, strict=True), adapter_cols),
         ("molecule_coverage", skera.molecule_coverage(m, s), coverage_cols),
         ("best_cover", skera.best_cover(m, s), ["zm", "start", "end", "cover"]),
+        ("sread_overlaps", skera.sread_overlaps(m, s), [*m.columns, "di", "qs", "qe", "dl", "dr", "ov"]),
         ("mirror_junctions", skera.mirror_junctions(m), [*m.columns, "letter"]),
         ("single_tso_tso_mirrors", skera.single_tso_tso_mirrors(m), ["zm", "js", "je", "letter"]),
         ("passing_from_labels", passing, ["zm", "passing"]),
@@ -234,15 +243,16 @@ def _random_reads(n: int = 300, seed: int = 7) -> dict:
 
 
 def test_chunked_functions_give_the_same_frames_for_any_chunk_count(monkeypatch):
-    """false_cuts, adapters_inside_sreads, molecule_coverage and best_cover work through the ZMWs in _CHUNKS chunks by
-    zm; 1, 7 and 16 chunks give equal frames on the synth reads plus 300 random ZMWs."""
+    """false_cuts, adapters_inside_sreads, molecule_coverage, best_cover and sread_overlaps work through the ZMWs in
+    _CHUNKS chunks by zm; 1, 7 and 16 chunks give equal frames on the synth reads plus 300 random ZMWs."""
     f, m, s = frames({**complete_with_false_cut(), **tso_tso_mirror(), **double_mirror(), **_random_reads()})
     results = {}
     for chunks in (1, 7, 16):
         monkeypatch.setattr(skera, "_CHUNKS", chunks)
         results[chunks] = {"false_cuts": skera.false_cuts(s, f), "adapters_inside_sreads": skera.adapters_inside_sreads(s, f),
                            "adapters_inside_sreads strict": skera.adapters_inside_sreads(s, f, strict=True),
-                           "molecule_coverage": skera.molecule_coverage(m, s), "best_cover": skera.best_cover(m, s)}
+                           "molecule_coverage": skera.molecule_coverage(m, s), "best_cover": skera.best_cover(m, s),
+                           "sread_overlaps": skera.sread_overlaps(m, s)}
     want = results[16]
     assert all(frame.height > 50 for frame in want.values())
     assert set(want["molecule_coverage"]["cls"]) == {"CLEAN", "FUSED", "PARTIAL", "NOT_WRITTEN"}
