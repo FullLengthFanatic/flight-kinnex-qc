@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The row order of `q2/tables/lima_vs_class.tsv` is now fixed for rows tied on `end_class` and count (`lima_pair` is a third sort key), so the table is byte-stable across reruns. No value changed.
+
 - `kinnex-qc run`'s `junction_composition` row "TSO-TSO only" (summary.json `skera_pass_share`)
   differs from v10's BD144_ND number by 1 read out of 313,852: the reader reports
   0.0034570434472299045 against v10's 0.0034602296623886418. Cause: the reader derives

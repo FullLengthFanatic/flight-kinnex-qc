@@ -124,6 +124,15 @@ def test_unresolved_arrays_bases_past_int32():
     assert p["unsegmented_base_share"] == pytest.approx(1.0)
 
 
+def test_lima_vs_class_row_order_is_fixed_for_tied_rows():
+    """Rows tied on end_class and count come out in lima_pair order, whatever order the input rows come in."""
+    rows = [{"end_class": "proper", "lima_pair": p} for p in ["b--c", "a--c", "c--c", "a--b"]] + \
+           [{"end_class": "tso_tso", "lima_pair": "a--a"}]
+    outs = {tuple(map(tuple, q2.lima_vs_class(pl.DataFrame(rows[i:] + rows[:i])).rows())) for i in range(len(rows))}
+    assert len(outs) == 1
+    assert [r[1] for r in next(iter(outs)) if r[0] == "proper"] == ["a--b", "a--c", "b--c", "c--c"]
+
+
 def test_class_composition_row_order():
     """Rows come sorted by group, end class and internal flag, whatever order group_by returns them in."""
     rows = [seg(z, 0, 100, "A", "B", c, group=g, internal=i) for z, (g, c, i) in enumerate(

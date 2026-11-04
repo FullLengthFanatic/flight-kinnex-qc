@@ -18,7 +18,7 @@ PY="$REPO/.venv/bin/python"
 PRIMERS="$REPO/resources/primers_FlashBD.fasta"
 
 for arg in "$@"; do
-  if [[ "$arg" == -h || "$arg" == --help ]]; then sed -n '2,12s/^# \{0,1\}//p' "$0"; exit 0; fi
+  if [[ "$arg" == -h || "$arg" == --help ]]; then sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0; fi
 done
 
 # The options, and from them: output directory, segmented BAM, conda environment, temporary directory (empty at fraction 1).

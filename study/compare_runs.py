@@ -47,6 +47,7 @@ JSON_IGNORED_KEYS = {
     "updatedAt",   # PacBio tool timestamp on a datastore manifest or its file entries (controller ruling 2026-11-03)
     "modifiedAt",  # PacBio tool timestamp on a datastore manifest's per-file entry (controller ruling 2026-11-03)
     "uniqueId",    # random id a datastore manifest's per-file entry carries, regenerated every run (controller ruling 2026-11-03)
+    "seconds",     # wall time per value in q1_summary.json, run bookkeeping that differs on every run (controller ruling 2026-11-04)
     "fileSize",    # size of the dataset XML the file entry names, a file compare_runs.py skips, not compares (controller ruling 2026-11-03)
 }
 

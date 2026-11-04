@@ -392,7 +392,7 @@ def main() -> None:
     g.add_argument("--all", action="store_true", help="cross-sample tables from every sample's q1_summary.json")
     ap.add_argument("--samples", default=config["samples"], help="samples table")
     ap.add_argument("--out-root", default=config["out_root"], help="output root")
-    ap.add_argument("--fraction", type=float, default=config["fraction"], help="names the output directory of a hash sample run")
+    ap.add_argument("--fraction", type=float, default=config["fraction"], help="hash sample of the cell's ZMWs; 1 reads them all. Names the output directory (hash_<F>/ below 1) and, below 1, weights HiFi reads by their sampling probability: hifi_index rows over skera's whole-cell HiFi read total")
     ap.add_argument("--processes", type=int, default=config["processes"])
     ap.add_argument("--n-null", type=int, default=200)
     ap.add_argument("--n-sim", type=int, default=10_000_000)

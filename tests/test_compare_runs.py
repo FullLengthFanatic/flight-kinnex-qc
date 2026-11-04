@@ -428,3 +428,18 @@ def test_main_no_differences_summary_line(tmp_path, capsys):
 
     assert main([str(a), str(b)]) == 0
     assert capsys.readouterr().out.strip() == "no differences"
+
+
+def test_json_seconds_is_ignored_but_other_value_keys_are_not(tmp_path):
+    """q1_summary.json's per-value wall time differs on every run; anything else under values[*] still counts."""
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "q1_summary.json").write_text(json.dumps({"values": [{"w": 1.5, "seconds": 28.2}, {"w": 2.5, "seconds": 23.8}]}))
+    (b / "q1_summary.json").write_text(json.dumps({"values": [{"w": 1.5, "seconds": 21.0}, {"w": 2.5, "seconds": 21.7}]}))
+    assert compare_trees(a, b) == []
+
+    (b / "q1_summary.json").write_text(json.dumps({"values": [{"w": 1.5, "seconds": 21.0}, {"w": 2.6, "seconds": 21.7}]}))
+    diffs = compare_trees(a, b)
+    assert len(diffs) == 1
+    assert "values[1].w" in diffs[0]

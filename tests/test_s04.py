@@ -1,5 +1,7 @@
 """Tests for study/pipeline/s04_lima_refine.sh on the mini dataset. The run at fraction 1, which reads the segmented
 BAM as it is, is covered with stage 05 in test_s05.py."""
+import subprocess
+
 import pytest
 
 from kinnex_qc.sampling import in_hash_sample
@@ -20,3 +22,13 @@ def test_lima_refine_hash_sample(mini, tmp_path):
     summary = (out / "lima" / "BD144_ND.pairs.lima.summary").read_text()
     assert f"Reads input                    : {len(sreads)}\n" in summary
     assert 0 < len(sreads) < len(bam_records(mini_samples(mini)["BD144_ND"].segmented_bam))
+
+
+def test_help_exits_0_and_prints_the_usage_line():
+    """--help is handled in bash before any Python, so it needs no data, and prints the leading comment block."""
+    from pipeline_helpers import PIPELINE
+    r = subprocess.run(["bash", str(PIPELINE / "s04_lima_refine.sh"), "--help"], capture_output=True, text=True)
+    assert r.returncode == 0
+    assert "study/pipeline/s04_lima_refine.sh --sample <name>" in r.stdout
+    assert "Defaults come from study/study.toml" in r.stdout          # the last line of the comment block
+    assert "set -euo" not in r.stdout

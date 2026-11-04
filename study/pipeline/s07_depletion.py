@@ -146,7 +146,7 @@ def class_positions(segs: pl.DataFrame) -> pl.DataFrame:
 
 
 def lima_vs_class(fate: pl.DataFrame) -> pl.DataFrame:
-    return fate.group_by("end_class", "lima_pair").len().sort("end_class", "len", descending=[False, True])
+    return fate.group_by("end_class", "lima_pair").len().sort("end_class", "len", "lima_pair", descending=[False, True, False])
 
 
 # ---------- (c) fate and yield ----------
@@ -308,7 +308,7 @@ def main() -> None:
     g.add_argument("--all", action="store_true", help="cross-sample tables from every sample's q2_summary.json")
     ap.add_argument("--samples", default=config["samples"], help="samples table")
     ap.add_argument("--out-root", default=config["out_root"], help="output root")
-    ap.add_argument("--fraction", type=float, default=config["fraction"], help="names the output directory of a hash sample run")
+    ap.add_argument("--fraction", type=float, default=config["fraction"], help="hash sample of the cell's ZMWs; 1 reads them all. Names the output directory (hash_<F>/ below 1) and, below 1, sets per_ccs_zmw in the yield table to null (the fail BAM is indexed whole, so that denominator is not comparable); nothing else in the stage depends on it")
     ap.add_argument("--processes", type=int, default=config["processes"], help="unused; accepted for a uniform CLI")
     args = ap.parse_args()
     cross_sample(args) if args.all else per_sample(args)
