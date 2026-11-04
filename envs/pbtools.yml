@@ -5,3 +5,4 @@ channels:
 dependencies:
   - lima=2.13.0
   - isoseq=4.3.0
+  - minimap2=2.30
