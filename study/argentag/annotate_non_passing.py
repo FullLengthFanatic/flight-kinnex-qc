@@ -8,10 +8,12 @@ It is not public; ArgenTag shared it with us on 2026-10-05, and it must not be r
 (https://skera.how/output.html) this BAM "contains the bam records that have adapters found in non-sequential order",
 so every read with a mirror junction is in it unless skera passed it.
 Writes read_features, read_summary and annot_segments parquets (the study's schemas, source hifi, skera_passing false)
-into <out>/full_reads/ (--out defaults to <argentag_dir>/analysis).
+into <out>/full_reads/, in the run's ArgenTag folder. Per-read tables (ArgenTag ZMW ids): they stay in that folder and
+are not published.
 Usage, from the repository root:
-  study/argentag/annotate_non_passing.py [--argentag-dir DIR] [--out DIR] [--processes N]
+  study/argentag/annotate_non_passing.py --out DIR [--argentag-dir DIR] [--processes N]
 --argentag-dir and --processes default to argentag_dir and processes of study/study.toml and study.local.toml.
+--out is required: argentag_dir holds the inputs and v10's reference files, and is never written.
 """
 import argparse
 import sys
@@ -35,13 +37,13 @@ def main(argv: list[str] | None = None) -> None:
     config = load_config()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--argentag-dir", default=config.get("argentag_dir"), help="ArgenTag folder, holding data/ and analysis/")
-    ap.add_argument("--out", help="output directory (default: <argentag-dir>/analysis)")
+    ap.add_argument("--out", required=True, help="the run's ArgenTag folder (never argentag_dir)")
     ap.add_argument("--processes", type=int, default=config["processes"])
     args = ap.parse_args(argv)
     if not args.argentag_dir or args.argentag_dir.startswith("<"):
         ap.error("no ArgenTag folder: give --argentag-dir or set argentag_dir in study/study.local.toml")
     arg = Path(args.argentag_dir)
-    out = (Path(args.out) if args.out else arg / "analysis") / "full_reads"
+    out = Path(args.out) / "full_reads"
     out.mkdir(parents=True, exist_ok=True)
     n = 0
     with process_pool(args.processes) as pool, \

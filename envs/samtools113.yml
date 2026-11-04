@@ -1,0 +1,7 @@
+name: kinnex-qc-samtools113
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - samtools=1.13
+  - htslib=1.13

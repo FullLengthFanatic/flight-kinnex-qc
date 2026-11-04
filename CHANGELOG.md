@@ -4,9 +4,7 @@
 
 - The threshold text in `gates/gate_skera.json` is now "reported only"; v10's carried an internal reference ("reported only (spec 17)"). No number changed.
 
-- The ArgenTag `independent_scan.txt` keeps its aggregate lines only. v10's listed, under "Disagreement details (first 10):", the 8 reads where the independent scan and the study disagree, by ZMW id; those ids belong to a file ArgenTag shared privately, so the list now goes to `independent_scan_disagreements.tsv` in the ArgenTag folder, never next to the published text. The heading line stays, with no rows under it. No number changed.
-
-- `study/calibration/build_calibration_set.py` writes `nd_first200k.hifi.nomod.bam` straight from BD144_ND's HiFi BAM. v10's copy was cut with samtools 1.13 through SAM text (its @PG lines say so), which keeps 6 significant digits of the float tags `ec`, `rq` and `sn` and changes the type codes of integer tags. So the new file differs from v10's in the last digits of those float tags and in those type codes, and `rq` in `nd_first200k_truth/read_summary.parquet` differs in 187,115 of the 200,000 reads; names, sequences, qualities, the other tag values and the other three truth tables are the same. Sent through the same samtools trip, the new records equal v10's exactly. The report's calibration numbers were reproduced from v10's calibration files.
+- The ArgenTag `independent_scan.txt` holds aggregate lines only. v10's listed, under "Disagreement details (first 10):", the 8 reads where the independent scan and the study disagree, by ZMW id; those ids belong to a file ArgenTag shared privately, so the list now goes to `independent_scan_disagreements.tsv` in the run's private ArgenTag output folder, next to the other non-public per-read tables (`argentag_sread_coords.parquet`, `full_reads/`). The heading line stays, with no rows under it. No number changed.
 
 - The row order of `q2/tables/lima_vs_class.tsv` is now fixed for rows tied on `end_class` and count (`lima_pair` is a third sort key), so the table is byte-stable across reruns. No value changed.
 

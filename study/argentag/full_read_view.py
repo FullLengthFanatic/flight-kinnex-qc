@@ -2,23 +2,21 @@
 """ArgenTag 8-fold, from the parent reads: mirror arrays, their junction molecules, TSO-TSO molecules, and how well the
 unwritten-head flag on S-reads alone finds mirror reads in this library.
 
-Inputs, in <argentag_dir>/analysis: full_reads/ (annotate_non_passing.py: the study's stage 02 on every read skera did
-not pass) and argentag_sread_coords.parquet (sread_coords.py: zm, qs, qe, dl, dr of every public S-read). The cell has
-1,964,147 HiFi reads (Table 1 of the ArgenTag/PacBio technical note); observed: the ZMWs with S-reads and the
-non-passing ZMWs together are exactly these 1,964,147. Per skera's documentation (https://skera.how/output.html) a
+Inputs, in --out, the run's ArgenTag folder: full_reads/ (annotate_non_passing.py: the study's stage 02 on every read
+skera did not pass) and argentag_sread_coords.parquet (sread_coords.py: zm, qs, qe, dl, dr of every public S-read).
+The cell has 1,964,147 HiFi reads (Table 1 of the ArgenTag/PacBio technical note); observed: the ZMWs with S-reads and
+the non-passing ZMWs together are exactly these 1,964,147. Per skera's documentation (https://skera.how/output.html) a
 passing read has its adapters in sequential order, so it holds no mirror junction unless skera passed a read that has
 one (observed in BD144_ND: rare for TSO-TSO mirrors).
 Molecules per 1,000: our molecules in non-passing reads plus skera's S-reads of passing reads as the denominator.
 The mirror junctions, their letters and the mirror size rule come from kinnex_qc.metrics, the unwritten-head flag from
 kinnex_qc.skera.unwritten_head, usable molecules from kinnex_qc.molecules.USABLE.
 Writes full_read_summary.tsv, full_read_patterns.tsv, full_read_junctions.tsv, full_read_mirror_rule.tsv and
-flag_validation.tsv into --out (default <argentag_dir>/analysis).
+flag_validation.tsv (aggregate tables) into --out.
 Usage, from the repository root:
-  study/argentag/full_read_view.py [--argentag-dir DIR] [--out DIR]
---argentag-dir defaults to argentag_dir of study/study.toml and study.local.toml.
+  study/argentag/full_read_view.py --out DIR
 """
 import argparse
-import sys
 from pathlib import Path
 
 import polars as pl
@@ -27,8 +25,6 @@ from kinnex_qc import metrics
 from kinnex_qc.molecules import USABLE
 from kinnex_qc.skera import unwritten_head
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "pipeline"))
-from config import load_config  # noqa: E402
 
 HIFI = 1_964_147     # HiFi reads of the ArgenTag 8-fold cell, Table 1 of the ArgenTag/PacBio technical note
 
@@ -94,20 +90,15 @@ def tables(rs: pl.DataFrame, seg: pl.DataFrame, coords: pl.DataFrame, hifi: int 
 
 
 def main(argv: list[str] | None = None) -> None:
-    config = load_config()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--argentag-dir", default=config.get("argentag_dir"), help="ArgenTag folder, holding data/ and analysis/")
-    ap.add_argument("--out", help="output directory (default: <argentag-dir>/analysis)")
+    ap.add_argument("--out", required=True,
+                    help="the run's ArgenTag folder (never argentag_dir): holds the tables of sread_coords.py and annotate_non_passing.py")
     args = ap.parse_args(argv)
-    if not args.argentag_dir or args.argentag_dir.startswith("<"):
-        ap.error("no ArgenTag folder: give --argentag-dir or set argentag_dir in study/study.local.toml")
-    analysis = Path(args.argentag_dir) / "analysis"
-    out = Path(args.out) if args.out else analysis
-    out.mkdir(parents=True, exist_ok=True)
-    rs = pl.read_parquet(analysis / "full_reads" / "read_summary.parquet", columns=["zm", "read_len", "chain", "primary_pattern", "n_mas"])
-    seg = pl.read_parquet(analysis / "full_reads" / "annot_segments.parquet",
+    out = Path(args.out)
+    rs = pl.read_parquet(out / "full_reads" / "read_summary.parquet", columns=["zm", "read_len", "chain", "primary_pattern", "n_mas"])
+    seg = pl.read_parquet(out / "full_reads" / "annot_segments.parquet",
                           columns=["zm", "start", "end", "left_token", "right_token", "end_class", "internal"])
-    coords = pl.read_parquet(analysis / "argentag_sread_coords.parquet")
+    coords = pl.read_parquet(out / "argentag_sread_coords.parquet")
     t = tables(rs, seg, coords)
     for name, frame in t.items():
         frame.write_csv(out / f"{name}.tsv", separator="\t")

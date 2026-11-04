@@ -8,7 +8,9 @@ import json
 import random
 import shutil
 import subprocess
+from pathlib import Path
 
+import numpy as np
 import polars as pl
 import pysam
 import pytest
@@ -61,11 +63,35 @@ def _samples(tmp_path, hifi, segmented, non_passing):
     return table
 
 
-def test_build_calibration_set(test_bams, tmp_path, monkeypatch):
-    """The first 4 HiFi reads of the test BAM (N set to 4): their records without MM and ML; their skera S-reads (8 + 8
-    + 8 + 1), read up to the first ZMW past the set (a later S-read of zm 2 is not taken); skera's verdict from the
-    non-passing BAM, also read up to the first ZMW past the set (zm 2 and 4 non-passing, a later zm 3 record not
-    taken); and the package's stage 02 annotation of the four reads."""
+@pytest.fixture(scope="module")
+def samtools113() -> str:
+    """samtools 1.13 with htslib 1.13 on the PATH: the samtools of v10's @PG lines, and the htslib that reproduces v10's
+    calibration BAM (observed: with htslib 1.21, 5 of its 200,000 records differ)."""
+    path = shutil.which("samtools")
+    version = subprocess.run([path, "--version"], capture_output=True).stdout if path else b""
+    if not version.startswith(b"samtools 1.13\nUsing htslib 1.13"):
+        pytest.skip("needs samtools 1.13 with htslib 1.13 on the PATH")
+    return path
+
+
+def _samtools_commands(path) -> list[list[str]]:
+    """The arguments of each samtools command in the BAM's @PG lines, output files by name only."""
+    with pysam.AlignmentFile(str(path), "rb", check_sq=False) as bam:
+        pgs = bam.header.to_dict()["PG"]
+    return [[Path(a).name if a.endswith(".bam") else a for a in pg["CL"].split()[1:]] for pg in pgs if pg.get("PN") == "samtools"]
+
+
+V10_COMMANDS = [["view", "-h", "-"], ["view", "-b", "-o", "nd_first200k.hifi.bam", "-"],
+                ["view", "-@4", "-b", "-x", "MM", "-x", "ML", "-o", "nd_first200k.hifi.nomod.bam", "nd_first200k.hifi.bam"]]
+
+
+def test_build_calibration_set(test_bams, tmp_path, monkeypatch, samtools113):
+    """The first 4 HiFi reads of the test BAM (N set to 4): their records through v10's three samtools 1.13 commands,
+    so without MM and ML and with the float tags as htslib 1.13 writes them in SAM text (rq 0.99987654 to 0.999877;
+    the ties ec 10.90625 to 10.9062 and sn 9.015625 to 9.01563, as in v10's file, where htslib 1.21 writes 9.01562)
+    and integer tags in their smallest type (zm 1 to 4: C); the intermediate BAM removed. Their skera S-reads (8 + 8 + 8 + 1), read up to the first ZMW past the set (a later S-read of zm 2 is not
+    taken); skera's verdict from the non-passing BAM, also read up to the first ZMW past the set (zm 2 and 4
+    non-passing, a later zm 3 record not taken); and the package's stage 02 annotation of the four reads."""
     hifi, sreads = test_bams
     with pysam.AlignmentFile(str(hifi), "rb", check_sq=False) as bam:
         header = bam.header.to_dict()
@@ -73,6 +99,9 @@ def test_build_calibration_set(test_bams, tmp_path, monkeypatch):
     for r in reads:
         r.set_tag("MM", "C+m?,0;", value_type="Z")
         r.set_tag("ML", array.array("B", [200]))
+        r.set_tag("rq", 0.99987654, value_type="f")
+        r.set_tag("ec", 10.90625, value_type="f")
+        r.set_tag("sn", array.array("f", [9.015625, 13.1124]))
     _write(tmp_path / "hifi.bam", reads, header)
     seg, seen = [*iter_bam(sreads), _sread(2, 5, 50, 0, 1)], {}
     for r in seg:                                  # skera's di: the S-read's index within its ZMW
@@ -85,12 +114,17 @@ def test_build_calibration_set(test_bams, tmp_path, monkeypatch):
     monkeypatch.setattr(bcs, "N", 4)
     monkeypatch.chdir(REPO)
     out = tmp_path / "cal"
-    bcs.main(["--samples", str(table), "--out", str(out), "--processes", "2"])
+    bcs.main(["--samples", str(table), "--out", str(out), "--processes", "2", "--samtools", samtools113])
 
     nomod = list(iter_bam(out / "nd_first200k.hifi.nomod.bam"))
     assert [r.get_tag("zm") for r in nomod] == [1, 2, 3, 4]
-    assert all(not r.has_tag("MM") and not r.has_tag("ML") and r.has_tag("np") and r.has_tag("rq") for r in nomod)
+    assert all(not r.has_tag("MM") and not r.has_tag("ML") and r.has_tag("np") for r in nomod)
     assert [r.query_sequence for r in nomod] == [r.query_sequence for r in reads[:4]]
+    assert np.float32(reads[0].get_tag("rq")) != np.float32(0.999877)
+    assert all(np.float32(r.get_tag("rq")) == np.float32(0.999877) and np.float32(r.get_tag("ec")) == np.float32(10.9062) for r in nomod)
+    assert all(list(r.get_tag("sn")) == list(np.array([9.01563, 13.1124], np.float32)) for r in nomod)
+    assert all(r.get_tag("zm", with_value_type=True) == (r.get_tag("zm"), "C") for r in nomod)
+    assert _samtools_commands(out / "nd_first200k.hifi.nomod.bam") == V10_COMMANDS
 
     truth = out / "nd_first200k_truth"
     segments = pl.read_parquet(truth / "segments.parquet")
@@ -102,6 +136,44 @@ def test_build_calibration_set(test_bams, tmp_path, monkeypatch):
         (1, "hifi", "complete", True), (2, "hifi", "complete", False), (3, "hifi", "complete", True), (4, "hifi", "mirror", False)]
     assert sorted(p.name for p in truth.iterdir()) == ["annot_segments.parquet", "read_features.parquet", "read_summary.parquet",
                                                        "segments.parquet"]
+    assert sorted(p.name for p in out.iterdir()) == ["nd_first200k.hifi.nomod.bam", "nd_first200k_truth"]
+
+
+def test_build_calibration_set_samtools(tmp_path, monkeypatch):
+    """samtools runs from the samtools environment unless --samtools (or samtools in the config) names one; a samtools
+    or htslib other than 1.13 stops the script with a one-line error before anything is written."""
+    calls = []
+
+    def run(version):
+        def fake(cmd, **kw):
+            calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, stdout=version, stderr=b"")
+        return fake
+
+    def first_records(samtools, hifi_bam, here, n):
+        raise RuntimeError(samtools)
+
+    table = _samples(tmp_path, "h.bam", "s.bam", "n.bam")
+    monkeypatch.setattr(bcs, "load_config", lambda: {"samples": str(table), "processes": 2, "samtools_env": "kinnex-qc-samtools113"})
+    monkeypatch.setattr(bcs, "first_records", first_records)
+    conda = ["conda", "run", "--no-capture-output", "-n", "kinnex-qc-samtools113", "samtools"]
+    for version, found in ((b"samtools 1.17\nUsing htslib 1.17\n", "samtools 1.17, Using htslib 1.17"),
+                           (b"samtools 1.13\nUsing htslib 1.21\nCopyright\n", "samtools 1.13, Using htslib 1.21")):
+        calls.clear()
+        monkeypatch.setattr(bcs.subprocess, "run", run(version))
+        with pytest.raises(SystemExit) as stop:
+            bcs.main(["--out", str(tmp_path / "out")])
+        assert stop.value.code == ("build_calibration_set.py: needs samtools 1.13 with htslib 1.13, as v10's calibration BAM; "
+                                   f"conda run --no-capture-output -n kinnex-qc-samtools113 samtools is {found}")
+        assert calls == [conda + ["--version"]]
+        assert list((tmp_path / "out").iterdir()) == []
+    monkeypatch.setattr(bcs.subprocess, "run", run(b"samtools 1.13\nUsing htslib 1.13+ds\n"))
+    with pytest.raises(RuntimeError) as used:
+        bcs.main(["--out", str(tmp_path / "out"), "--samtools-env", "/envs/samtools113"])
+    assert used.value.args[0] == ["conda", "run", "--no-capture-output", "-p", "/envs/samtools113", "samtools"]
+    with pytest.raises(RuntimeError) as used:
+        bcs.main(["--out", str(tmp_path / "out"), "--samtools", "/usr/bin/samtools"])
+    assert used.value.args[0] == ["/usr/bin/samtools"]
 
 
 def test_skera_split_command(tmp_path, monkeypatch, capsys):
@@ -123,10 +195,28 @@ def test_skera_split_command(tmp_path, monkeypatch, capsys):
                               str(CALIBRATION / "mas8_adapters.fasta"), str(out / "nd_first200k.skera120.bam")]]
     assert "skera 1.2.0" in capsys.readouterr().err
     calls.clear()
-    skera_split.main(["--calibration-dir", str(cal), "--skera-env", "skera120", "--threads", "4"])
+    skera_split.main(["--calibration-dir", str(cal), "--out", str(out), "--skera-env", "skera120", "--threads", "4"])
     assert calls[1][:5] == ["conda", "run", "--no-capture-output", "-n", "skera120"]
     assert calls[1][-4:] == ["4", str(cal / "nd_first200k.hifi.nomod.bam"), str(CALIBRATION / "mas8_adapters.fasta"),
-                             str(cal / "nd_first200k.skera120.bam")]
+                             str(out / "nd_first200k.skera120.bam")]
+
+
+def test_skera_split_needs_skera_120(tmp_path, monkeypatch):
+    """The outputs are named skera120 and labelled 1.2.0: another skera version stops the script with a one-line error
+    before skera split runs or anything is written."""
+    calls = []
+
+    def run(cmd, **kw):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="skera 1.4.0\n\nUsing:\n  skera : 1.4.0\n", stderr="")
+
+    monkeypatch.setattr(skera_split.subprocess, "run", run)
+    monkeypatch.chdir(REPO)
+    with pytest.raises(SystemExit) as stop:
+        skera_split.main(["--calibration-dir", str(tmp_path / "cal"), "--out", str(tmp_path / "out"), "--skera-env", "skera120"])
+    assert stop.value.code == "skera_split.py: needs skera 1.2.0, the version the outputs are named for; skera120 has skera 1.4.0"
+    assert [c[-1] for c in calls] == ["--version"]
+    assert not (tmp_path / "out").exists()
 
 
 def _calibration_dir(tmp_path, sk120, sk26, patterns, hifi_zms):
@@ -214,55 +304,39 @@ def _records(path):
         yield r.query_name, r.flag, r.query_sequence, bytes(r.query_qualities), r.get_tags(with_value_type=True)
 
 
-def _differing(a, b, fields: slice = slice(None)) -> tuple[int, int]:
-    """(records, records that differ in fields) of two BAMs read side by side; fails if their record counts differ."""
+def _differing(a, b) -> tuple[int, int]:
+    """(records, records that differ) of two BAMs read side by side; fails if their record counts differ."""
     n = d = 0
     for x, y in zip(_records(a), _records(b), strict=True):
         n += 1
-        d += x[fields] != y[fields]
+        d += x != y
     return n, d
-
-
-def _through_sam_text(src, dest):
-    """src's records after the trip v10's calibration BAM made (its @PG lines: samtools 1.13 view -h, then view -b)."""
-    samtools = shutil.which("samtools")
-    assert samtools, "samtools 1.13, the version of v10's @PG lines, must be on the PATH"
-    version = subprocess.run([samtools, "--version"], capture_output=True, check=True).stdout.split()[1].decode()   # not all UTF-8
-    assert version == "1.13", f"samtools {version}, not 1.13"
-    view = subprocess.Popen([samtools, "view", "-h", str(src)], stdout=subprocess.PIPE)
-    subprocess.run([samtools, "view", "-b", "-o", str(dest), "-"], stdin=view.stdout, check=True)
-    view.stdout.close()
-    assert view.wait() == 0
-
-
-def _rq(path) -> pl.Series:
-    return pl.Series([r.get_tag("rq") for r in iter_bam(path)], dtype=pl.Float32)
 
 
 @pytest.mark.real
 @pytest.mark.slow
 def test_build_calibration_set_equals_v10(local, tmp_path):
-    """From BD144_ND's plain-file inputs (study/samples.local.tsv). v10's nd_first200k.hifi.nomod.bam was not written by
-    this script: its @PG lines say it was cut with samtools 1.13 through SAM text (view -h, then view -b, then view -x MM
-    -x ML), and observed, that trip changes the float tags ec, rq and sn (6 significant digits in SAM text) and the type
-    codes of integer tags. So the 200,000 records have v10's names, flags, sequences and qualities, and equal v10's
-    records exactly, tags and type codes included, once they make the same trip with the same samtools. segments,
-    annot_segments and read_features equal v10's; read_summary equals v10's except rq, which is each BAM's rq tag."""
+    """From BD144_ND's plain-file inputs (study/samples.local.tsv), with samtools 1.13: the 200,000 records equal v10's
+    nd_first200k.hifi.nomod.bam exactly (names, flags, sequences, qualities, every tag value and type code), the
+    header too but for the paths in samtools' command lines, and the four parquets of nd_first200k_truth equal v10's."""
     from compare_runs import compare_trees
     cal = local["calibration_dir"]
-    r = run_script(CALIBRATION / "build_calibration_set.py", "--out", str(tmp_path), "--processes", "16")
+    extra = ["--samtools", str(local["samtools"])] if "samtools" in local else []
+    r = run_script(CALIBRATION / "build_calibration_set.py", "--out", str(tmp_path), "--processes", "16", *extra)
+    assert r.stderr.splitlines()[0] == "samtools 1.13" and r.stderr.splitlines()[1].startswith("Using htslib 1.13")
     assert "200,000 reads, 30,741 non-passing, 1,461,865 skera 26.1.0 S-reads" in r.stderr
     new, v10_bam = tmp_path / "nd_first200k.hifi.nomod.bam", cal / "nd_first200k.hifi.nomod.bam"
-    assert _differing(new, v10_bam, slice(4)) == (200_000, 0)
-    _through_sam_text(new, tmp_path / "sam_text.bam")
-    assert _differing(tmp_path / "sam_text.bam", v10_bam) == (200_000, 0)
-    truth, v10 = tmp_path / "nd_first200k_truth", cal / "nd_first200k_truth"
-    diffs = compare_trees(truth, v10, max_rows=1)
-    assert len(diffs) == 1 and diffs[0].startswith("read_summary.parquet: row ")       # the other three parquets are equal
-    rs, rs10 = pl.read_parquet(truth / "read_summary.parquet"), pl.read_parquet(v10 / "read_summary.parquet")
-    assert rs.drop("rq").equals(rs10.drop("rq"))
-    assert rs["rq"].equals(_rq(new)) and rs10["rq"].equals(_rq(tmp_path / "sam_text.bam"))
-    assert (rs["rq"] != rs10["rq"]).sum() == 187_115
+    assert _differing(new, v10_bam) == (200_000, 0)
+    headers = []
+    for path in (new, v10_bam):
+        with pysam.AlignmentFile(str(path), "rb", check_sq=False) as bam:
+            headers.append(bam.header.to_dict())
+        for pg in headers[-1]["PG"]:
+            if pg.get("PN") == "samtools":
+                pg.pop("CL")
+    assert headers[0] == headers[1]
+    assert _samtools_commands(new) == _samtools_commands(v10_bam) == V10_COMMANDS
+    assert compare_trees(tmp_path / "nd_first200k_truth", cal / "nd_first200k_truth") == []
 
 
 def _header_without_skera_cl(path) -> dict:
@@ -298,13 +372,23 @@ def test_skera_split_equals_v10(local, tmp_path):
     assert found[0] == found[1]
 
 
-@pytest.mark.parametrize("module", ["build_calibration_set", "skera_split", "head_version_check", "tso_end_validation"])
-def test_calibration_dir_must_be_set(module, monkeypatch, capsys):
+@pytest.mark.parametrize("module", ["skera_split", "head_version_check", "tso_end_validation"])
+def test_calibration_dir_must_be_set(module, tmp_path, monkeypatch, capsys):
     """The public study.toml holds a placeholder: a script stops with a one-line error until the folder is given."""
     mod = importlib.import_module(module)
-    monkeypatch.setattr(mod, "load_config", lambda: {"calibration_dir": "<calibration>", "samples": "s.tsv", "processes": 2,
-                                                     "skera120_env": "e"})
+    monkeypatch.setattr(mod, "load_config", lambda: {"calibration_dir": "<calibration>", "skera120_env": "e"})
+    with pytest.raises(SystemExit):
+        mod.main(["--out", str(tmp_path)])
+    assert "no calibration folder: give --calibration-dir or set calibration_dir in study/study.local.toml" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("module", ["build_calibration_set", "skera_split", "head_version_check", "tso_end_validation"])
+def test_out_is_required(module, tmp_path, monkeypatch, capsys):
+    """No script writes into the calibration folder (v10's set, the reference) by default: --out has no default."""
+    mod = importlib.import_module(module)
+    monkeypatch.setattr(mod, "load_config", lambda: {"calibration_dir": str(tmp_path), "samples": "s.tsv", "processes": 2,
+                                                     "skera120_env": "e", "samtools_env": "e"})
     with pytest.raises(SystemExit):
         mod.main([])
-    flag = "--out" if module == "build_calibration_set" else "--calibration-dir"
-    assert f"no calibration folder: give {flag} or set calibration_dir in study/study.local.toml" in capsys.readouterr().err
+    assert "the following arguments are required: --out" in capsys.readouterr().err
+    assert list(tmp_path.iterdir()) == []

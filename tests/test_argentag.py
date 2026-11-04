@@ -22,13 +22,16 @@ GOLDEN = GOLDEN_INPUTS / "argentag" / "analysis"
 
 
 def _argentag_dir(tmp_path, **files):
-    """An ArgenTag folder as the scripts expect it: data/<name> for each BAM given, and analysis/."""
+    """An ArgenTag folder as the scripts expect it: data/<name> for each BAM given."""
     d = tmp_path / "argentag"
     (d / "data").mkdir(parents=True)
-    (d / "analysis").mkdir()
     for name, src in files.items():
         shutil.copyfile(src, d / "data" / name)
     return d
+
+
+def _files(d) -> list[str]:
+    return sorted(str(p.relative_to(d)) for p in d.rglob("*"))
 
 
 def test_independent_scan_imports_nothing_from_the_package():
@@ -44,11 +47,14 @@ def test_independent_scan_imports_nothing_from_the_package():
 
 
 def test_sread_coords(test_bams, tmp_path):
-    """zm, qs, qe, dl and dr of every S-read, in file order, with v10's dtypes."""
+    """zm, qs, qe, dl and dr of every S-read, in file order, with v10's dtypes, into --out; the ArgenTag folder is only
+    read."""
     _, sreads = test_bams
     d = _argentag_dir(tmp_path, **{"segmented.bam": sreads})
-    run_script(ARGENTAG / "sread_coords.py", "--argentag-dir", str(d))
-    coords = pl.read_parquet(d / "analysis" / "argentag_sread_coords.parquet")
+    out = tmp_path / "out"
+    run_script(ARGENTAG / "sread_coords.py", "--argentag-dir", str(d), "--out", str(out))
+    assert _files(d) == ["data", "data/segmented.bam"]
+    coords = pl.read_parquet(out / "argentag_sread_coords.parquet")
     assert coords.schema == {"zm": pl.Int64, "qs": pl.Int32, "qe": pl.Int32, "dl": pl.Int8, "dr": pl.Int8}
     want = [tuple(r.get_tag(t) for t in ("zm", "qs", "qe", "dl", "dr")) for r in iter_bam(sreads)]
     assert coords.rows() == want and len(want) == 3 * 8 + 3
@@ -61,6 +67,7 @@ def test_annotate_non_passing(test_bams, tmp_path):
     d = _argentag_dir(tmp_path, **{"segmented.non_passing.bam": hifi})
     out = tmp_path / "out"
     run_script(ARGENTAG / "annotate_non_passing.py", "--argentag-dir", str(d), "--out", str(out), "--processes", "2")
+    assert _files(d) == ["data", "data/segmented.non_passing.bam"]
     rs = pl.read_parquet(out / "full_reads" / "read_summary.parquet")
     assert rs.select("zm", "source", "primary_pattern", "skera_passing").rows() == [
         (1, "hifi", "complete", False), (2, "hifi", "complete", False), (3, "hifi", "complete", False),
@@ -112,30 +119,41 @@ def test_full_read_view_tables():
         "r1_r1_molecules": 1}]
 
 
-def test_full_read_view_writes_the_five_tables(tmp_path, monkeypatch):
-    """With no options, the ArgenTag folder comes from the config (argentag_dir) and the tables go to its analysis/."""
+def test_full_read_view_writes_the_five_tables(tmp_path):
+    """The per-read tables of sread_coords.py and annotate_non_passing.py are read from --out, the run's ArgenTag
+    folder, and the five tables go there."""
     rs, seg, coords = _view_inputs()
-    d = tmp_path / "argentag"
-    (d / "analysis" / "full_reads").mkdir(parents=True)
-    rs.write_parquet(d / "analysis" / "full_reads" / "read_summary.parquet")
-    seg.with_columns(pl.lit("hifi").alias("source")).write_parquet(d / "analysis" / "full_reads" / "annot_segments.parquet")
-    coords.write_parquet(d / "analysis" / "argentag_sread_coords.parquet")
-    monkeypatch.setattr(frv, "load_config", lambda: {"argentag_dir": str(d)})
-    frv.main([])
-    names = sorted(p.name for p in (d / "analysis").iterdir() if p.is_file())
+    out = tmp_path / "out"
+    (out / "full_reads").mkdir(parents=True)
+    rs.write_parquet(out / "full_reads" / "read_summary.parquet")
+    seg.with_columns(pl.lit("hifi").alias("source")).write_parquet(out / "full_reads" / "annot_segments.parquet")
+    coords.write_parquet(out / "argentag_sread_coords.parquet")
+    frv.main(["--out", str(out)])
+    names = sorted(p.name for p in out.iterdir() if p.is_file())
     assert names == ["argentag_sread_coords.parquet", "flag_validation.tsv", "full_read_junctions.tsv", "full_read_mirror_rule.tsv",
                      "full_read_patterns.tsv", "full_read_summary.tsv"]
-    assert (d / "analysis" / "full_read_junctions.tsv").read_text() == "letter\tmolecule\tjunctions\nB\tR1-R1\t1\nB\tTSO-TSO\t1\nH\tTSO-TSO\t1\n"
+    assert (out / "full_read_junctions.tsv").read_text() == "letter\tmolecule\tjunctions\nB\tR1-R1\t1\nB\tTSO-TSO\t1\nH\tTSO-TSO\t1\n"
 
 
-@pytest.mark.parametrize("module", ["sread_coords", "annotate_non_passing", "full_read_view", "independent_scan"])
-def test_argentag_dir_must_be_set(module, monkeypatch, capsys):
+@pytest.mark.parametrize("module", ["sread_coords", "annotate_non_passing", "independent_scan"])
+def test_argentag_dir_must_be_set(module, tmp_path, monkeypatch, capsys):
     """The public study.toml holds a placeholder: a script stops with a one-line error until the folder is given."""
     mod = importlib.import_module(module)
     monkeypatch.setattr(mod, "load_config", lambda: {"argentag_dir": "<argentag>", "processes": 2})
     with pytest.raises(SystemExit):
-        mod.main([])
+        mod.main(["--out", str(tmp_path)])
     assert "no ArgenTag folder: give --argentag-dir or set argentag_dir in study/study.local.toml" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("module", ["sread_coords", "annotate_non_passing", "full_read_view", "independent_scan"])
+def test_out_is_required(module, tmp_path, monkeypatch, capsys):
+    """No script writes into the ArgenTag folder (inputs and v10's reference files) by default: --out has no default."""
+    mod = importlib.import_module(module)
+    monkeypatch.setattr(mod, "load_config", lambda: {"argentag_dir": str(tmp_path), "processes": 2}, raising=False)
+    with pytest.raises(SystemExit):
+        mod.main([])
+    assert "the following arguments are required: --out" in capsys.readouterr().err
+    assert list(tmp_path.iterdir()) == []
 
 
 def _summary(path, patterns: dict[int, str]):
@@ -155,15 +173,16 @@ def test_independent_scan_finds_the_arrays_of_the_test_bam(test_bams):
 
 
 def test_independent_scan_output_holds_no_read_ids(test_bams, tmp_path):
-    """On the six reads of the test BAM, with the pipeline's calls changed for zm 1 (mirror) and zm 4 (complete): one
-    disagreement each way. The published text holds only aggregate lines; the two ZMWs go to the disagreement list in
-    the ArgenTag folder, not next to the text."""
+    """On the six reads of the test BAM, with the pipeline's calls (read_summary of annotate_non_passing.py, in --out)
+    changed for zm 1 (mirror) and zm 4 (complete): one disagreement each way. The text holds only aggregate lines; the
+    two ZMWs go to the disagreement list, a private per-read table in --out, the run's ArgenTag folder. The ArgenTag
+    folder is only read."""
     hifi, _ = test_bams
     d = _argentag_dir(tmp_path, **{"segmented.non_passing.bam": hifi})
-    (d / "analysis" / "full_reads").mkdir()
-    _summary(d / "analysis" / "full_reads" / "read_summary.parquet",
-             {1: "mirror", 2: "complete", 3: "complete", 4: "complete", 5: "mirror", 6: "mirror"})
     out = tmp_path / "out"
+    (out / "full_reads").mkdir(parents=True)
+    _summary(out / "full_reads" / "read_summary.parquet",
+             {1: "mirror", 2: "complete", 3: "complete", 4: "complete", 5: "mirror", 6: "mirror"})
     r = run_script(ARGENTAG / "independent_scan.py", "--argentag-dir", str(d), "--out", str(out))
     text = (out / "independent_scan.txt").read_text()
     assert r.stdout == text
@@ -191,19 +210,24 @@ Reference (in our sample ZMs):
 
 Script executed successfully.
 """
-    assert sorted(p.name for p in out.iterdir()) == ["independent_scan.txt"]
-    dis = pl.read_csv(d / "analysis" / "independent_scan_disagreements.tsv", separator="\t")
+    assert sorted(p.name for p in out.iterdir()) == ["full_reads", "independent_scan.txt", "independent_scan_disagreements.tsv"]
+    assert _files(d) == ["data", "data/segmented.non_passing.bam"]
+    dis = pl.read_csv(out / "independent_scan_disagreements.tsv", separator="\t")
     assert dis.columns == ["zm", "my_mirror", "their_mirror", "my_n_adapters"]
     assert sorted(dis.rows()) == [(1, False, True, 9), (4, True, False, 4)]
 
 
 @pytest.mark.real
 def test_full_read_view_equals_v10(local, tmp_path):
-    """The five tables from v10's parent-read annotation and S-read coordinates: the three frozen ones equal the golden
-    files, the other two (aggregate tables the report does not read) equal the v10 files next to the inputs."""
+    """The five tables from v10's parent-read annotation and S-read coordinates (linked into the scratch output folder):
+    the three frozen ones equal the golden files, the other two (aggregate tables the report does not read) equal the
+    v10 files next to the inputs."""
     arg = local["argentag_dir"]
     out = tmp_path / "out"
-    run_script(ARGENTAG / "full_read_view.py", "--argentag-dir", str(arg), "--out", str(out))
+    out.mkdir()
+    for name in ("full_reads", "argentag_sread_coords.parquet"):
+        (out / name).symlink_to(arg / "analysis" / name)
+    run_script(ARGENTAG / "full_read_view.py", "--out", str(out))
     assert golden_diffs(out, GOLDEN, tmp_path / "cmp", "*.tsv") == []
     for name in ("full_read_patterns.tsv", "full_read_mirror_rule.tsv"):
         assert (out / name).read_bytes() == (arg / "analysis" / name).read_bytes(), name
@@ -211,20 +235,18 @@ def test_full_read_view_equals_v10(local, tmp_path):
 
 @pytest.mark.real
 def test_independent_scan_equals_v10(local, tmp_path):
-    """The aggregate text equals the golden file byte for byte. The disagreement list goes to the (scratch) ArgenTag
-    folder and holds the eight ZMWs v10 printed, in the same order and with the same calls."""
+    """From v10's parent-read annotation (linked into the scratch output folder): the aggregate text equals the golden
+    file byte for byte, and the disagreement list next to it holds the eight ZMWs v10 printed, in the same order and
+    with the same calls."""
     arg = local["argentag_dir"]
-    d = tmp_path / "argentag"
-    (d / "data").mkdir(parents=True)
-    (d / "analysis").mkdir()
-    (d / "data" / "segmented.non_passing.bam").symlink_to(arg / "data" / "segmented.non_passing.bam")
-    (d / "analysis" / "full_reads").symlink_to(arg / "analysis" / "full_reads")
     out = tmp_path / "out"
-    run_script(ARGENTAG / "independent_scan.py", "--argentag-dir", str(d), "--out", str(out))
+    out.mkdir()
+    (out / "full_reads").symlink_to(arg / "analysis" / "full_reads")
+    run_script(ARGENTAG / "independent_scan.py", "--argentag-dir", str(arg), "--out", str(out))
     assert (out / "independent_scan.txt").read_bytes() == (GOLDEN / "independent_scan.txt").read_bytes()
     v10 = [line.split(". ", 1)[1] for line in (arg / "analysis" / "independent_scan.txt").read_text().splitlines()
            if line.startswith("  ") and ". ZM " in line]
-    dis = pl.read_csv(d / "analysis" / "independent_scan_disagreements.tsv", separator="\t")
+    dis = pl.read_csv(out / "independent_scan_disagreements.tsv", separator="\t")
     assert [f"ZM {z}: my_mirror={m}, their={t}, n_adapters={n}" for z, m, t, n in dis.rows()] == v10 and len(v10) == 8
 
 

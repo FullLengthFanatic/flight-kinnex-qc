@@ -7,10 +7,11 @@ share of ZMWs whose S-reads reach Q but not A. Truth: our mirror calls in nd_fir
 
 Inputs, in the calibration folder: nd_first200k.skera120.bam (skera_split.py), nd_first200k.hifi.nomod.bam, and
 nd_first200k_truth/segments.parquet (the delivered skera 26.1.0 S-reads) and read_summary.parquet.
-Writes head_test_skera_versions.tsv into --out (default: the calibration folder).
+Writes head_test_skera_versions.tsv into --out.
 Usage, from the repository root:
-  study/calibration/head_version_check.py [--calibration-dir DIR] [--out DIR]
---calibration-dir defaults to calibration_dir of study/study.toml and study.local.toml.
+  study/calibration/head_version_check.py --out DIR [--calibration-dir DIR]
+--calibration-dir defaults to calibration_dir of study/study.toml and study.local.toml. --out is required:
+calibration_dir holds v10's calibration set, the reference the outputs are compared with, and is never written.
 """
 import argparse
 import sys
@@ -30,12 +31,12 @@ def main(argv: list[str] | None = None) -> None:
     config = load_config()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--calibration-dir", default=config.get("calibration_dir"), help="calibration folder (build_calibration_set.py)")
-    ap.add_argument("--out", help="output directory (default: the calibration folder)")
+    ap.add_argument("--out", required=True, help="output directory (never calibration_dir, v10's reference set)")
     args = ap.parse_args(argv)
     if not args.calibration_dir or args.calibration_dir.startswith("<"):
         ap.error("no calibration folder: give --calibration-dir or set calibration_dir in study/study.local.toml")
     here = Path(args.calibration_dir)
-    out = Path(args.out) if args.out else here
+    out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     nd = here / "nd_first200k_truth"
     old = read_sreads(here / "nd_first200k.skera120.bam", threads=4).select("zm", "qs", "qe", "dl", "dr").cast(pl.Int64)

@@ -6,15 +6,16 @@ from kinnex_qc (only the study's config reader, for its default paths). On 5,000
 read with the study's calls in full_reads/read_summary.parquet (annotate_non_passing.py). Prints agreement and a
 mirror-share estimate.
 
-Inputs, in the ArgenTag folder (--argentag-dir): data/segmented.non_passing.bam (shared by ArgenTag, not public) and
-analysis/full_reads/read_summary.parquet.
-Writes the printed lines, aggregate numbers only, to <out>/independent_scan.txt (--out defaults to
-<argentag_dir>/analysis). The reads the two calls disagree on (ArgenTag ZMW ids, one row each: zm, my_mirror,
-their_mirror, my_n_adapters) go to <argentag_dir>/analysis/independent_scan_disagreements.tsv, always inside the
-ArgenTag folder, so they never land next to the published text.
+Inputs: data/segmented.non_passing.bam in the ArgenTag folder (--argentag-dir; shared by ArgenTag, not public) and
+full_reads/read_summary.parquet in --out, the run's ArgenTag folder (annotate_non_passing.py).
+Writes into --out: independent_scan.txt, the printed lines, aggregate numbers only; and
+independent_scan_disagreements.tsv, the reads the two calls disagree on (ArgenTag ZMW ids, one row each: zm, my_mirror,
+their_mirror, my_n_adapters), a private per-read table next to the others of that folder (argentag_sread_coords.parquet,
+full_reads/), never published.
 Usage, from the repository root:
-  study/argentag/independent_scan.py [--argentag-dir DIR] [--out DIR]
---argentag-dir defaults to argentag_dir of study/study.toml and study.local.toml.
+  study/argentag/independent_scan.py --out DIR [--argentag-dir DIR]
+--argentag-dir defaults to argentag_dir of study/study.toml and study.local.toml. --out is required: argentag_dir holds
+the inputs and v10's reference files, and is never written.
 """
 
 import argparse
@@ -203,15 +204,14 @@ def main(argv: list[str] | None = None):
     config = load_config()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--argentag-dir", default=config.get("argentag_dir"), help="ArgenTag folder, holding data/ and analysis/")
-    ap.add_argument("--out", help="directory for independent_scan.txt (default: <argentag-dir>/analysis)")
+    ap.add_argument("--out", required=True, help="the run's ArgenTag folder (never argentag_dir): holds full_reads/ of annotate_non_passing.py")
     args = ap.parse_args(argv)
     if not args.argentag_dir or args.argentag_dir.startswith("<"):
         ap.error("no ArgenTag folder: give --argentag-dir or set argentag_dir in study/study.local.toml")
-    here = Path(args.argentag_dir) / "analysis"
-    out = Path(args.out) if args.out else here
+    out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    bam_path = here.parent / "data" / "segmented.non_passing.bam"
-    ref_summary_path = here / "full_reads" / "read_summary.parquet"
+    bam_path = Path(args.argentag_dir) / "data" / "segmented.non_passing.bam"
+    ref_summary_path = out / "full_reads" / "read_summary.parquet"
     lines = []
 
     def say(text: str = "") -> None:
@@ -297,11 +297,11 @@ def main(argv: list[str] | None = None):
     say(f"  Mirror in this scan only: {ours_only} ({100*ours_only/total:.1f}%)")
     say(f"  Mirror in the pipeline only: {theirs_only} ({100*theirs_only/total:.1f}%)")
 
-    # The per-read list holds ArgenTag ZMW ids: it stays in the ArgenTag folder, never in the published text.
+    # The per-read list holds ArgenTag ZMW ids: a private table of the run's ArgenTag folder, never in the published text.
     say("\nDisagreement details (first 10):")
     pl.DataFrame(disagreements, schema={"zm": pl.Int64, "my_mirror": pl.Boolean, "their_mirror": pl.Boolean, "my_n_adapters": pl.Int64}) \
-        .write_csv(here / "independent_scan_disagreements.tsv", separator="\t")
-    print(f"{len(disagreements)} disagreements written to {here / 'independent_scan_disagreements.tsv'}", file=sys.stderr)
+        .write_csv(out / "independent_scan_disagreements.tsv", separator="\t")
+    print(f"{len(disagreements)} disagreements written to {out / 'independent_scan_disagreements.tsv'}", file=sys.stderr)
 
     # Estimate mirror rate
     mirror_in_sample = sum(1 for r in my_results if r["is_mirror"])
