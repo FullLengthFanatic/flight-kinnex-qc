@@ -1,0 +1,6 @@
+name: kinnex-qc-skera120
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - pbskera=1.2.0

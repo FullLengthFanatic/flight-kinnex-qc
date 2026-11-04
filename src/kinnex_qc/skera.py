@@ -1,4 +1,5 @@
-"""Shared rules for skera's S-reads: false cuts, adapters left inside an S-read, molecule coverage, and mirror junctions."""
+"""Shared rules for skera's S-reads: false cuts, adapters left inside an S-read, molecule coverage, mirror junctions, and
+the unwritten-head test."""
 import polars as pl
 
 from .molecules import USABLE
@@ -7,6 +8,7 @@ from .patterns import MAS_ORDER
 COVER = 0.8
 TOUCH = 0.2
 TOL = 5
+HEAD_MOL = 2.0      # unwritten-head flag: the parent read before the first S-read is at least 2 mean written molecules long
 
 _CHUNKS = 16
 
@@ -177,6 +179,26 @@ def passing_from_labels(sreads: pl.DataFrame, order_len: int = 9) -> pl.DataFram
             .otherwise((pl.col("dl0") == 0) & (pl.col("dr_last") == order_len - 1))
             .alias("endpoints_ok")))
     return out.with_columns((pl.col("steps_ok") & pl.col("links_ok") & pl.col("endpoints_ok")).alias("passing")).select("zm", "passing")
+
+
+def unwritten_head(sreads: pl.DataFrame, head_mol: float = HEAD_MOL, order_len: int = 9) -> pl.DataFrame:
+    """The unwritten-head test, which looks for mirror reads in S-read-only data. Per ZMW with S-reads, from skera's
+    documented S-read tags (dl and dr, the adapters on each side; qs and qe, the S-read's start and end in the parent
+    read; https://skera.how/read-segments.html): first and last, the lowest and highest adapter index the S-reads reach;
+    n, the S-read count; head, the parent read before the first S-read (lowest qs); span, from there to the end of the
+    last S-read; fwd, every S-read in forward adapter order (dl < dr); head_mol, head in mean written molecules
+    (head * n / span); q_not_a, the S-reads reach the last adapter (Q) but not the first (A); flag, q_not_a and fwd
+    and a head of at least head_mol molecules (HEAD_MOL, 2, by default). Rows sorted by zm.
+    study/argentag/full_read_view.py and study/calibration/head_version_check.py use it."""
+    s = sreads.with_columns(pl.col("qs", "qe", "dl", "dr").cast(pl.Int64))
+    return (s.with_columns(pl.min_horizontal("dl", "dr").alias("lo"), pl.max_horizontal("dl", "dr").alias("hi"))
+            .group_by("zm").agg(pl.col("lo").min().alias("first"), pl.col("hi").max().alias("last"), pl.len().cast(pl.Int64).alias("n"),
+                                pl.col("qs").min().alias("head"), (pl.col("qe").max() - pl.col("qs").min()).alias("span"),
+                                (pl.col("dl") < pl.col("dr")).all().alias("fwd"))
+            .with_columns((pl.col("head") * pl.col("n") / pl.col("span")).alias("head_mol"),
+                          ((pl.col("last") == order_len - 1) & (pl.col("first") > 0)).alias("q_not_a"))
+            .with_columns((pl.col("q_not_a") & pl.col("fwd") & (pl.col("head_mol") >= head_mol)).alias("flag"))
+            .sort("zm"))
 
 
 def skipped_adapters(fc: pl.DataFrame, sreads: pl.DataFrame, features: pl.DataFrame, tol: int = TOL) -> pl.DataFrame:

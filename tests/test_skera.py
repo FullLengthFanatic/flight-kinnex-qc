@@ -124,6 +124,28 @@ def test_mirror_regions():
         (2, 3031, 3040, "after"), (2, 3048, 4048, "after")]
 
 
+def test_unwritten_head():
+    """zm 1: a complete forward read (S-reads A..Q), not flagged. zm 2: one S-read H..Q starting 3,048 bp in, its span
+    1,000 bp: head 3.048 mean written molecules, flagged. zm 3: H..Q with a head of 1.5 molecules, reaches Q but not A
+    only. zm 4: H..Q in reverse adapter order (dl > dr), not forward. zm 5: two S-reads G..H..Q, head 2,000 bp over a
+    2,000 bp span of 2 S-reads, exactly 2 molecules: flagged (the bound is inclusive)."""
+    reads = {1: {"adapters": [], "molecules": [], "sreads": [(17 + 1000 * k, 1000 * (k + 1), k, k + 1) for k in range(8)]},
+             2: {"adapters": [], "molecules": [], "sreads": [(3048, 4048, 7, 8)]},
+             3: {"adapters": [], "molecules": [], "sreads": [(1500, 2500, 7, 8)]},
+             4: {"adapters": [], "molecules": [], "sreads": [(3048, 4048, 8, 7)]},
+             5: {"adapters": [], "molecules": [], "sreads": [(2000, 3000, 6, 7), (3000, 4000, 7, 8)]}}
+    _, _, s = frames(reads)
+    z = skera.unwritten_head(s)
+    assert z.columns == ["zm", "first", "last", "n", "head", "span", "fwd", "head_mol", "q_not_a", "flag"]
+    assert z.rows() == [
+        (1, 0, 8, 8, 17, 7983, True, 17 * 8 / 7983, False, False),
+        (2, 7, 8, 1, 3048, 1000, True, 3.048, True, True),
+        (3, 7, 8, 1, 1500, 1000, True, 1.5, True, False),
+        (4, 7, 8, 1, 3048, 1000, False, 3.048, True, False),
+        (5, 6, 8, 2, 2000, 2000, True, 2.0, True, True)]
+    assert skera.unwritten_head(s, head_mol=3.1)["flag"].to_list() == [False, False, False, False, False]
+
+
 def test_mirror_arm_classes_regions():
     f, m, s = frames(tso_tso_mirror())
     arm = skera.mirror_arm_classes(m, s).sort("region")
@@ -200,6 +222,7 @@ def test_every_public_function_on_empty_frames():
         ("single_tso_tso_mirrors", skera.single_tso_tso_mirrors(m), ["zm", "js", "je", "letter"]),
         ("mirror_regions", skera.mirror_regions(m), [*m.columns, "region"]),
         ("passing_from_labels", passing, ["zm", "passing"]),
+        ("unwritten_head", skera.unwritten_head(s), ["zm", "first", "last", "n", "head", "span", "fwd", "head_mol", "q_not_a", "flag"]),
         ("skipped_adapters", skera.skipped_adapters(fc, s, f), ["zm", "cut_start", "missed", "in_sread", "dist"]),
         ("mirror_arm_classes", skera.mirror_arm_classes(m, s), ["zm", "region", "cls"]),
         ("budget_classes", cls, [*coverage_cols, "usable"]),

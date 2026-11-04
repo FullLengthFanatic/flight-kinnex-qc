@@ -71,15 +71,22 @@ def junction_composition(molecules: pl.DataFrame, read_summary: pl.DataFrame) ->
         .sort(["reads", "junction_molecules"], descending=[True, False]))
 
 
-def mirror_size_rule(molecules: pl.DataFrame, read_summary: pl.DataFrame, order: list = MAS_ORDER) -> pl.DataFrame:
-    """For reads with exactly one mirror junction, a TSO-TSO one (skera.single_tso_tso_mirrors): array size
-    (n_mas - 1) against the size that junction's adapter letter predicts for a clean two-arm mirror."""
+def mirror_size_reads(molecules: pl.DataFrame, read_summary: pl.DataFrame, order: list = MAS_ORDER) -> pl.DataFrame:
+    """Per read with exactly one mirror junction, a TSO-TSO one (skera.single_tso_tso_mirrors): the junction's
+    letter, the array size (n_mas - 1, column molecules) and the size that letter predicts for a clean two-arm mirror."""
     predicted = {letter: 2 * (len(order) - 1 - i) + 1 for i, letter in enumerate(order)}
-    single = (single_tso_tso_mirrors(molecules).select("zm", "letter")
-              .join(read_summary.select("zm", pl.col("n_mas").cast(pl.Int64)), on="zm")
-              .with_columns((pl.col("n_mas") - 1).alias("molecules"),
-                            pl.col("letter").replace_strict(predicted, return_dtype=pl.Int64).alias("predicted")))
-    return (single.group_by("letter").agg(pl.len().alias("reads"), pl.col("predicted").first(),
-                                          pl.col("molecules").median().alias("median_molecules"),
-                                          (pl.col("molecules") == pl.col("predicted")).mean().alias("share_matching"))
+    return (single_tso_tso_mirrors(molecules).select("zm", "letter")
+            .join(read_summary.select("zm", pl.col("n_mas").cast(pl.Int64)), on="zm")
+            .with_columns((pl.col("n_mas") - 1).alias("molecules"),
+                          pl.col("letter").replace_strict(predicted, return_dtype=pl.Int64).alias("predicted"))
+            .drop("n_mas"))
+
+
+def mirror_size_rule(molecules: pl.DataFrame, read_summary: pl.DataFrame, order: list = MAS_ORDER) -> pl.DataFrame:
+    """mirror_size_reads by junction letter: reads, the predicted size, the median array size and the share of reads
+    whose size matches the prediction."""
+    return (mirror_size_reads(molecules, read_summary, order)
+            .group_by("letter").agg(pl.len().alias("reads"), pl.col("predicted").first(),
+                                    pl.col("molecules").median().alias("median_molecules"),
+                                    (pl.col("molecules") == pl.col("predicted")).mean().alias("share_matching"))
             .sort("letter"))

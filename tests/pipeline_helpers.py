@@ -1,6 +1,7 @@
 """Helpers for the study stage and analysis tests: the stage modules, the mini dataset, running a stage as the study
-runs it, and comparing an analysis' output with its v10 golden files. Importing this module puts study/pipeline and
-study/analyses on sys.path, so tests import the stage and analysis modules by name."""
+runs it, and comparing an analysis' output with its v10 golden files. Importing this module puts study/pipeline,
+study/analyses, study/argentag and study/calibration on sys.path, so tests import the stage, analysis, ArgenTag and
+calibration modules by name."""
 import json
 import shutil
 import subprocess
@@ -12,9 +13,13 @@ import pysam
 REPO = Path(__file__).resolve().parent.parent
 PIPELINE = REPO / "study" / "pipeline"
 ANALYSES = REPO / "study" / "analyses"
+ARGENTAG = REPO / "study" / "argentag"
+CALIBRATION = REPO / "study" / "calibration"
 GOLDEN_INPUTS = Path(__file__).resolve().parent / "golden" / "v10_inputs"
 sys.path.insert(0, str(PIPELINE))
 sys.path.insert(0, str(ANALYSES))
+sys.path.insert(0, str(ARGENTAG))
+sys.path.insert(0, str(CALIBRATION))
 sys.path.insert(0, str(REPO / "study"))
 
 from compare_runs import compare_trees  # noqa: E402
@@ -61,7 +66,13 @@ def key_structure(x):
 def run_analysis(script: str, *args: str) -> subprocess.CompletedProcess:
     """Run one study analysis from the repository root; raise if it fails. Returns the finished process, with its
     stdout and stderr as text."""
-    r = subprocess.run([sys.executable, str(ANALYSES / script), *args], cwd=REPO, capture_output=True, text=True)
+    return run_script(ANALYSES / script, *args)
+
+
+def run_script(path: Path, *args: str) -> subprocess.CompletedProcess:
+    """Run one study script (an analysis, an ArgenTag or a calibration script) from the repository root; raise if it
+    fails. Returns the finished process, with its stdout and stderr as text."""
+    r = subprocess.run([sys.executable, str(path), *args], cwd=REPO, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     return r
 

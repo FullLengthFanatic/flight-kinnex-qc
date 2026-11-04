@@ -71,6 +71,14 @@ def test_mirror_size_rule():
     assert msr.rows(named=True) == [{"letter": "H", "reads": 1, "predicted": 3, "median_molecules": 3.0, "share_matching": 1.0}]
 
 
+def test_mirror_size_reads():
+    """The reads mirror_size_rule aggregates: zm 2 has a single TSO-TSO junction at H (predicted 2 x 1 + 1 = 3, and 3
+    molecules); zm 3 has two junctions, so it is not one of them."""
+    reads = metrics.mirror_size_reads(_molecules(), _read_summary())
+    assert reads.columns == ["zm", "letter", "molecules", "predicted"]
+    assert reads.rows() == [(2, "H", 3, 3)]
+
+
 def _assert_dict_equal(got: dict, gold: dict, keys):
     for k in keys:
         assert got[k] == gold[k], f"{k}: {got[k]} != {gold[k]}"
