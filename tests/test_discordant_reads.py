@@ -1,0 +1,88 @@
+"""Tests for study/analyses/discordant_reads.py: the reads where skera's cuts and our adapters disagree, on hand-built
+reads with known answers, and the summary on the v10 hash sample against the golden file."""
+import json
+
+import polars as pl
+import pysam
+import pytest
+
+from pipeline_helpers import GOLDEN_INPUTS, golden_diffs, run_analysis
+from synth import complete_with_false_cut, frames, rand
+
+import discordant_reads as dr
+
+
+def _reads() -> dict:
+    """zm 1: complete_with_false_cut, a cut without our adapter (1500-1514) and our D inside the first S-read. zm 2: S-reads
+    cut at our adapters. zm 3: no adapter of ours, two S-reads, its first starting at 5. zm 4: our D' (1 edit) inside its
+    one S-read. zm 5: not passing, a cut without an adapter."""
+    reads = complete_with_false_cut()
+    reads[2] = {"adapters": [("C", "+", 0, 17, 0), ("D", "+", 1017, 1034, 0), ("E", "+", 2034, 2051, 0)], "molecules": [],
+                "sreads": [(17, 1017, 2, 3), (1034, 2034, 3, 4)]}
+    reads[3] = {"adapters": [], "molecules": [], "sreads": [(5, 900, 0, 1), (920, 1800, 1, 2)]}
+    reads[4] = {"adapters": [("C", "-", 0, 17, 0), ("D", "-", 1017, 1034, 1), ("E", "-", 2034, 2051, 0)], "molecules": [],
+                "sreads": [(17, 2034, 4, 2)]}
+    reads[5] = {"adapters": [], "molecules": [], "sreads": [(17, 900, 0, 1), (920, 1800, 1, 2)]}
+    return reads
+
+
+def _sample_dir(path):
+    feats, _, sreads = frames(_reads())
+    path.mkdir()
+    feats.with_columns(pl.lit("hifi").alias("source")).write_parquet(path / "read_features.parquet")
+    sreads.write_parquet(path / "segments.parquet")
+    pl.DataFrame({"zm": [1, 2, 3, 4, 5], "source": "hifi", "read_len": [2051, 2051, 1800, 2051, 1800],
+                  "chain": ["C D E", "C D E", "", "E' D' C'", ""], "primary_pattern": ["complete", "complete", "unresolved", "complete", "unresolved"],
+                  "skera_passing": [True, True, True, True, False]},
+                 schema_overrides={"zm": pl.UInt32}).write_parquet(path / "read_summary.parquet")
+
+
+def _hifi_bam(path, lengths: dict):
+    header = {"HD": {"VN": "1.6", "SO": "unknown"}, "RG": [{"ID": "rg1", "PL": "PACBIO", "DS": "READTYPE=CCS"}]}
+    with pysam.AlignmentFile(str(path), "wb", header=header) as bam:
+        for zm, n in lengths.items():
+            a = pysam.AlignedSegment()
+            a.query_name, a.query_sequence, a.flag = f"movie/{zm}/ccs", rand(n), 4
+            a.set_tag("zm", zm, value_type="i")
+            bam.write(a)
+
+
+def test_disagreeing_reads_on_hand_built_reads(tmp_path):
+    _sample_dir(tmp_path / "s")
+    dr.main(["--sample-dir", str(tmp_path / "s"), "--out", str(tmp_path / "out"), "--n", "2"])
+    summ = json.loads((tmp_path / "out" / "discordant_summary.json").read_text())
+    # our_adapters_inside_sreads is 3 for 2 adapters: zm 3, a disagreeing read without an adapter inside, counts as one
+    # (its empty list of inside adapters splits into one empty item), as v10 counted
+    assert summ == {"pool_skera_passing_reads": 4, "disagreeing_reads": 3, "one_shifted_cut": 1, "our_adapters_inside_sreads": 3,
+                    "inside_exact": 1, "inside_adapter_D": 2, "drawn_for_review": 2}
+    pool = pl.read_csv(tmp_path / "out" / "discordant_all_in_pool.tsv", separator="\t")
+    assert pool.columns == ["zm", "skera_gaps_without_our_adapter", "our_adapters_inside_an_sread", "inside_adapters", "gap_positions"]
+    # ordered by each read's first S-read start, then by S-read table order: zm 3 (5), zm 1 (17), zm 4 (17)
+    assert pool.rows() == [(3, 1, 0, "", "900-920"), (1, 1, 1, "D@1017(edits 0)", "1500-1514"), (4, 0, 1, "D'@1017(edits 1)", "")]
+    picked = pl.read_csv(tmp_path / "out" / "discordant_reads_zmws.tsv", separator="\t")["zm"].to_list()
+    assert len(picked) == 2 and picked == sorted(picked) and set(picked) <= {1, 3, 4}
+    auto = pl.read_csv(tmp_path / "out" / "discordant_reads_auto.tsv", separator="\t")
+    assert auto.columns == [*pool.columns, "read_len", "chain", "primary_pattern"]
+    assert auto["zm"].to_list() == picked
+    assert not (tmp_path / "out" / "discordant_reads.html").exists()
+
+
+def test_drawn_reads_rendered_with_their_sequences(tmp_path):
+    _sample_dir(tmp_path / "s")
+    _hifi_bam(tmp_path / "hifi.bam", {1: 2051, 2: 2051, 3: 1800, 4: 2051})
+    dr.main(["--sample-dir", str(tmp_path / "s"), "--out", str(tmp_path / "out"), "--hifi", str(tmp_path / "hifi.bam")])
+    html = (tmp_path / "out" / "discordant_reads.html").read_text()
+    for zm in (1, 3, 4):
+        assert f"ZMW {zm}" in html
+    assert "ZMW 2" not in html
+    assert 'class="false" title="skera cut (site skera called an adapter), 1501-1514"' in html
+    assert 'class="adapter" title="D&#x27; (edits 1) (adapter), 1018-1034"' in html
+
+
+@pytest.mark.real
+def test_hash_sample_summary_equals_golden(local, tmp_path):
+    run_analysis("discordant_reads.py", "--sample-dir", str(local["hash_dir"] / "BD144_ND"), "--out", str(tmp_path / "out"))
+    golden = GOLDEN_INPUTS / "discordant_reads"
+    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == ["discordant_all_in_pool.tsv", "discordant_reads_auto.tsv",
+                                                                     "discordant_reads_zmws.tsv", "discordant_summary.json"]
+    assert golden_diffs(tmp_path / "out", golden, tmp_path / "cmp") == []
