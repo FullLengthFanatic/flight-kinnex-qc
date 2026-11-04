@@ -270,7 +270,7 @@ def test_q2_mini_nd(mini_study, mini):
     assert key["usable_per_productive_zmw"] == pytest.approx(key["usable_per_hifi_zmw"] * key["hifi_reads"] / (key["productive_zmws"] * f))
     assert "rejected_read_share" in key and "rejected_read_base_share" in key
     assert "proper_not_recovered_in_rejected_per_hifi_zmw" in key
-    assert key["skera_agreement"] == json.loads((GOLDEN / "BD144_ND" / "gates" / "gate_skera.json").read_text())["metrics"]["agreement"]
+    assert key["skera_agreement"] == json.loads((mini_study / "BD144_ND" / "gates" / "gate_skera.json").read_text())["metrics"]["agreement"]
     assert pl.read_csv(q / "tables" / "yield.tsv", separator="\t")["per_ccs_zmw"].null_count() == 0      # fraction 1
 
 
