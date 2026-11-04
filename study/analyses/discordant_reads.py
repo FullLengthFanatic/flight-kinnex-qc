@@ -6,25 +6,24 @@ within 5 bp (skera.false_cuts), or one of our adapters lies inside an S-read by 
 the strict rule qs + 5 < start and end < qe - 5, as in the skera gate). From a random subset of skera-passing reads
 (--pool, fixed seed), draws --n disagreeing reads (fixed seed) and writes the automatic description of each
 disagreement to discordant_reads_auto.tsv, every disagreeing read of the subset to discordant_all_in_pool.tsv, the drawn
-ZMWs to discordant_reads_zmws.tsv and the counts to discordant_summary.json. With --hifi (the sample's HiFi BAM), the
-drawn reads are also drawn base by base into discordant_reads.html (kinnex_qc.viewer: our adapters with their edits,
-TSO and Read1, and skera's cuts without an adapter of ours), so each read can be judged before reading the TSV.
-Usage: study/analyses/discordant_reads.py --sample-dir <pipeline sample dir> --out <dir> [--hifi <HiFi BAM>] [--n 30]
-       [--pool 40000] [--seed 11]
+ZMWs to discordant_reads_zmws.tsv and the counts to discordant_summary.json. The review page of the drawn reads is
+rendered from these tables by the report's read-track code, not here.
+In discordant_summary.json, our_adapters_inside_sreads counts one item per ';'-separated entry of each disagreeing read's
+inside_adapters, so a disagreeing read with no adapter of ours inside an S-read (only a gap without our adapter) counts
+one empty item: the value is the number of adapters inside S-reads plus the number of such reads (3,880 = 3,864 adapters
++ 16 reads on BD144_ND). It is kept this way to equal v10; quote it as items, and use inside_exact and inside_adapter_D
+(which skip empty items) for adapter counts.
+Usage: study/analyses/discordant_reads.py --sample-dir <pipeline sample dir> --out <dir> [--n 30] [--pool 40000]
+       [--seed 11]
 """
 import argparse
-import html
 import json
 import random
 from pathlib import Path
 
 import polars as pl
 
-from kinnex_qc.runner import example_sequences
 from kinnex_qc.skera import adapters_inside_sreads, false_cuts
-from kinnex_qc.viewer import CSS, LABEL, html_sequence
-
-KINDS = {"MAS": "adapter", "TSO": "tso", "R1": "r1"}
 
 
 def disagreements(sk: pl.DataFrame, feats: pl.DataFrame) -> pl.DataFrame:
@@ -56,33 +55,10 @@ def summary(disc: pl.DataFrame, n_pool: int, drawn: int) -> dict:
             "inside_adapter_D": int((ins["letter"] == "D").sum()), "drawn_for_review": drawn}
 
 
-def page(pick: list[int], seqs: dict[int, str], summary_rows: pl.DataFrame, disc: pl.DataFrame, feats: pl.DataFrame,
-         sk: pl.DataFrame) -> str:
-    """The drawn reads, each as its sequence with our adapters (and their edits), TSO and Read1, and skera's cuts without
-    an adapter of ours."""
-    cuts = false_cuts(sk.filter(pl.col("zm").is_in(pick)), feats.filter(pl.col("zm").is_in(pick)))
-    key = "".join(f'<span class="{k}">{v}</span>' for k, v in LABEL.items())
-    parts = []
-    for zm in pick:
-        f = [(html.escape(f"{n}{'' if s == '+' else chr(39)} (edits {e})" if k == "MAS" else n), a, b, KINDS[k])
-             for n, k, s, a, b, e in feats.filter(pl.col("zm") == zm).select("name", "kind", "strand", "start", "end", "edits").iter_rows()
-             if k in KINDS]
-        f += [("skera cut", a, b, "false") for a, b in cuts.filter(pl.col("zm") == zm).select("cut_start", "cut_end").iter_rows()]
-        read = summary_rows.filter(pl.col("zm") == zm).row(0, named=True)
-        d = disc.filter(pl.col("zm") == zm).row(0, named=True)
-        parts.append(f"<h3>ZMW {zm}: {html.escape(read['primary_pattern'])}, {read['read_len']:,} bp, adapters {html.escape(read['chain'])}</h3>"
-                     f"<p>{d['skera_gaps_without_our_adapter']} cut(s) without an adapter of ours; {d['our_adapters_inside_an_sread']} "
-                     f"adapter(s) of ours inside an S-read</p><pre>{html_sequence(seqs[zm], f)}</pre>")
-    return ("<!doctype html><html><head><meta charset='utf-8'><title>Discordant reads</title><style>" + CSS + "</style></head><body>"
-            "<h2>Reads where skera's cuts and our adapters disagree</h2><p>Judge each read before opening discordant_reads_auto.tsv. "
-            "Hover shows names, edit distances and coordinates.</p><p class='key'>" + key + "</p>" + "".join(parts) + "</body></html>")
-
-
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--sample-dir", required=True, help="pipeline output directory of one sample")
     ap.add_argument("--out", required=True, help="output directory")
-    ap.add_argument("--hifi", help="the sample's HiFi BAM: draw the drawn reads' sequences into discordant_reads.html")
     ap.add_argument("--n", type=int, default=30, help="disagreeing reads drawn for review")
     ap.add_argument("--pool", type=int, default=40_000, help="skera-passing reads drawn first, the subset searched")
     ap.add_argument("--seed", type=int, default=11)
@@ -99,9 +75,6 @@ def main(argv: list[str] | None = None) -> None:
     print(f"{disc.height:,} of {n_pool:,} skera-passing reads disagree ({disc.height / n_pool:.3%})")
     pick = sorted(random.Random(args.seed + 1).sample(disc["zm"].to_list(), min(args.n, disc.height)))
     seq_note = reads.filter(pl.col("zm").is_in(pick)).select("zm", "read_len", "chain", "primary_pattern")
-    if args.hifi:
-        seqs = example_sequences(Path(args.hifi), set(pick), threads=4)
-        (out / "discordant_reads.html").write_text(page(pick, seqs, seq_note, disc, feats, sk))
     disc.filter(pl.col("zm").is_in(pick)).join(seq_note, on="zm").sort("zm").write_csv(out / "discordant_reads_auto.tsv", separator="\t")
     pl.DataFrame({"zm": pick}).write_csv(out / "discordant_reads_zmws.tsv", separator="\t")
     disc.write_csv(out / "discordant_all_in_pool.tsv", separator="\t")

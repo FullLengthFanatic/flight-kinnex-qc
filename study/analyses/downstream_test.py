@@ -14,10 +14,10 @@ read group says READTYPE=SEGMENT), so lima takes each record as a molecule of it
 (observed on the calibration set: lima's output holds one record per molecule it passes, named by that molecule).
 --truth holds read_summary, annot_segments and segments (the delivered skera S-reads) for these reads. lima and isoseq
 run in the conda environment --pbtools-env (default: pbtools_env of study/study.toml), and so does minimap2 unless
---minimap2 (default: minimap2 of study/study.toml, when set) names an executable. The three tools' versions go to
+--minimap2 (default: minimap2 of study/study.toml, when set) names an executable. --ref defaults to reference_fasta of study/study.toml and study.local.toml (the placeholder counts as unset). The three tools' versions go to
 stderr, the run log.
 Usage, from the repository root:
-  study/analyses/downstream_test.py --hifi <bam> --template <S-read bam> --truth <dir> --ref <genome fasta> --out <dir>
+  study/analyses/downstream_test.py --hifi <bam> --template <S-read bam> --truth <dir> [--ref <genome fasta>] --out <dir>
       [--threads 4] [--n 3000] [--pbtools-env NAME|PATH] [--minimap2 PATH] [--score-only]
 """
 import argparse
@@ -139,7 +139,8 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--hifi", required=True, help="HiFi BAM of the reads")
     ap.add_argument("--template", required=True, help="skera S-read BAM of the same cell, whose header the molecules get")
     ap.add_argument("--truth", required=True, help="directory with read_summary, annot_segments and segments parquets")
-    ap.add_argument("--ref", required=True, help="reference genome FASTA for minimap2")
+    ap.add_argument("--ref", default=config.get("reference_fasta"),
+                    help="reference genome FASTA for minimap2 (default: reference_fasta of study/study.toml and study.local.toml)")
     ap.add_argument("--out", required=True, help="output directory")
     ap.add_argument("--threads", type=int, default=4)
     ap.add_argument("--n", type=int, default=3000, help="mirror reads and complete reads drawn, each")
@@ -148,6 +149,8 @@ def main(argv: list[str] | None = None) -> None:
                     help="minimap2 executable (default: minimap2 of study/study.toml, else minimap2 in the --pbtools-env environment)")
     ap.add_argument("--score-only", action="store_true", help="reuse lima, refine and mapping outputs in --out")
     args = ap.parse_args(argv)
+    if not args.ref or args.ref.startswith("<"):
+        ap.error("no reference genome: give --ref or set reference_fasta in study/study.local.toml")
     out, truth = Path(args.out), Path(args.truth)
     out.mkdir(parents=True, exist_ok=True)
     chosen = choose(Path(args.hifi), truth, args.n)

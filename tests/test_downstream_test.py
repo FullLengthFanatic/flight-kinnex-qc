@@ -99,6 +99,29 @@ def test_score_only(test_bams, truth, tmp_path, monkeypatch):
     assert per_molecule["molecule"].to_list() == names
 
 
+def _args(tmp_path, *extra):
+    return ["--hifi", "h.bam", "--template", "t.bam", "--truth", str(tmp_path), "--out", str(tmp_path / "o"), *extra]
+
+
+def test_ref_defaults_to_the_configured_reference(tmp_path, monkeypatch, capsys):
+    class Reached(Exception):
+        pass
+
+    def stop(*a, **k):
+        raise Reached
+
+    monkeypatch.setattr(dt, "choose", stop)
+    monkeypatch.setattr(dt, "load_config", lambda: {"pbtools_env": "e", "reference_fasta": "/data/ref.fa"})
+    with pytest.raises(Reached):
+        dt.main(_args(tmp_path))
+    monkeypatch.setattr(dt, "load_config", lambda: {"pbtools_env": "e", "reference_fasta": "<reference>"})
+    with pytest.raises(SystemExit):
+        dt.main(_args(tmp_path))
+    assert "no reference genome: give --ref or set reference_fasta in study/study.local.toml" in capsys.readouterr().err
+    with pytest.raises(Reached):
+        dt.main(_args(tmp_path, "--ref", "x.fa"))
+
+
 @pytest.mark.real
 @pytest.mark.slow
 def test_calibration_set_equals_golden(local, tmp_path):

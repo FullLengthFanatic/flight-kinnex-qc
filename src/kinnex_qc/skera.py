@@ -293,6 +293,12 @@ def budget_per_read(cls: pl.DataFrame) -> pl.DataFrame:
         .with_columns(pl.exclude("zm").cast(pl.Int64)))
 
 
+def unfilled_slots(order_len: int = 9) -> pl.Expr:
+    """The slots of a read's array that hold no molecule: order_len - 1 (the order has one more entry than the array has
+    slots) minus the read's `molecules` count. The one place the rule lives (budget_stats, study/analyses/molecule_budget.py)."""
+    return (order_len - 1 - pl.col("molecules")).alias("unfilled_slots")
+
+
 def budget_stats(read_summary: pl.DataFrame, cls: pl.DataFrame, order_len: int = 9) -> dict:
     """summary.json["skera"]'s budget: means over every HiFi read in read_summary (reads without
     molecules count as 0) of budget_per_read's counts, plus unfilled_slots (order_len - 1 - molecules)
@@ -300,7 +306,7 @@ def budget_stats(read_summary: pl.DataFrame, cls: pl.DataFrame, order_len: int =
     per_read = budget_per_read(cls)
     reads = (read_summary.select("zm").join(per_read, on="zm", how="left")
              .with_columns(pl.exclude("zm").fill_null(0))
-             .with_columns((order_len - 1 - pl.col("molecules")).alias("unfilled_slots"),
+             .with_columns(unfilled_slots(order_len),
                            (pl.col("artifact_tso_tso") + pl.col("artifact_r1_r1") + pl.col("artifact_one_primer_or_none")
                             + pl.col("artifact_fused")).alias("artifact")))
     cols = ["molecules", "unfilled_slots", "artifact_tso_tso", "artifact_r1_r1", "artifact_one_primer_or_none",

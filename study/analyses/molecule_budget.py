@@ -20,9 +20,8 @@ from pathlib import Path
 
 import polars as pl
 
-from kinnex_qc.skera import budget_classes, budget_per_read
+from kinnex_qc.skera import budget_classes, budget_per_read, unfilled_slots
 
-SLOTS = 8
 COLS = ["molecules", "unfilled_slots", "artifact_tso_tso", "artifact_r1_r1", "artifact_one_primer_or_none", "artifact_fused",
         "usable", "kept_standard", "lost_lima", "lost_refine", "lost_mapping", "not_written_cleanly", "other_mapped"]
 
@@ -46,7 +45,7 @@ def budget_reads(rs: pl.DataFrame, segs: pl.DataFrame, sk: pl.DataFrame) -> pl.D
     per_read = budget_per_read(cls).rename({"usable_not_clean": "not_written_cleanly"}).drop("usable_clean").join(fates, on="zm")
     return (rs.join(per_read, on="zm", how="left").join(other_mapped, on="zm", how="left")
             .with_columns(pl.exclude("zm", "primary_pattern").fill_null(0).cast(pl.Int64))
-            .with_columns((SLOTS - pl.col("molecules")).alias("unfilled_slots")))
+            .with_columns(unfilled_slots()))
 
 
 def main(argv: list[str] | None = None) -> None:

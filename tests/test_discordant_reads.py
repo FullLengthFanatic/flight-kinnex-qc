@@ -3,11 +3,10 @@ reads with known answers, and the summary on the v10 hash sample against the gol
 import json
 
 import polars as pl
-import pysam
 import pytest
 
 from pipeline_helpers import GOLDEN_INPUTS, golden_diffs, run_analysis
-from synth import complete_with_false_cut, frames, rand
+from synth import complete_with_false_cut, frames
 
 import discordant_reads as dr
 
@@ -37,16 +36,6 @@ def _sample_dir(path):
                  schema_overrides={"zm": pl.UInt32}).write_parquet(path / "read_summary.parquet")
 
 
-def _hifi_bam(path, lengths: dict):
-    header = {"HD": {"VN": "1.6", "SO": "unknown"}, "RG": [{"ID": "rg1", "PL": "PACBIO", "DS": "READTYPE=CCS"}]}
-    with pysam.AlignmentFile(str(path), "wb", header=header) as bam:
-        for zm, n in lengths.items():
-            a = pysam.AlignedSegment()
-            a.query_name, a.query_sequence, a.flag = f"movie/{zm}/ccs", rand(n), 4
-            a.set_tag("zm", zm, value_type="i")
-            bam.write(a)
-
-
 def test_disagreeing_reads_on_hand_built_reads(tmp_path):
     _sample_dir(tmp_path / "s")
     dr.main(["--sample-dir", str(tmp_path / "s"), "--out", str(tmp_path / "out"), "--n", "2"])
@@ -67,16 +56,13 @@ def test_disagreeing_reads_on_hand_built_reads(tmp_path):
     assert not (tmp_path / "out" / "discordant_reads.html").exists()
 
 
-def test_drawn_reads_rendered_with_their_sequences(tmp_path):
+def test_writes_tables_only_and_has_no_hifi_option(tmp_path):
     _sample_dir(tmp_path / "s")
-    _hifi_bam(tmp_path / "hifi.bam", {1: 2051, 2: 2051, 3: 1800, 4: 2051})
-    dr.main(["--sample-dir", str(tmp_path / "s"), "--out", str(tmp_path / "out"), "--hifi", str(tmp_path / "hifi.bam")])
-    html = (tmp_path / "out" / "discordant_reads.html").read_text()
-    for zm in (1, 3, 4):
-        assert f"ZMW {zm}" in html
-    assert "ZMW 2" not in html
-    assert 'class="false" title="skera cut (site skera called an adapter), 1501-1514"' in html
-    assert 'class="adapter" title="D&#x27; (edits 1) (adapter), 1018-1034"' in html
+    with pytest.raises(SystemExit):
+        dr.main(["--sample-dir", str(tmp_path / "s"), "--out", str(tmp_path / "o2"), "--hifi", "x.bam"])
+    dr.main(["--sample-dir", str(tmp_path / "s"), "--out", str(tmp_path / "out")])
+    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == ["discordant_all_in_pool.tsv", "discordant_reads_auto.tsv",
+                                                                     "discordant_reads_zmws.tsv", "discordant_summary.json"]
 
 
 @pytest.mark.real
