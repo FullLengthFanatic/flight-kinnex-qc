@@ -227,13 +227,61 @@ def test_markers_written_and_steps_skipped_on_rerun(study):
     assert {"all/s06_concatenation_bias", "all/s07_depletion", "all/build_calibration_set", "all/mirror_arms.nd_cal_skera12",
             "all/false_cut_anatomy.BD144_kin", "all/tso_end_validation"} <= set(m)
     assert len(m) == len(SAMPLES) * len(steps) + 2 + len(phase4_calls(study, study.out))
-    assert all(re.fullmatch(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d \S+ \d+\n", t) for t in m.values()), m
+    assert all(re.fullmatch(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d \S+ \d+( fraction 1)?\n", t) for t in m.values()), m
     assert (study.out / "logs" / "BD144_ND" / "s01_extract_segments.log").exists()
     r = study.run()
     assert r.returncode == 0, r.stderr
     assert study.calls() == []
     assert "BD144_ND s01_extract_segments skip" in r.stdout
     assert study.markers() == m
+
+
+SHARED_STEPS = ("build_calibration_set", "skera_split", "head_version_check", "tso_end_validation")
+
+
+def test_a_new_fraction_runs_again_every_step_whose_outputs_sit_under_the_fraction_folder(study):
+    """The markers sit in <out root>/logs whatever the fraction, so a marker of a step whose outputs depend on the
+    fraction records it: a run at fraction 0.18 after one at fraction 1 into the same out root runs the per-sample,
+    cross-sample and analysis steps again, and skips the calibration steps, whose outputs are shared."""
+    assert study.run().returncode == 0
+    m = study.markers()
+    assert {k for k, t in m.items() if not t.endswith(" fraction 1\n")} == {f"all/{x}" for x in SHARED_STEPS}
+    study.config.write_text(study.config.read_text().replace("fraction = 1\n", "fraction = 0.18\n"))
+    r = study.run()
+    assert r.returncode == 0, r.stderr
+    calls = study.calls()
+    at = lambda xs: [re.sub(r"--fraction 1\b", "--fraction 0.18", x) for x in xs]  # noqa: E731
+    mem = re.search(r"--mem-budget-gb (\d+)", "\n".join(calls))
+    assert mem, calls
+    for s in SAMPLES:
+        assert [x for x in calls if f"--sample {s} " in x] == at(per_sample_calls(study, s, mem.group(1)))
+    common = ("--samples", str(study.samples), "--out-root", str(study.out), "--fraction", "0.18")
+    after = calls[calls.index(at(per_sample_calls(study, SAMPLES[-1], mem.group(1)))[-1]) + 1:]
+    assert after == [c("pipeline/s06_concatenation_bias.py", "--all", *common), c("pipeline/s07_depletion.py", "--all", *common),
+                     *[x for x in phase4_calls(study, study.out / "hash_0.18") if not x.startswith("calibration/")]]
+    assert "BD144_ND s01_extract_segments: the .ok marker is not from fraction 0.18" in r.stdout
+    assert all(f"all {x} skip" in r.stdout for x in SHARED_STEPS)
+    m = study.markers()
+    assert {k for k, t in m.items() if not t.endswith(" fraction 0.18\n")} == {f"all/{x}" for x in SHARED_STEPS}
+    r = study.run()
+    assert r.returncode == 0, r.stderr
+    assert study.calls() == []
+
+
+def test_argentag_markers_are_shared_by_every_fraction(tmp_path):
+    arg = tmp_path / "argentag_in"
+    (arg / "data").mkdir(parents=True)
+    (arg / "data" / "segmented.bam").write_bytes(b"")
+    (arg / "data" / "segmented.non_passing.bam").write_bytes(b"")
+    st = Study(tmp_path / "st")
+    st.config.write_text(st.config.read_text().replace('"<argentag>"', f'"{arg}"'))
+    assert st.run().returncode == 0
+    assert any(x.startswith("argentag/") for x in st.calls())
+    st.config.write_text(st.config.read_text().replace("fraction = 1\n", "fraction = 0.18\n"))
+    r = st.run()
+    assert r.returncode == 0, r.stderr
+    assert not any(x.startswith(("argentag/", "calibration/")) for x in st.calls())
+    assert any(x.startswith("analyses/") for x in st.calls())
 
 
 @needs_gio

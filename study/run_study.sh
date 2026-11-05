@@ -16,9 +16,11 @@
 # <run> is the out root at fraction 1 and <out root>/hash_<fraction> below 1, the folder of the sample outputs.
 # The first failing step or hard gate stops every other chain at once and the run (exit 1). gate_skera is a
 # measurement: a crash only warns and trashes a stale gate_skera.json, so that no later step reads it, and the run
-# goes on. A step that exits 0 writes <out root>/logs/<sample or all>/<step>.ok (date and time, git HEAD, seconds); a
-# rerun skips it. A step without .ok runs from scratch. Step logs <out root>/logs/<sample or all>/<step>.log are
-# appended. The markers do not record the fraction: use one out root per fraction, or --fresh after changing it.
+# goes on. A step that exits 0 writes <out root>/logs/<sample or all>/<step>.ok (date and time, git HEAD, seconds, and
+# "fraction F" when the step's outputs sit under <run>); a rerun skips it. A step without .ok, or whose .ok names
+# another fraction, runs from scratch; the steps that write into <out root>/calibration or <out root>/argentag, shared by
+# every fraction, skip whatever fraction their .ok was written at. Step logs <out root>/logs/<sample or all>/<step>.log
+# are appended.
 # INT, TERM or HUP to run_study.sh stops every chain it started. Only one run_study.sh may run at a time per out root;
 # a second one exits 3, naming the lock file it could not take.
 # Usage, from the repository root:
@@ -72,6 +74,7 @@ keys = ("fraction", "fail_subsample", "processes", "threads", "pbtools_env", "sa
         "skera120_env", "samtools_env", "samtools", "minimap2")
 values = {k: config.get(k, "") for k in keys}
 values["out_root"] = out_root
+values["fraction_tag"] = f"{config['fraction']:g}"
 values["run_dir"] = out_dir(out_root, "all", config["fraction"]).parent
 for k, v in values.items():
     print(k, v, sep="\t")
@@ -97,6 +100,7 @@ ANALYSES=(false_cuts_calibration "${SAMPLES[@]/#/false_cut_anatomy.}"
 ARGENTAG=(sread_coords annotate_non_passing full_read_view independent_scan)
 REPORT=(report_compute report_render)
 PHASE4=("${CALIBRATION[@]}" "${ANALYSES[@]}" "${ARGENTAG[@]}" "${REPORT[@]}")
+SHARED=" ${CALIBRATION[*]} head_version_check tso_end_validation ${ARGENTAG[*]} "   # outputs outside <run>
 ORDER=("${PHASE0[@]}" "${PHASE1[@]}" "${PHASE2[@]}" "${PHASE3[@]/#/all:}" "${PHASE4[@]/#/all:}")   # all: cross-sample steps
 FROM_AT=
 if [[ -n $FROM ]]; then
@@ -106,8 +110,9 @@ if [[ -n $FROM ]]; then
   [[ -n $FROM_AT ]] || { echo "run_study.sh: no step starts with '$FROM'" >&2; usage; }
 fi
 
-export REPO PY SCRIPTS CONFIG
-export OUT_ROOT=${C[out_root]} RUN_DIR=${C[run_dir]} FRACTION=${C[fraction]} FAIL_SUBSAMPLE=${C[fail_subsample]} \
+export REPO PY SCRIPTS CONFIG SHARED
+export OUT_ROOT=${C[out_root]} RUN_DIR=${C[run_dir]} FRACTION=${C[fraction]} FRACTION_TAG=${C[fraction_tag]} \
+  FAIL_SUBSAMPLE=${C[fail_subsample]} \
   PROCESSES=${C[processes]} THREADS=${C[threads]} PBTOOLS_ENV=${C[pbtools_env]} SAMPLES_TSV=${C[samples]} \
   ARGENTAG_DIR=${C[argentag_dir]} REFERENCE=${C[reference_fasta]} SKERA120_ENV=${C[skera120_env]} \
   SAMTOOLS_ENV=${C[samtools_env]} SAMTOOLS=${C[samtools]} MINIMAP2=${C[minimap2]}
@@ -176,13 +181,19 @@ step_cmd() {   # step_cmd <sample|all> <step>: the command of one step, into the
   esac
 }
 
-run_stage() {   # run_stage <sample|all> <step>: one step, skipped when its .ok marker exists
-  local s=$1 st=$2 log=$LOGS/$1 t start secs rc=0
+run_stage() {   # run_stage <sample|all> <step>: one step, skipped when its .ok marker exists (and, for a step whose
+                # outputs sit under <run>, names this run's fraction)
+  local s=$1 st=$2 log=$LOGS/$1 t start secs rc=0 frac= ok
   local -a CMD
   mkdir -p "$log"
+  if [[ $SHARED != *" $st "* ]]; then frac=" fraction $FRACTION_TAG"; fi
   if [[ -f $log/$st.ok ]]; then
-    echo "[$(stamp)] $s $st skip (ok: $(<"$log/$st.ok"))"
-    return 0
+    ok=$(<"$log/$st.ok")
+    if [[ -z $frac || $ok == *"$frac" ]]; then
+      echo "[$(stamp)] $s $st skip (ok: $ok)"
+      return 0
+    fi
+    echo "[$(stamp)] $s $st: the .ok marker is not from fraction $FRACTION_TAG (ok: $ok), running it again"
   fi
   step_cmd "$s" "$st"
   t=$(stamp)
@@ -195,7 +206,7 @@ run_stage() {   # run_stage <sample|all> <step>: one step, skipped when its .ok 
     echo "[$(stamp)] FAILED: $s $st (exit $rc after $secs s, log: $log/$st.log)" >&2
     return 1
   fi
-  echo "$(stamp) $(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown) $secs" > "$log/$st.ok"
+  echo "$(stamp) $(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown) $secs$frac" > "$log/$st.ok"
   echo "[$(stamp)] $s $st done in $secs s"
 }
 
