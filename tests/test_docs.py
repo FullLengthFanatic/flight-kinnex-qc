@@ -142,6 +142,9 @@ def test_readme_findings_put_the_skera_cutting_error_first_with_its_figure_and_r
     found = section(text, "What we found")
     heads = re.findall(r"^\*\*(\d)\. ([^*]+)\*\*", found, flags=re.M)
     assert [n for n, _ in heads] == ["1", "2", "3", "4"] and "skera" in heads[0][1]
+    # skera writes about half the usable molecules of a mirror read (mirror_arms_clean_share_mirror); the heading says it as
+    # the Note does ("leaves many molecules of mirror arrays unwritten"), not as "few"
+    assert "skera leaves many of their molecules unwritten" in heads[1][1] and "few" not in heads[1][1]
     first = found[found.index("**1. "):found.index("**2. ")]
     assert f"](report/figures/{render.SCHEMATICS['fig1']}.svg)" in first and first.count("![") == 1
     assert f"```text\n{build_docs.excerpt(build_docs.FASTA)}\n```" in first
@@ -228,6 +231,13 @@ def test_methods_texts():
     body = " ".join(x for x in main.splitlines()[1:] if not x.startswith("#"))
     assert 150 <= len(body.split()) <= 250, len(body.split())
     assert "Supplementary Note" in main
+    # the hash sample covers the three libraries' HiFi reads only: the calibration comparisons, the fail reads and ArgenTag
+    # each use their own read set, and the main text names each
+    numbers = json.loads((GOLDEN / "v10_numbers.json").read_text())
+    assert "Every analysis" not in body
+    for s in (f"hash sample of {render.FORMATS['pct0'](numbers['fraction'])} of each cell's ZMWs", "fail reads, a separate 1-in-10 sample",
+              f"the first {render.fmt(numbers['cal_hifi_reads'])} ND HiFi reads", "all reads skera did not pass"):
+        assert s in body, s
     supp = (REPO / "docs" / "supplementary_methods.md").read_text()
     assert "Supplementary Note" in supp
     for s in ("edlib", "lima 2.13.0", "isoseq refine 4.3.0", "minimap2 2.30", "skera 1.2.0", "26.1.0", "AAGCAGTGGTATCAACGCAGAGTAC",
