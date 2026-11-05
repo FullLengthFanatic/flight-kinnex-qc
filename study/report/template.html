@@ -110,7 +110,7 @@ of reads carry such a false cut, in all three libraries alike. skera skips a rea
 ({nd_false_cut_missed_same_letter|pct0} of false cuts) at a sequence that resembles it inside the next molecule, a median {nd_false_cut_median_cut_to_missed_bp|f0} bp
 further along the read. Two S-reads come out wrong. The one before the false cut is a chimera: a whole molecule, the skipped adapter and the first part of the cut molecule.
 The one after it is a fragment, the rest of the cut molecule. On reads whose adapters run A to Q it keeps the TSO end; on reads from the other strand (Q to A)
-it keeps the Read1 end, with the cell label. skera's next cut, at the far end of the fragment, is at a real adapter in {nd_false_cut_fused_far_end_at_real_adapter|pct0}. lima rejects both S-reads: it passes
+it keeps the Read1 end, with the cell label. The chimera's other end sits at a real adapter in {nd_false_cut_fused_far_end_at_real_adapter|pct0} of false cuts. lima rejects both S-reads: it passes
 {false_cut_frag_lima_max|pct1} of fragments and {false_cut_fused_lima_min|pct1} to
 {false_cut_fused_lima_max|pct1} of chimeras, against {false_cut_baseline_lima_pass_min|pct1} or more of proper S-reads.
 Each false cut therefore costs two molecules in the standard workflow: the cut one and the whole one fused to it. In kin that comes to
