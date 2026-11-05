@@ -1,0 +1,92 @@
+# kinnex-qc reader guide
+
+`kinnex-qc run` reads the HiFi BAM of one SMRT Cell of Kinnex arrays and finds every adapter, TSO and Read1 along each read of a hash sample. From that it tells you how many reads are complete arrays, mirror arrays, truncated or something else, and what share of their molecules are proper cDNA rather than artifacts (TSO-TSO or R1-R1 molecules, molecules missing a primer, fused molecules). Given skera's S-read BAM too, it checks skera's cuts on the same reads: false cuts, what skera writes from mirror arrays, and how many usable molecules per read skera does not write cleanly. With `--write-molecules` it writes the usable molecules of every read as a BAM that lima reads like skera's output. Terms are defined in [concepts.md](concepts.md).
+
+## Install
+
+`kinnex-qc` needs Python 3.12 and none of the PacBio tools. From a copy of this repository, either
+
+```
+uv tool install .
+```
+
+or, inside a Python 3.12 environment,
+
+```
+pip install .
+```
+
+Both put the `kinnex-qc` command on your PATH; `kinnex-qc --version` prints the package version.
+
+## Run
+
+```
+kinnex-qc run --hifi hifi_reads.bam --sreads segmented.bam --out qc/
+```
+
+| Option | What it does |
+| --- | --- |
+| `--hifi` | The HiFi (CCS) BAM, before skera. Required. |
+| `--sreads` | skera's `segmented.bam` for the same SMRT Cell. Optional; without it nothing about skera is checked. |
+| `--out` | The output folder. Required. |
+| `--fraction` | Share of ZMWs checked, default 0.1. |
+| `--threads` | Worker processes, default 4. |
+| `--adapters` | An adapter FASTA in skera's format; default the Kinnex 8-fold adapters A to H and Q. |
+| `--primers` | `sc3` (default: the TSO core and partial Read1 of single-cell 3' cDNA) or two sequences, `TSO,READ1`. |
+| `--write-molecules` | Also write `molecules.bam` (below). Needs `--sreads` or `--template`, with a read group in its header. |
+| `--template` | The BAM whose header and read group `molecules.bam` copies; default `--sreads`. |
+| `--examples` | Example reads per kind in the report, default 2; 0 for none. |
+
+The command reads every record of the BAM but checks only the ZMWs of a hash sample: a ZMW is checked when a salted hash of its number falls in the lowest `--fraction` of the hash range. The sample spreads over the whole SMRT Cell whatever the order of the file, and a rerun picks the same ZMWs; the study used the same hash at {fraction|pct0}. `--fraction 1` checks every read.
+
+It writes into `--out`:
+
+- `report.html`: the report, one self-contained page.
+- `summary.json`: the numbers of the report; the report gives the key beside each number or under its table.
+- `reads.tsv.gz`: one row per checked read: `zm`, `read_len`, `chain` (its adapters in read order), `chain_flipped`, `primary_pattern`, `n_mas`, and with `--sreads` also `n_sreads`, `passing`, `false_cuts` and `usable_not_clean`.
+- `run.log`: the command line, progress and timings.
+- `molecules.bam`, with `--write-molecules`: one unaligned record per usable molecule (TSO at one end, Read1 at the other, nothing fused) of every read in the file, not only the checked ones, cut at the adapters found here and carrying the template's header and read group, so lima takes each record as an S-read. Run `lima --isoseq --peek-guess` and `isoseq refine` on it as on skera's output; [skera_cutting_error.md](skera_cutting_error.md) has the commands.
+
+## Reading the report
+
+Each section explains its numbers in plain words. Below, what to look at, with the study's values for comparison (BD144 libraries, Kinnex 8-fold, skera 26.1.0, hash samples of {fraction|pct0}). Expect your values to differ if your chemistry, depletion or skera version differ.
+
+**1 What this report checks.** The definitions the rest of the page uses.
+
+**2 Array structure.** Every read gets one pattern from its chain of adapters: complete, truncated, mirror or other. Mirror arrays are the sign of TSO-TSO (or R1-R1) molecules in the arrays. Without depletion, {nd_mirror_share|pct1} of ND reads were mirror arrays and {nd_complete_share|pct1} complete; with the Kinnex TSO artifact removal, {kin_mirror_share|small_pct} and {kin_complete_share|pct1}. The junction figure shows the adapter on both sides of each mirror junction and the molecule between them: in ND {nd_mirror_junction_tso_tso_share|pct1} held a TSO-TSO molecule. The size-rule table compares reads with one TSO-TSO junction at adapter X with the expected 2 x (slots from X to the last adapter) + 1 molecules ({mirror_rule_overall|pct1} of such ND reads matched exactly). The composition table lists the reads by the molecules at their junctions and the share skera passes.
+
+**3 Artifact molecules per 1,000.** Every molecule classed by its two ends. TSO-TSO molecules per 1,000 were {nd_tso_tso_per_1000|f1} in ND, {hm_tso_tso_per_1000|g2} in HM and {kin_tso_tso_per_1000|g2} in kin, and {arg_tso_tso_per_1000|f1} in ArgenTag cDNA.
+
+**4 skera's cuts against the adapters found here** (only with `--sreads`). Here a read passes skera when its S-read labels run from the first adapter to the last, since the command does not read `non_passing.bam`. False cuts: the share of complete arrays skera passes with at least one false cut, the letter skera gave each false cut and the letter of the adapter it skipped. In the study this share was {false_cut_reads_share_min..false_cut_reads_share_max|pct1} in all three libraries (observed, skera 26.1.0). Mirror arms: for reads with one TSO-TSO junction, how many usable molecules skera wrote cleanly on each arm; in ND, {mirror_after_clean_share|pct1} on the arm after the junction and {mirror_before_clean_share|pct1} on the arm before it (observed, skera 26.1.0). Slot budget: per read, the usable molecules skera writes cleanly, those it does not, the artifact molecules and the empty slots. Usable molecules not written cleanly were {budget_nd_not_written_cleanly|fmt} per read in ND, {budget_hm_not_written_cleanly|fmt} in HM and {budget_kin_not_written_cleanly|fmt} in kin. That is the most a full-read segmentation with `--write-molecules` can win back, before lima, refine and mapping.
+
+**5 Example reads.** A few clean reads of each kind from your data (complete array, TSO-TSO mirror, R1-R1 mirror and, with `--sreads`, a false cut), coloured as in `examples/example_reads.html`. Hover over a coloured stretch for its name and position.
+
+**6 Inputs, versions and what was not checked.** The files, adapters, primers, fraction and software versions, including the skera version from the S-read BAM's header. Not checked: lima, isoseq refine and mapping; fail reads; molecule lengths and concatenation bias; the cell label and UMI.
+
+Without `--sreads`, section 4 is left out and the last two sections are numbered 4 and 5.
+
+## Scope
+
+`kinnex-qc` is for single-cell 3' cDNA in Kinnex arrays, with the TSO at one end of each molecule and Read1 with the cell label at the other: BD Rhapsody and FLIGHT-seq, 10x 3', ArgenTag. It is not for bulk Iso-Seq, where both cDNA ends carry the same primer. Other adapter sets (for example 16-fold) and primers can be given with `--adapters` and `--primers`, but have not been tested.
+
+## Validation
+
+`kinnex-qc run` is validated on BD Rhapsody (FLIGHT-seq) Kinnex 8-fold libraries only. No 10x Kinnex HiFi dataset has been checked against it yet.
+
+The check: `study/validate_reader.py` ran commit `1a33bbf` (package version 0.1.0) against three BD Rhapsody libraries, BD144_ND, BD144_HM and BD144_kin, at `--fraction 0.18` and `--threads 10`, and compared 229 numbers from each run's `summary.json` (129 for BD144_ND, 50 each for BD144_HM and BD144_kin) against the frozen tables from the same study's own, independent analysis (`tests/golden`): patterns, artifact rates, false cut letters and the molecule budget in all three libraries, plus BD144_ND's mirror junction letters, junction composition, array size rule and mirror arm tables. BD144_HM and BD144_kin have no v10 tables for those last four, so they are not compared; `skera.complete_reads`, `skera.budget.artifact` and `skera.budget.usable_clean` also have no v10 counterpart and are not compared in any library. Later commits changed how `--write-molecules` streams its output and stopped defaulting `--fraction` to 1 when it is set without an explicit `--fraction`, added progress lines to `run.log`, changed row order on ties, and changed how `mirror_size_rule` is computed (it now goes through `skera.single_tso_tso_mirrors`); none of them touch `summary.json`'s numbers, which their own tests confirm against a fixed calibration BAM.
+
+Across the three libraries, 33,628,976 HiFi reads were read from the BAMs and 6,054,028 of them fell in the 0.18 hash sample the summary and report describe.
+
+### The one known difference from v10
+
+One of the 229 compared numbers differs from v10: BD144_ND's mirror junction composition "TSO-TSO only" bucket's `skera_pass_share` is 0.0034570434472299045 against v10's {nd_tso_tso_only_skera_pass_share|str}, one read out of 313,852. The cause is that the reader has no `--non-passing` option, so it derives skera's pass or fail verdict from the S-read labels alone (`kinnex_qc.skera.passing_from_labels`), which disagrees with skera's own verdict on 20 of BD144_ND's {budget_nd_hifi_reads|fmt} sampled reads (19 truncated, 1 mirror, none of the complete arrays); that one mirror read falls in this bucket. This difference was reviewed and accepted: `study/validate_reader.py` pins both values and prints the line as KNOWN, not a failure, and `tests/test_reader_validation.py` passes. Every other compared number matches v10 exactly. See `CHANGELOG.md` for the entry.
+
+### Time and memory
+
+Run time and peak memory, as measured on the machine that ran these three checks (a machine shared with other jobs at the time, load 37 to 57 on 32 CPUs), at `--fraction 0.18` and `--threads 10`, from `/usr/bin/time -v`: this is what these three runs cost on that machine, not a benchmark.
+
+| library | wall time | peak memory |
+| --- | --- | --- |
+| BD144_ND | 3:45:04 | 14,797,320 kB (14.1 GiB) |
+| BD144_HM | 4:11:28 | 17,228,784 kB (16.4 GiB) |
+| BD144_kin | 4:11:08 | 16,728,116 kB (16.0 GiB) |

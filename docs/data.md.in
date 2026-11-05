@@ -1,0 +1,36 @@
+# Data
+
+Every input of the study, what it is and where it comes from. The study finds its files through two git-ignored files: `study/samples.local.tsv` (one row per library) and `study/study.local.toml` (everything else), laid over `study/samples.tsv` and `study/study.toml`, which hold placeholders.
+
+## BD144 Kinnex libraries
+
+FLIGHT-seq cDNA from one BD Rhapsody cartridge, split after lysis into three technical replicates and concatenated with the Kinnex 8-fold kit with no TSO-TSO depletion (BD144_ND, SMRT Cell PB538_3_r0912), a home-made biotin-Read1 pulldown (BD144_HM, PB538_4_r0913) or the Kinnex TSO artifact removal (BD144_kin, PB538_2_r0911); one Revio SMRT Cell each. The files below will be deposited for each library under ACCESSION_TBD; in `study/samples.tsv` their paths start with the placeholder `<deposit>`.
+
+| File, per library | What it is | Column of `study/samples.tsv` |
+| --- | --- | --- |
+| `hifi_reads.bam` | The HiFi reads, whole, before skera | `hifi_bam` |
+| `fail_reads.bam` | The reads whose consensus did not reach HiFi quality | `fail_bam` |
+| `segmented.bam` | skera's S-reads, as delivered with the data (skera 26.1.0) | `segmented_bam` |
+| `segmented.non_passing.bam` | skera's file of the whole reads it did not pass | `non_passing_bam` |
+| `zmw_metrics.csv.gz` | Per ZMW: read and polymerase read length, read quality, HiFi or not, number of passes | `zmw_metrics` |
+| `read_segmentation.report.json` | skera's report for the whole SMRT Cell, which gives the cell's HiFi read count | `skera_report` |
+| `<sample>.fltnc.aligned.bam` | The mapped fltnc reads of the existing Iso-Seq run (skera, lima, isoseq refine, mapping) | `fltnc_bam` |
+
+The instrument delivers the first six inside two archives per SMRT Cell, one with the reads and ZMW metrics and one with skera's output. `study/prepare_inputs.sh MEMBER_TABLE OUT_DIR` extracts them as plain files under the names above; the member table names each file inside the archives (the script's header lists its columns). The mapped fltnc BAM comes from the Iso-Seq run made on these libraries before this study.
+
+## ArgenTag MDA-MB-453 8-fold
+
+The ArgenTag scripts (`study/argentag/`) read one folder, `argentag_dir` in `study/study.local.toml` (`study/study.toml` holds a placeholder), with two BAMs in `data/`:
+
+- `segmented.bam`: the public S-reads of the 8-fold cell (skera 1.2.0, as the BAM's @PG line says), from https://downloads.pacbcloud.com/public/dataset/Kinnex-single-cell-RNA/DATA-RevioSPRQ-Kinnex-ArgenTag-MDAcellLine/MDA-8fold/0-Sreads/
+- `segmented.non_passing.bam`: skera's file of the reads it did not pass, whole, for the same cell. segmented.non_passing.bam is not public; ArgenTag shared it with us. ARGENTAG_WORDING_TBD It is not redistributed here.
+
+The scripts only read that folder. They write into the folder given by `--out`, which has no default: `sread_coords.py` and `annotate_non_passing.py` write the per-read tables (`argentag_sread_coords.parquet`, `full_reads/`), `full_read_view.py` and `independent_scan.py` read them from there and add their aggregate tables and `independent_scan.txt`, and `independent_scan.py` adds its per-read disagreement list (`independent_scan_disagreements.tsv`). The per-read tables hold ArgenTag read ids and are never published. `study/run_study.sh` gives all four scripts `<out root>/argentag`. The cell's HiFi read count ({arg_hifi_reads|fmt}) comes from Table 1 of the ArgenTag and PacBio technical note.
+
+## Reference genome
+
+The downstream test (`study/analyses/downstream_test.py`) maps the molecules that pass lima and isoseq refine to the GRCh38 primary assembly from GENCODE (`GRCh38.primary_assembly.genome.fa`: the GRCh38 chromosomes and scaffolds, without the alternate loci and patches), with minimap2 2.30 (`-ax splice:hq -uf --secondary=no`). The study reads the file's location from `reference_fasta` in `study/study.local.toml`; `study/study.toml` holds a placeholder. The analysis takes it from `--ref`, which defaults to `reference_fasta` and stops with a one-line error when neither is set.
+
+## Calibration set
+
+The calibration scripts (`study/calibration/`) write into the folder given by `--out`, which has no default; they never write into `calibration_dir` in `study/study.local.toml`, which holds v10's calibration set, the reference their outputs are compared with. `build_calibration_set.py` takes the first {cal_hifi_reads|fmt} HiFi reads of BD144_ND from the BAMs of `study/samples.tsv` through samtools 1.13 with htslib 1.13, as v10 did (its docstring says why the versions matter): `samtools` in `study/study.local.toml` names the executable, else it runs in the conda environment named by `samtools_env` (`envs/samtools113.yml`). `skera_split.py` runs skera 1.2.0 (bioconda pbskera=1.2.0, `envs/skera120.yml`) on them, in the conda environment named by `skera120_env`; it, `head_version_check.py` and `tso_end_validation.py` read the set from `--calibration-dir`, which defaults to `calibration_dir`. `study/run_study.sh` builds the set into `<out root>/calibration` and points these scripts there.

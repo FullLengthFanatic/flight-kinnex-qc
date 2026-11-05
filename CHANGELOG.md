@@ -27,3 +27,5 @@
   of the complete arrays), and that one mirror read falls in this bucket. Reviewed and accepted:
   `study/validate_reader.py` pins both values and prints the line as KNOWN, and
   `tests/test_reader_validation.py` (real) passes.
+
+- New since v10: README.md and docs/ (concepts, the skera cutting error, the reader guide, data, Methods texts) and CITATION.cff. `docs/build_docs.py` writes README.md and docs/*.md from their `.md.in` sources. Every number comes from `numbers.json` through the Note's own formatter (`study/report/render.py`), except the per-library false-cut table, which reads `tables/fig1_skera_false_cut_anatomy.tsv` because numbers.json holds most of those values only as a range over the three libraries. Measurements that are not results of the study (the reader's validation runs, this machine's disk and run times) are typed in the sources; `tests/test_docs.py` lists them. Until the full rerun's report is adopted they are built from `tests/golden/v10_numbers.json` and `tests/golden/v10_tables/`. No number changed.
