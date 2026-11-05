@@ -32,7 +32,7 @@ def test_tracked_example_files_are_five_reads_in_plain_text():
     for p in (SCRIPT, EXAMPLES / "example_reads.fasta", EXAMPLES / "example_reads.html"):
         text = p.read_text()
         assert "—" not in text and "–" not in text, p.name
-        assert not re.search(r"/home/|/tmp|/data/|kcqc|kinnex_concat_qc|BD147|PB538", text), p.name
+        assert not re.search(r"(?:^|[\s\"'=(])/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", text), p.name
         assert not [w for w in BANNED if w in text.lower()], p.name
 
 
