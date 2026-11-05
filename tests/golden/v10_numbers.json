@@ -305,6 +305,7 @@
  "non_mirror_flagged_1_5_max": 0.001739679743491894,
  "nd_sensitivity_1_0": 0.7044365566721726,
  "nd_sensitivity_1_5": 0.6536182178117946,
+ "cal_hifi_reads": 200000,
  "skera120_flagged": 18126,
  "skera2610_flagged": 18110,
  "skera120_ppv": 0.9946485711133178,

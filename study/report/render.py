@@ -6,11 +6,13 @@ fig3_reads.json) builds, in the same folder,
   supplementary_note.pdf         the print page as PDF (headless Chrome),
   figures/                       each figure as SVG and PDF (plotly figures through kaleido, the two drawings through Inkscape).
 The prose is template.html. A placeholder {key|format} prints the numbers.json value of key with one of FORMATS (v10's
-helpers); <!--table S1--> and the like mark where the Supplementary Tables go, which render builds from tables/ and
+helpers), a range {lo_key..hi_key|format} "lo to hi" or one value when both print the same (v10's span());
+<!--table S1--> and the like mark where the Supplementary Tables go, which render builds from tables/ and
 numbers.json; <!--figure fig2--> a plotly figure of figures.py; <!--schematic fig1--> a drawing of kinnex_qc.schematics.
 Usage: study/report/render.py --report-dir <run>/report
 """
 import argparse
+import base64
 import json
 import math
 import re
@@ -31,8 +33,17 @@ from kinnex_qc.schematics import false_cut_svg, schematic_svg
 HERE = Path(__file__).resolve().parent
 TEMPLATE = HERE / "template.html"
 PRINT_CSS = HERE / "print.css"
+FONT_DIR = HERE.parent.parent / "resources" / "fonts"
 FIGURES = ("fig2", "fig3", "fig4", "fig5", "fig6", "fig7", "fig8", "fig9")
 SCHEMATICS = {"fig1": "Supplementary_fig1", "fig4a": "Supplementary_fig4a_schematic"}      # slot -> file name in figures/
+# The fonts v10 loaded from Google Fonts, inlined in both pages: family, weight, style, file in resources/fonts (README.md
+# there names the releases). Source Serif 4 in the static cuts of the optical sizes v10 set it at: Small Text, Subhead.
+FONTS = [("IBM Plex Sans", 400, "normal", "IBMPlexSans-Regular.woff2"), ("IBM Plex Sans", 500, "normal", "IBMPlexSans-Medium.woff2"),
+         ("IBM Plex Sans", 600, "normal", "IBMPlexSans-SemiBold.woff2"), ("IBM Plex Mono", 400, "normal", "IBMPlexMono-Regular.woff2"),
+         ("IBM Plex Mono", 500, "normal", "IBMPlexMono-Medium.woff2"), ("Source Serif 4", 400, "normal", "SourceSerif4SmText-Regular.ttf.woff2"),
+         ("Source Serif 4", 600, "normal", "SourceSerif4SmText-Semibold.ttf.woff2"), ("Source Serif 4", 400, "italic", "SourceSerif4SmText-It.ttf.woff2"),
+         ("Source Serif 4 Subhead", 400, "normal", "SourceSerif4Subhead-Regular.ttf.woff2"),
+         ("Source Serif 4 Subhead", 600, "normal", "SourceSerif4Subhead-Semibold.ttf.woff2")]
 
 
 def fmt(v, digits=2):
@@ -69,29 +80,36 @@ FORMATS = {
     "kb1": lambda v: f"{v / 1000:.1f}", "mio2": lambda v: f"{v / 1e6:.2f}",
     "str": str, "list": lambda v: ", ".join(str(x) for x in v), "commits": commits,
 }
-PLACEHOLDER = re.compile(r"\{([a-z0-9_]+)\|([a-z0-9_]+)\}")
+PLACEHOLDER = re.compile(r"\{([a-z0-9_]+)(?:\.\.([a-z0-9_]+))?\|([a-z0-9_]+)\}")
 BARE = re.compile(r"\{([a-z0-9_]+)\}")
 
 
+def span(lo: str, hi: str) -> str:
+    """v10's span(): a range as "lo to hi", or one value when both ends print the same."""
+    return lo if lo == hi else f"{lo} to {hi}"
+
+
 def placeholders(text: str) -> list[tuple[str, str]]:
-    """(key, format) of every placeholder in text, in order."""
-    return PLACEHOLDER.findall(text)
+    """(key, format) of every placeholder in text, in order; a range gives both its keys."""
+    return [(key, f) for lo, hi, f in PLACEHOLDER.findall(text) for key in (lo, hi) if key]
 
 
 def fill(text: str, numbers: dict) -> str:
-    """text with every {key|format} replaced by FORMATS[format](numbers[key]). A key that numbers.json lacks or a format not
-    in FORMATS is a KeyError; a {key} without a format a ValueError."""
+    """text with every {key|format} replaced by FORMATS[format](numbers[key]), and every range {lo..hi|format} by span() of
+    its two ends in that format. A key that numbers.json lacks or a format not in FORMATS is a KeyError; a {key} without a
+    format a ValueError."""
     bare = BARE.search(text)
     if bare:
         raise ValueError(f"placeholder {bare.group(0)} names no format; write {{{bare.group(1)}|<format>}}, format one of {', '.join(FORMATS)}")
 
     def one(m: re.Match) -> str:
-        key, f = m.groups()
-        if key not in numbers:
-            raise KeyError(f"{key}: not a key of numbers.json")
+        lo, hi, f = m.groups()
+        for key in (lo, hi):
+            if key and key not in numbers:
+                raise KeyError(f"{key}: not a key of numbers.json")
         if f not in FORMATS:
             raise KeyError(f"{f} (in {m.group(0)}): not a format, use one of {', '.join(FORMATS)}")
-        return FORMATS[f](numbers[key])
+        return span(FORMATS[f](numbers[lo]), FORMATS[f](numbers[hi])) if hi else FORMATS[f](numbers[lo])
 
     return PLACEHOLDER.sub(one, text)
 
@@ -100,17 +118,36 @@ def read(tables: Path, name: str) -> pl.DataFrame:
     return pl.read_csv(tables / f"{name}.tsv", separator="\t", infer_schema_length=None)
 
 
-def check_claims(tables: Path) -> None:
-    """Supplementary Fig. 1's caption says that the lima pass rates of ND and HM (chimeras and fragments of false cuts)
-    differ from kin's, which the drawing shows, by less than 0.1 percentage point. Stop when the false-cut anatomy says
-    otherwise."""
+def check_claims(tables: Path, numbers: dict) -> None:
+    """The template's words that hold only for these data, checked against the source tables and numbers.json. When one
+    does not hold, stop with one line naming it: the Note's text then needs a change in template.html. "Alike" is read as
+    within 10% of each other and "slight" as under 1% (thresholds of this check, not of v10)."""
     fa = {r["library"]: r for r in read(tables, "fig1_skera_false_cut_anatomy").iter_rows(named=True)}
-    for lib in ("ND", "HM"):
-        for col in ("fate_fused_lima", "fate_frag_lima"):
-            diff = abs(fa[lib][col] - fa["kin"][col])
-            if not diff < 0.001:
-                sys.exit(f"render.py: Supplementary Fig. 1's caption says the lima pass rates of ND and HM differ from kin's by less than "
-                         f"0.1 percentage point, but {col} of {lib} differs by {100 * diff:.3f} percentage point; change the caption in template.html")
+    lima = max(abs(fa[lib][col] - fa["kin"][col]) for lib in ("ND", "HM") for col in ("fate_fused_lima", "fate_frag_lima"))
+    partner = max(abs(r["diff_vs_P_bp"]) / r["partner_mean"] for r in read(tables, "S6_concatenation_bias").iter_rows(named=True))
+    bench = read(tables, "S4_chain_classification_benchmark_summary").filter(pl.col("error_rate") <= 0.01)    # HiFi rates, as bench_hifi_class_min
+    false_mirrors = bench["non_mirror_called_mirror"].sum()
+    arg_at_a = read(tables, "S7_argentag_parent_reads")["junctions_at_A_tso_tso"].sum()
+    let = read(tables, "fig4b_mirror_junction_letters_ND")
+    tt_at_a, rr_at_q = (let.filter((pl.col("letter") == x) & (pl.col("molecule") == m))["junctions"].sum() for x, m in (("A", "TSO-TSO"), ("Q", "R1-R1")))
+    fc_lo, fc_hi, passed = numbers["false_cut_reads_share_min"], numbers["false_cut_reads_share_max"], numbers["nd_tso_tso_only_skera_pass_share"]
+    claims = [
+        ("Supplementary Fig. 1's caption", "ND and HM differ by less than 0.1 percentage point", lima < 0.001,
+         f"their lima pass rates differ from kin's by up to {100 * lima:.3f} percentage point"),
+        ("the key findings and section 5", "under 1% of the mean partner", partner < 0.01,
+         f"the partners of long molecules differ from chance by {pct(partner, 2)} of the mean partner in one library"),
+        ("section 1", "never calls a read a mirror array when it is not one", false_mirrors == 0,
+         f"non-mirror reads called mirror at HiFi error rates in the benchmark: {false_mirrors}"),
+        ("section 6", "none of them at adapter A", arg_at_a == 0, f"ArgenTag TSO-TSO junctions at A: {arg_at_a}"),
+        ("section 3", "junctions occur at adapters B to Q but not at A", tt_at_a == 0, f"ND TSO-TSO junctions at A: {tt_at_a}"),
+        ("section 3", "with junctions at A to H but never at Q", rr_at_q == 0, f"ND R1-R1 junctions at Q: {rr_at_q}"),
+        ("section 1", "in all three libraries alike", fc_hi < 1.1 * fc_lo,
+         f"the libraries' shares of reads with a false cut, {pct(fc_lo)} to {pct(fc_hi)}, are 10% or more apart"),
+        ("section 6", "a slight underestimate", passed < 0.01, f"skera passed {pct(passed)} of ND reads whose only junction molecule is TSO-TSO"),
+    ]
+    for where, claim, holds, but in claims:
+        if not holds:
+            sys.exit(f'render.py: "{claim}" ({where}) does not hold: {but}; change the text in template.html')
 
 
 def table_html(header, rows, cls="") -> str:
@@ -231,12 +268,20 @@ def plot_div(fig: go.Figure, name: str) -> str:
     return f'<div class="plotwrap">{div}</div>'
 
 
+def font_faces() -> str:
+    """A <style> of @font-face rules, one per FONTS file inlined as base64, so the page fetches no font."""
+    rules = "".join(f'@font-face {{ font-family: "{family}"; font-style: {style}; font-weight: {weight}; '
+                    f'src: url(data:font/woff2;base64,{base64.b64encode((FONT_DIR / name).read_bytes()).decode()}) format("woff2"); }}\n'
+                    for family, weight, style, name in FONTS)
+    return f"<style>\n{rules}</style>"
+
+
 def note_html(tables: Path, numbers: dict, reads: list[dict], variant: str = "screen", figs: dict[str, go.Figure] | None = None) -> str:
-    """The Note as one HTML page. screen: plotly figures (figs, built from tables/ and reads when not given) with the plotly
-    bundle inlined once; print: the figures as figures/Supplementary_<fig>.svg images, and print.css."""
+    """The Note as one HTML page with its fonts inlined. screen: plotly figures (figs, built from tables/ and reads when not
+    given) with the plotly bundle inlined once; print: the figures as figures/Supplementary_<fig>.svg images, and print.css."""
     page = fill(TEMPLATE.read_text(), numbers)
     title = re.search(r"<h1>(.*?)</h1>", page).group(1)
-    page = page.replace("<!--title-->", title, 1)
+    page = page.replace("<!--title-->", title, 1).replace("<!--fonts-->", font_faces(), 1)
     for name, html in supplementary_tables(tables, numbers).items():
         page = page.replace(f"<!--table {name}-->", html, 1)
     for slot, svg in schematics(numbers).items():
@@ -291,7 +336,7 @@ def main(argv: list[str] | None = None) -> None:
     tables = report / "tables"
     numbers = json.loads((report / "numbers.json").read_text())
     reads = json.loads((report / "fig3_reads.json").read_text())
-    check_claims(tables)
+    check_claims(tables, numbers)
     figs = build_figures(tables, numbers, reads)
     out = report / "figures"
     out.mkdir(exist_ok=True)

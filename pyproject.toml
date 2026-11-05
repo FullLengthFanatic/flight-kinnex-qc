@@ -33,6 +33,10 @@ markers = [
     "real: needs the BD144 or ArgenTag data on this machine (set KINNEX_QC_REAL=1)",
     "slow: slow even among real tests",
 ]
+filterwarnings = [
+    # kaleido 0.2.1 (pinned, the figure exports) calls Thread.setDaemon, deprecated since Python 3.10
+    "ignore:setDaemon\\(\\) is deprecated:DeprecationWarning:kaleido",
+]
 
 [tool.ruff]
 line-length = 160

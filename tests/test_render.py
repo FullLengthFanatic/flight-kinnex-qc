@@ -1,10 +1,12 @@
-"""Tests for study/report/render.py: the template's placeholders and slots, the formats (v10's helpers), the Supplementary
-Tables built from the source tables, the text rules, the check of the false-cut claim, and the whole render step (HTML,
-print HTML, PDF and figure files) on the golden tables and numbers.json. The numbers of the text are checked against
+"""Tests for study/report/render.py: the template's placeholders and slots, the formats (v10's helpers) and ranges, the
+Supplementary Tables built from the source tables, the text rules, the checks of the claims that hold only for these data,
+the inlined fonts, and the whole render step (HTML, print HTML, PDF and figure files) on the golden tables and numbers.json. The numbers of the text are checked against
 v10's in tests/test_golden.py."""
+import base64
 import json
 import re
 import shutil
+import subprocess
 
 import plotly
 import pytest
@@ -18,14 +20,39 @@ TITLE = "Supplementary Note: Kinnex array integrity in FLIGHT-seq libraries"
 NUMBERS = json.loads((GOLDEN / "v10_numbers.json").read_text())
 TABLES = ["S1", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10"]      # Supplementary Table 2 is prose: it is in the template
 FIGURES = ["fig2", "fig3", "fig4", "fig5", "fig6", "fig7", "fig8", "fig9"]
-# The writing-voice rules: none of these words or phrases in the Note (word starts, case ignored).
-BANNED = ("delve leverage harness utilize optimize capitalize streamline unlock empower elevate catalyze foster bolster underscore "
-          "showcase garnered embark crucial vital paramount pivotal profound groundbreaking transformative cutting-edge unprecedented "
-          "game-changing revolutionary state-of-the-art compelling sophisticated robust seamless innovative tapestry labyrinth crucible "
-          "landscape realm fabric journey narrative nuanced multifaceted intricate delighted thrilled resonated genuinely furthermore "
-          "moreover additionally consequently ultimately").split() + [
-    "woven into", "that said", "it's worth noting", "it bears mentioning", "in conclusion", "is real", "are real", "the whole game",
-    "are exactly", "is precisely", "absolutely", "food for thought", "worth unpacking", "useful lens", "actually matters"]
+# The writing-voice rules: none of these words or phrases in the Note, every category of the voice file's banned list
+# (trailing ":" and "..." of its scaffolding phrases dropped), plus "actually matters". Case is ignored; a single word
+# also matches as a word start (leveraged, robustly), a phrase only as whole words.
+BANNED = {
+    "verbs": ["delve", "leverage", "harness", "utilize", "optimize", "capitalize on", "streamline", "unlock", "empower", "elevate", "catalyze",
+              "foster", "bolster", "underscore", "showcase", "garnered", "embark"],
+    "intensifiers": ["crucial", "vital", "paramount", "pivotal", "profound", "groundbreaking", "transformative", "cutting-edge", "unprecedented",
+                     "game-changing", "revolutionary", "state-of-the-art", "compelling", "sophisticated", "robust", "seamless", "innovative"],
+    "abstract": ["tapestry", "labyrinth", "crucible", "landscape", "realm", "fabric", "woven into", "journey", "narrative", "nuanced",
+                 "multifaceted", "intricate"],
+    "stock openings": ["i hope this email finds you well", "i wanted to reach out", "thanks for sharing this", "great question"],
+    "hollow enthusiasm": ["i'd be happy to", "delighted", "thrilled", "please don't hesitate to reach out", "resonated", "struck by",
+                          "that's exactly", "keeps me up at night", "i love this", "this is fantastic", "what a great question", "absolutely", "100%"],
+    "faux-depth closers": ["the conversation is just beginning", "there's more to unpack here", "food for thought",
+                           "let's keep the conversation going", "worth sitting with", "worth unpacking"],
+    "faux-precision hedges": ["genuinely", "i'd genuinely like to", "i truly think", "i really believe"],
+    "metaphors": ["gets less airtime", "useful lens", "compounds that", "sits at the intersection of"],
+    "mechanical transitions": ["furthermore", "moreover", "additionally", "consequently", "in conclusion", "ultimately", "that said",
+                               "that being said", "it's worth noting", "it bears mentioning"],
+    "hollow emphasis": ["is real", "are real", "the whole game", "are exactly", "is precisely", "are the very ones"],
+    "performed reactions": ["stopped me cold", "hit me", "struck me", "this is where it gets interesting"],
+    "scaffolding": ["the short version", "the bigger point", "step back from", "here's what i think", "here's why"],
+    "global rules": ["actually matters"],
+}
+
+
+def banned_hits(text: str) -> list[str]:
+    text = text.lower().replace("’", "'")
+    hits = []
+    for phrase in (p for ps in BANNED.values() for p in ps):
+        end = (r"(?!\w)" if phrase[-1].isalnum() else "") if " " in phrase else r"\w*"
+        hits += [m.group(0) for m in re.finditer(r"(?<!\w)" + re.escape(phrase) + end, text)]
+    return hits
 
 
 @pytest.fixture(scope="module")
@@ -55,6 +82,28 @@ def test_fill_refuses_unknown_keys_and_formats_and_a_key_without_format():
     assert render.fill("x {nd_mirror_share|pct1} .a { color: red; } .b{fill:#FFF}", NUMBERS) == "x 16.1% .a { color: red; } .b{fill:#FFF}"
 
 
+def test_a_range_prints_one_value_when_both_ends_print_the_same():
+    """{lo..hi|format} is v10's span(): "lo to hi", or a single value when both ends print the same in that format."""
+    n = {"a": 0.0861, "b": 0.0878, "c": 0.0864}
+    assert render.fill("{a..b|pct1}", n) == "8.6% to 8.8%"
+    assert render.fill("{a..c|pct1}", n) == "8.6%"
+    assert render.fill("{a..c|pct2}", n) == "8.61% to 8.64%"
+    with pytest.raises(KeyError, match="no_such_key"):
+        render.fill("{a..no_such_key|pct1}", n)
+    assert render.placeholders("{a..b|pct2} and {c|pct1}") == [("a", "pct2"), ("b", "pct2"), ("c", "pct1")]
+
+
+def test_ranges_where_v10_used_span():
+    """v10 printed five ranges with span() (the shares of reads where our segmentation misses an adapter, in section 1 and
+    Supplementary Table 2, and the lima pass rates of those reads); the template prints them as ranges, and only them."""
+    found = re.findall(r"\{([a-z0-9_]+)\.\.([a-z0-9_]+)\|([a-z0-9_]+)\}", render.TEMPLATE.read_text())
+    assert [(lo.removesuffix("_min"), hi.removesuffix("_max"), f) for lo, hi, f in found] == [
+        ("missed_adapter_share", "missed_adapter_share", "pct2"), ("sread_lima_pass_missed", "sread_lima_pass_missed", "pct1"),
+        ("sread_lima_pass_complete", "sread_lima_pass_complete", "pct1"), ("missed_adapter_share", "missed_adapter_share", "pct2"),
+        ("skipped_slot_share", "skipped_slot_share", "pct2")]
+    assert all(lo.endswith("_min") and hi.endswith("_max") for lo, hi, _ in found)
+
+
 def test_formats_are_v10s_helpers():
     f = render.FORMATS
     assert (f["fmt"](1234567), f["fmt"](6.7213), f["int"](8308), f["comma0"](2976.0)) == ("1,234,567", "6.72", "8,308", "2,976")
@@ -73,7 +122,8 @@ def test_title_in_one_place_of_the_template(html):
 
 def test_literals_that_equal_computed_values_are_placeholders():
     tpl = render.TEMPLATE.read_text()
-    assert "99.1%" not in tpl and "5,000" not in tpl
+    assert "99.1%" not in tpl and "5,000" not in tpl and "200,000" not in tpl
+    assert tpl.count("{cal_hifi_reads|fmt} ND HiFi reads") == 4          # terms, section 1, Supplementary Table 9's title, Methods
     assert "In a test on ND, {downstream_unwritten_mapped|pct1} of such molecules map." in tpl
     assert "re-called mirror reads in {arg_independent_sample|fmt} random reads" in tpl
     assert "takes\nthe first {tso_both_ends_checked|fmt} skera 1.2.0 S-reads" in tpl
@@ -107,8 +157,13 @@ def test_text_rules(html, print_html):
     assert bundle
     for page in (html.replace(bundle.group(0), ""), print_html):
         assert "\u2013" not in page and "\u2014" not in page
-    text = visible_text(html).lower()
-    assert [w for w in BANNED if re.search(r"\b" + re.escape(w), text)] == []
+    assert banned_hits(visible_text(html)) == []
+
+
+def test_banned_words_are_found_in_any_case_and_form():
+    assert banned_hits("A ROBUST call. They Leveraged it; 100% sure. That said, it Hit me.") == ["leveraged", "robust", "100%", "that said", "hit me"]
+    assert banned_hits("The adapter hit means nothing; it is realised; 100.0% of reads; 2100%; vitamins aside.") == []
+    assert banned_hits("Here’s why.") == ["here's why"]
 
 
 def test_screen_variant_inlines_plotly_once_and_print_variant_draws_svg_files(html, print_html):
@@ -130,16 +185,72 @@ def test_screen_and_print_pages_load_nothing_from_the_network(html, print_html):
         assert not re.search(r"@import|url\(\s*[\"']?(?:https?:)?//", page, flags=re.I)
 
 
-def test_false_cut_lima_claim_is_checked_against_the_source_table(tmp_path):
-    """Fig. 1's caption says the lima pass rates of ND and HM differ from kin's by less than 0.1 percentage point; render
-    stops rather than print it when the false-cut anatomy table says otherwise."""
-    render.check_claims(GOLDEN / "v10_tables")
-    tables = tmp_path / "tables"
+# The fonts v10 loaded from Google Fonts, as the Note embeds them: family, weight, style and file in resources/fonts.
+# Source Serif 4 in its static optical-size cuts: Small Text for the text, Subhead for the title.
+FONTS = {("IBM Plex Sans", 400, "normal"): "IBMPlexSans-Regular.woff2", ("IBM Plex Sans", 500, "normal"): "IBMPlexSans-Medium.woff2",
+         ("IBM Plex Sans", 600, "normal"): "IBMPlexSans-SemiBold.woff2", ("IBM Plex Mono", 400, "normal"): "IBMPlexMono-Regular.woff2",
+         ("IBM Plex Mono", 500, "normal"): "IBMPlexMono-Medium.woff2", ("Source Serif 4", 400, "normal"): "SourceSerif4SmText-Regular.ttf.woff2",
+         ("Source Serif 4", 600, "normal"): "SourceSerif4SmText-Semibold.ttf.woff2", ("Source Serif 4", 400, "italic"): "SourceSerif4SmText-It.ttf.woff2",
+         ("Source Serif 4 Subhead", 400, "normal"): "SourceSerif4Subhead-Regular.ttf.woff2",
+         ("Source Serif 4 Subhead", 600, "normal"): "SourceSerif4Subhead-Semibold.ttf.woff2"}
+FONT_DIR = render.HERE.parent.parent / "resources" / "fonts"
+
+
+def test_screen_and_print_pages_embed_the_fonts(html, print_html):
+    """Each font file inlined once as a base64 @font-face rule in both pages; the title is set in the Subhead cut."""
+    face = re.compile(r'@font-face \{ font-family: "([^"]+)"; font-style: (\w+); font-weight: (\d+); '
+                      r'src: url\(data:font/woff2;base64,([A-Za-z0-9+/=]+)\) format\("woff2"\); \}')
+    for page in (html, print_html):
+        found = {(fam, int(weight), style): base64.b64decode(data) for fam, style, weight, data in face.findall(page)}
+        assert len(face.findall(page)) == len(FONTS)
+        assert {k: v == (FONT_DIR / FONTS[k]).read_bytes() for k, v in found.items()} == {k: True for k in FONTS}
+    assert re.search(r'h1 \{ font-family: "Source Serif 4 Subhead", var\(--serif\);', html)
+
+
+def test_fonts_are_kept_with_their_licenses():
+    assert sorted(p.name for p in FONT_DIR.iterdir()) == sorted([*FONTS.values(), "OFL-IBM-Plex.txt", "OFL-Source-Serif.md", "README.md"])
+    for lic in ("OFL-IBM-Plex.txt", "OFL-Source-Serif.md"):
+        assert "SIL Open Font License, Version 1.1" in (FONT_DIR / lic).read_text()
+    readme = (FONT_DIR / "README.md").read_text()
+    assert all(f"`{name}`" in readme for name in FONTS.values())
+    assert all(v in readme for v in ("`@ibm/plex-sans@1.1.0`", "`@ibm/plex-mono@2.5.0`", "`4.005R`"))
+
+
+# The template's words that hold only for these data, each with a change to the source tables (table, old text, new text)
+# or to numbers.json (key, value) that makes it false.
+CLAIMS = [
+    ("ND and HM differ by less than 0.1 percentage point",
+     ("fig1_skera_false_cut_anatomy", "\t0.004327740762153879\t", "\t0.005327740762153879\t")),
+    ("under 1% of the mean partner", ("S6_concatenation_bias", "\t-11.068129616285432\t", "\t-15.0\t")),
+    ("never calls a read a mirror array when it is not one",
+     ("S4_chain_classification_benchmark_summary", "0.01\t0.998125\t1.0\t0\t1200", "0.01\t0.998125\t0.999\t1\t1200")),
+    ("none of them at adapter A", ("S7_argentag_parent_reads", "\t0.0004591255298390601\t0\t", "\t0.0004591255298390601\t2\t")),
+    ("junctions occur at adapters B to Q but not at A", ("fig4b_mirror_junction_letters_ND", "A\tother\t13\n", "A\tother\t13\nA\tTSO-TSO\t1\n")),
+    ("with junctions at A to H but never at Q", ("fig4b_mirror_junction_letters_ND", "Q\tother\t56", "Q\tother\t56\nQ\tR1-R1\t1")),
+    ("in all three libraries alike", ("false_cut_reads_share_max", 0.096)),
+    ("a slight underestimate", ("nd_tso_tso_only_skera_pass_share", 0.011)),
+]
+
+
+def test_claims_hold_for_the_golden_data(html):
+    render.check_claims(GOLDEN / "v10_tables", NUMBERS)
+    assert [claim for claim, _ in CLAIMS if claim not in visible_text(html)] == []
+
+
+@pytest.mark.parametrize("claim, change", CLAIMS, ids=[c for c, _ in CLAIMS])
+def test_claims_are_checked_against_the_data(tmp_path, claim, change):
+    """render stops with one line naming the claim rather than print it when the tables or numbers.json say otherwise."""
+    tables, numbers = tmp_path / "tables", dict(NUMBERS)
     shutil.copytree(GOLDEN / "v10_tables", tables)
-    p = tables / "fig1_skera_false_cut_anatomy.tsv"
-    p.write_text(p.read_text().replace("\t0.004327740762153879\t", "\t0.005327740762153879\t"))
-    with pytest.raises(SystemExit, match="0.1 percentage point"):
-        render.check_claims(tables)
+    if len(change) == 3:
+        p = tables / f"{change[0]}.tsv"
+        assert p.read_text().count(change[1]) == 1
+        p.write_text(p.read_text().replace(change[1], change[2]))
+    else:
+        numbers[change[0]] = change[1]
+    with pytest.raises(SystemExit) as e:
+        render.check_claims(tables, numbers)
+    assert claim in str(e.value) and "\n" not in str(e.value)
 
 
 def test_schematic_pdfs_skipped_with_a_message_without_inkscape(tmp_path, monkeypatch, capsys):
@@ -184,3 +295,14 @@ def test_render_writes_the_note_print_variant_pdf_and_figures(rendered):
         assert head.startswith(b"%PDF-") if name.endswith(".pdf") else b"<svg" in head
     printed = (rendered / "supplementary_note.print.html").read_text()
     assert all((rendered / src).is_file() for src in re.findall(r'<img class="printfig" src="([^"]+)"', printed))
+
+
+def test_pdf_embeds_the_note_fonts(rendered):
+    """The PDF carries the text's fonts by name (pdffonts): IBM Plex Sans and Mono, Source Serif 4 Small Text (text, bold run-in
+    heads, italic) and Subhead (title). The figures are SVG images, whose text Chrome sets in the machine's fonts."""
+    if not shutil.which("pdffonts"):
+        pytest.skip("pdffonts (poppler-utils) is not installed")
+    out = subprocess.run(["pdffonts", str(rendered / "supplementary_note.pdf")], capture_output=True, text=True, check=True).stdout
+    names = {line.split()[0].split("+")[-1] for line in out.splitlines()[2:]}
+    assert {"IBMPlexSans", "IBMPlexSans-SmBld", "IBMPlexMono", "SourceSerif4SmText-Regular", "SourceSerif4SmText-Semibold",
+            "SourceSerif4SmText-It", "SourceSerif4Subhead-Semibold"} <= names

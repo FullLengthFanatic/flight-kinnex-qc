@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><!--title--></title>
 <meta name="description" content="Supplementary report: TSO-TSO artifacts, mirror arrays and concatenation bias in Kinnex 8-fold libraries of BD Rhapsody cDNA, with a comparison to public ArgenTag data.">
+<!--fonts-->
 <style>
 :root { color-scheme: light; --ink: #1B1F24; --ink2: #5B636E; --rule: #C9D0D7; --tint: #F4F6F8; --accent: #1F5F8B; --nd: #D55E00;
   --serif: "Source Serif 4", Georgia, "Times New Roman", serif; --sans: IBM Plex Sans, Helvetica Neue, Arial, sans-serif; --mono: "IBM Plex Mono", Menlo, Consolas, monospace; }
@@ -12,7 +13,7 @@
 body { background: #FFFFFF; color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.6; margin: 0; padding-inline: 20px; }
 main { max-width: 1040px; margin: 0 auto; padding-block: 48px 80px; }
 .prose { max-width: 68ch; }
-h1 { font-family: var(--serif); font-weight: 600; font-size: 34px; line-height: 1.2; margin: 10px 0 14px; text-wrap: balance; max-width: 30ch; }
+h1 { font-family: "Source Serif 4 Subhead", var(--serif); font-weight: 600; font-size: 34px; line-height: 1.2; margin: 10px 0 14px; text-wrap: balance; max-width: 30ch; }
 h2 { font-family: var(--sans); font-weight: 600; font-size: 21px; margin: 56px 0 10px; text-wrap: balance; }
 h2 .sec { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums; }
 h3 { font-family: var(--sans); font-weight: 600; font-size: 16px; margin: 28px 0 6px; }
@@ -91,7 +92,7 @@ A read whose adapters are not all found in the expected order also goes, whole, 
 removes chimeras, leaving full-length non-chimeric (fltnc) reads, which are then aligned to the genome. The mapped BAM of these libraries came from that pipeline.</dd></div>
 <div><dt>Full-read segmentation</dt><dd>Our own search for adapters and primers along every HiFi read, which this note uses in place of skera's cuts (section 1 and Methods).</dd></div>
 <div><dt>Hash sample, calibration set</dt><dd>The analyses use a random {fraction|pct0} of the ZMWs of each cell, picked by a hash of the ZMW number. Comparisons that need the
-same reads under two methods use the first 200,000 ND HiFi reads instead (the calibration set), which are not a random sample.</dd></div>
+same reads under two methods use the first {cal_hifi_reads|fmt} ND HiFi reads instead (the calibration set), which are not a random sample.</dd></div>
 <div><dt>PPV and sensitivity</dt><dd>For a test that flags reads: the PPV (positive predictive value) is the share of flagged reads that truly have the property, and the
 sensitivity is the share of reads with the property that the test flags.</dd></div>
 </dl></section>
@@ -115,7 +116,7 @@ it keeps the Read1 end, with the cell label. skera's next cut, at the far end of
 Each false cut therefore costs two molecules in the standard workflow: the cut one and the whole one fused to it. In kin that comes to
 {kin_false_cut_molecules_per_hifi_read|f2} molecules per HiFi read, most of the {budget_kin_not_written_cleanly|fmt} that skera does not write cleanly
 (section 4).</p>
-<p>On the calibration set (the first 200,000 ND HiFi reads; section 7) we checked what skera accepts as an adapter. The sequence at
+<p>On the calibration set (the first {cal_hifi_reads|fmt} ND HiFi reads; section 7) we checked what skera accepts as an adapter. The sequence at
 {cal_false_cuts_closest_to_d_3_to_5_edits_share|pct0} of its false cuts differs from adapter D, its closest Kinnex adapter, by 3 to 5 edits (an edit is one substituted,
 inserted or deleted base); only {cal_false_cuts_within_2_edits_share|pct1} are within 2 edits of any adapter, the most our search accepts. A
 <span class="mono">CTCCTCC</span> repeat lies within 10 bp of {cal_false_cuts_ctcctcc_share|pct0}, so the false matches are not one fixed motif. skera does not
@@ -123,8 +124,8 @@ document how many edits it accepts. The adapter it skips is a good match: {cal_s
 the adapter and next to a TSO or Read1.</p>
 <p>Both tools search for the same nine adapter sequences; they differ in what they accept as an adapter (Supplementary Table 2). Ours keeps an adapter hit only next to a TSO or
 Read1, where every real adapter sits, and so rejects the look-alikes inside cDNA. It has the opposite, smaller weakness: it misses an adapter that skera finds in
-{missed_adapter_share_min|pct2} to {missed_adapter_share_max|pct2} of the reads skera passes, mostly the A or Q at the end of a read, and skera's S-reads in those reads pass lima {sread_lima_pass_missed_min|pct1} to {sread_lima_pass_missed_max|pct1}
-of the time, against {sread_lima_pass_complete_min|pct1} to {sread_lima_pass_complete_max|pct1} in complete arrays.</p>
+{missed_adapter_share_min..missed_adapter_share_max|pct2} of the reads skera passes, mostly the A or Q at the end of a read, and skera's S-reads in those reads pass lima {sread_lima_pass_missed_min..sread_lima_pass_missed_max|pct1}
+of the time, against {sread_lima_pass_complete_min..sread_lima_pass_complete_max|pct1} in complete arrays.</p>
 </div>
 <figure id="fig1"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 1</span> How one skera false cut breaks two molecules</figcaption><!--schematic fig1--><figcaption class="legend">Drawn to explain, not to scale, for a read whose adapters run A to Q, with the false cut after adapter D, which skera skips in {nd_false_cut_missed_is_d|pct0} of false cuts. Grey boxes R1 and TSO: the primer ends of each molecule. Right: lima pass rates in kin; ND and HM differ by less than 0.1 percentage point. Measured on every false cut in complete arrays that skera passes in the hash samples (study/analyses/false_cut_anatomy.py; source data tables/fig1_skera_false_cut_anatomy.tsv).</figcaption></figure>
 <div class="prose">
@@ -132,7 +133,7 @@ of the time, against {sread_lima_pass_complete_min|pct1} to {sread_lima_pass_com
 correctly in at least {bench_hifi_class_min|pct1} of reads and never calls a read a mirror array when it is not one (Supplementary Table 4).</p>
 </div>
 <p class="tablecap"><span>Supplementary Table 1</span> Libraries and reads analysed</p><!--table S1-->
-<p class="tablecap"><span>Supplementary Table 2</span> How our segmentation differs from skera</p><div class="tablewrap"><table class=""><thead><tr><th></th><th>skera</th><th>Our segmentation</th></tr></thead><tbody><tr><td>Sequences searched</td><td>The 9 Kinnex adapters</td><td>The same 9 adapter sequences, plus the TSO and Read1, and after Read1 the cell-label linkers and polyT</td></tr><tr><td>Match tolerance</td><td>Not documented, and <span class="mono">skera split</span> has no option for it; its false cuts lie 3 to 5 edits from adapter D</td><td>Up to 2 edits for an adapter and 3 for TSO and Read1 (edlib, both strands; TSO up to 4 in fail reads)</td></tr><tr><td>Context check</td><td>None documented</td><td>An adapter hit is kept only within 4 bp of a TSO or Read1 hit</td></tr><tr><td>Adapter order</td><td>A read passes only if its adapters follow the order of the FASTA</td><td>Any order; the adapter chain is classified afterwards (complete, truncated, mirror, ...)</td></tr><tr><td>Mirror arrays</td><td>Writes mainly the arm with forward adapters: {mirror_after_clean_share|pct0} of its molecules as clean S-reads, against {mirror_before_clean_share|pct0} on the other arm (section 6)</td><td>Finds the adapters of both arms</td></tr><tr><td>Molecule ends</td><td>Not classified</td><td>The primers in the first and last 150 bp give the end class; a primer inside a molecule marks it as fused</td></tr><tr><td>Errors measured here</td><td>False cuts in {false_cut_reads_share_min|pct1} to {false_cut_reads_share_max|pct1} of complete passing reads; lima rejects both S-reads around each (Supplementary Fig. 1)</td><td>Misses an adapter that skera finds in {missed_adapter_share_min|pct2} to {missed_adapter_share_max|pct2} of passing reads, mostly the A or Q at a read end; an interior adapter in {skipped_slot_share_min|pct2} to {skipped_slot_share_max|pct2}</td></tr></tbody></table></div>
+<p class="tablecap"><span>Supplementary Table 2</span> How our segmentation differs from skera</p><div class="tablewrap"><table class=""><thead><tr><th></th><th>skera</th><th>Our segmentation</th></tr></thead><tbody><tr><td>Sequences searched</td><td>The 9 Kinnex adapters</td><td>The same 9 adapter sequences, plus the TSO and Read1, and after Read1 the cell-label linkers and polyT</td></tr><tr><td>Match tolerance</td><td>Not documented, and <span class="mono">skera split</span> has no option for it; its false cuts lie 3 to 5 edits from adapter D</td><td>Up to 2 edits for an adapter and 3 for TSO and Read1 (edlib, both strands; TSO up to 4 in fail reads)</td></tr><tr><td>Context check</td><td>None documented</td><td>An adapter hit is kept only within 4 bp of a TSO or Read1 hit</td></tr><tr><td>Adapter order</td><td>A read passes only if its adapters follow the order of the FASTA</td><td>Any order; the adapter chain is classified afterwards (complete, truncated, mirror, ...)</td></tr><tr><td>Mirror arrays</td><td>Writes mainly the arm with forward adapters: {mirror_after_clean_share|pct0} of its molecules as clean S-reads, against {mirror_before_clean_share|pct0} on the other arm (section 6)</td><td>Finds the adapters of both arms</td></tr><tr><td>Molecule ends</td><td>Not classified</td><td>The primers in the first and last 150 bp give the end class; a primer inside a molecule marks it as fused</td></tr><tr><td>Errors measured here</td><td>False cuts in {false_cut_reads_share_min|pct1} to {false_cut_reads_share_max|pct1} of complete passing reads; lima rejects both S-reads around each (Supplementary Fig. 1)</td><td>Misses an adapter that skera finds in {missed_adapter_share_min..missed_adapter_share_max|pct2} of passing reads, mostly the A or Q at a read end; an interior adapter in {skipped_slot_share_min..skipped_slot_share_max|pct2}</td></tr></tbody></table></div>
 <p class="legend">skera: what its documentation states (https://skera.how) and what we observe on these reads; its matching rules are not public. Ours: patterns.py, scan.py,
 annotate.py and classify.py in src/kinnex_qc. Error rates are for the three BD144 libraries (hash samples); source data in tables/S2_segmentation_vs_skera_errors.tsv.</p>
 <p class="tablecap"><span>Supplementary Table 3</span> Validation</p><!--table S3-->
@@ -301,7 +302,7 @@ as complete arrays with their skera S-reads. Mirror shortfall: share of mirror r
 <p class="tablecap"><span>Supplementary Table 8</span> S-read tests against the parent reads</p><!--table S8-->
 <p class="legend">Shares are of HiFi reads (ArgenTag: {arg_hifi_reads|fmt} HiFi reads, technical note Table 1). Unwritten-head flag: S-reads reach Q but not A, all in forward adapter order,
 first S-read at least {head_mol|f0} mean written molecules into the parent read.</p>
-<p class="tablecap"><span>Supplementary Table 9</span> skera version check on the same 200,000 ND HiFi reads</p><!--table S9-->
+<p class="tablecap"><span>Supplementary Table 9</span> skera version check on the same {cal_hifi_reads|fmt} ND HiFi reads</p><!--table S9-->
 <p class="tablecap"><span>Supplementary Table 10</span> What skera writes from ND mirror reads</p><!--table S10-->
 <p class="legend">ND hash sample, skera 26.1.0 S-reads as delivered; reads with a single mirror junction holding a TSO-TSO molecule; complete arrays: the
 {mirror_arms_complete_reads_baseline|fmt} complete reads in a 1% hash sample of the cell. Each proper, unfused molecule of our full-read segmentation is matched to skera's S-reads by
@@ -315,7 +316,7 @@ its number, XORed with a fixed salt, fell in the lowest {fraction|pct0} of the 6
 by this rule, and lima and refine outputs were restricted to the same ZMWs. The share of the cell's HiFi reads in the sample, the sampling probability behind the w(T) weights, is the
 number of sampled HiFi reads over skera's whole-cell count. Fail reads were indexed in full and annotated on a separate 1-in-10 hash subsample of ZMWs.</p>
 <p><b>Calibration set.</b> Comparisons that need the same reads under two methods (skera 1.2.0 against 26.1.0, skera's cuts against ours, molecules skera did not write
-through lima and refine) use the first 200,000 ND HiFi reads, with base-modification tags removed because skera 1.2.0 fails on them. These reads were annotated with stage 02
+through lima and refine) use the first {cal_hifi_reads|fmt} ND HiFi reads, with base-modification tags removed because skera 1.2.0 fails on them. These reads were annotated with stage 02
 of the pipeline and matched by ZMW to the S-reads skera 26.1.0 delivered and to skera's verdict (study/calibration/build_calibration_set.py). They are not a random sample of the
 cell and serve only for comparisons within the same reads. At each skera cut with no adapter of ours within 5 bp, the gap between the two S-reads plus 5 bp on each side was
 aligned to every Kinnex adapter on both strands (edlib, infix mode) and the smallest edit distance kept (study/analyses/false_cuts_calibration.py).</p>

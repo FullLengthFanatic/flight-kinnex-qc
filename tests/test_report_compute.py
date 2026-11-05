@@ -157,6 +157,7 @@ REQUIRED = {
     "non_mirror_flagged_1_5_max": "max(st[l]['non_mirror_flagged_1.5'] for l in ORDER3)",
     "nd_sensitivity_1_0": "st['ND']['sensitivity_1.0']",
     "nd_sensitivity_1_5": "st['ND']['sensitivity_1.5']",
+    "cal_hifi_reads": "200,000 (a literal in v10's text: the calibration set's HiFi reads, hv['1.2.0']['hifi_zmws'])",
     "skera120_flagged": "hv['1.2.0']['flagged']",
     "skera2610_flagged": "hv['26.1.0']['flagged']",
     "skera120_ppv": "hv['1.2.0']['ppv']",

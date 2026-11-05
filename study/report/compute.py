@@ -481,6 +481,7 @@ def numbers(d: dict, fraction: float, fig3_zmws: list[int], markers=()) -> dict:
           "non_mirror_flagged_1_0_max": max(st[x]["non_mirror_flagged_1.0"] for x in ORDER3),
           "non_mirror_flagged_1_5_max": max(st[x]["non_mirror_flagged_1.5"] for x in ORDER3),
           "nd_sensitivity_1_0": st["ND"]["sensitivity_1.0"], "nd_sensitivity_1_5": st["ND"]["sensitivity_1.5"],
+          "cal_hifi_reads": hv["1.2.0"]["hifi_zmws"],
           "skera120_flagged": hv["1.2.0"]["flagged"], "skera2610_flagged": hv["26.1.0"]["flagged"],
           "skera120_ppv": hv["1.2.0"]["ppv"], "skera2610_ppv": hv["26.1.0"]["ppv"]}
     tv = d["tso_validation"]
