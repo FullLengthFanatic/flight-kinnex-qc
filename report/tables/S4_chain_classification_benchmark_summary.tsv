@@ -1,0 +1,5 @@
+error_rate	mirror_recall	mirror_precision	non_mirror_called_mirror	non_mirror_reads
+0.001	0.99875	1.0	0	1200
+0.005	0.99875	1.0	0	1200
+0.01	0.998125	1.0	0	1200
+0.05	0.925625	1.0	0	1200
