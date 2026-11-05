@@ -8,7 +8,8 @@ import plotly.graph_objects as go
 import polars as pl
 from plotly.subplots import make_subplots
 
-from compute import ARG, LETTERS, ORDER3
+from compute import ARG, ORDER3
+from kinnex_qc.patterns import MAS_ORDER
 from kinnex_qc.scan import Hit
 from kinnex_qc.schematics import FATE
 from read_tracks import read_track_figure
@@ -113,13 +114,13 @@ def fig4(d):
     jl = d["junction_letters"]
     for mol, col in (("TSO-TSO", COLOR["ND"]), ("R1-R1", NEUTRAL[2]), ("other", NEUTRAL[1])):
         sub = {r["letter"]: r["junctions"] for r in jl.filter(pl.col("molecule") == mol).iter_rows(named=True)}
-        f.add_trace(go.Bar(x=list(LETTERS), y=[sub.get(L, 0) / 1000 for L in LETTERS], name=f"{mol} at the junction",
+        f.add_trace(go.Bar(x=list(MAS_ORDER), y=[sub.get(L, 0) / 1000 for L in MAS_ORDER], name=f"{mol} at the junction",
                            marker=dict(color=col, line=dict(color="#FFFFFF", width=1)),
                            hovertemplate="adapter %{x}: %{y:.2f} thousand junctions<extra>" + mol + "</extra>"), 1, 1)
     f.update_layout(barmode="stack")
     f.update_xaxes(title_text="adapter on both sides of the junction", row=1, col=1)
     f.update_yaxes(title_text="mirror junctions (thousands)", row=1, col=1)
-    mr = d["mirror_rule"].filter(pl.col("letter").is_in(list(LETTERS[1:])))
+    mr = d["mirror_rule"].filter(pl.col("letter").is_in(MAS_ORDER[1:]))
     f.add_trace(go.Scatter(x=mr["letter"].to_list(), y=mr["predicted"].to_list(), mode="lines+markers", name="predicted, 2 x (slots from X to Q) + 1",
                            line=dict(color=INK2, width=2, dash="dot"), marker=dict(size=8, symbol="circle-open", color=INK2)), 1, 2)
     f.add_trace(go.Scatter(x=mr["letter"].to_list(), y=mr["median_molecules"].to_list(), mode="markers", name="observed median",

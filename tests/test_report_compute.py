@@ -3,7 +3,6 @@ inputs and compares the tables with tests/golden/v10_tables/ byte for byte and n
 tests/golden/v10_numbers.json (the input of the render step's golden test)."""
 import json
 
-import polars as pl
 import pytest
 
 from pipeline_helpers import GOLDEN, GOLDEN_INPUTS, REPO
@@ -11,6 +10,7 @@ from pipeline_helpers import GOLDEN, GOLDEN_INPUTS, REPO
 import compute
 import figures
 from config import load_samples
+from kinnex_qc import metrics, patterns, skera
 
 GOLDEN_TABLES = GOLDEN / "v10_tables"
 V10_NUMBERS = GOLDEN / "v10_numbers.json"
@@ -205,17 +205,16 @@ def test_v10_numbers_are_unformatted():
     assert isinstance(numbers["arg_non_passing_reads"], int) and isinstance(numbers["mirror_rule_reads"], int)
 
 
-def test_sread_zmws_flags_reads_whose_sreads_reach_q_but_not_a():
-    """zm 1: S-reads B..Q, all forward, first S-read 3 mean molecules in: flagged. zm 2: the same with A: Q present and A
-    present, not flagged. zm 3: B..Q forward but the head is 1 molecule: Q not A, not flagged. zm 4: B..Q with one S-read
-    reversed: not flagged."""
-    sk = pl.DataFrame({"zm": [1, 1, 2, 2, 3, 3, 4, 4], "dl": [1, 7, 0, 7, 1, 7, 1, 8], "dr": [2, 8, 1, 8, 2, 8, 2, 7],
-                       "qs": [3000, 4000, 3000, 4000, 1000, 2000, 3000, 4000], "qe": [4000, 5000, 4000, 5000, 2000, 3000, 4000, 5000]})
-    z = compute.sread_zmws(sk).sort("zm")
-    assert z["q_not_a"].to_list() == [True, False, True, True]
-    assert z["head_mol"].to_list() == [3.0, 3.0, 1.0, 3.0]
-    assert z["fwd"].to_list() == [True, True, True, False]
-    assert z["flag"].to_list() == [True, False, False, False]
+def test_rules_are_the_package_ones():
+    """compute keeps no copy of a rule kinnex_qc holds: the unwritten-head test and HEAD_MOL (skera.unwritten_head, which
+    study/argentag/full_read_view.py and study/calibration/head_version_check.py use for the same Supplementary Tables 7
+    and 8), the mirror-junction rule, the ND junction tables, the array-size rule and the letter order (kinnex_qc.metrics,
+    patterns.MAS_ORDER). A change there then moves the BD144 rows and the ArgenTag rows together; the rules' own tests
+    are in tests/test_skera.py and tests/test_metrics.py."""
+    assert compute.unwritten_head is skera.unwritten_head and compute.HEAD_MOL is skera.HEAD_MOL
+    assert compute.mirror_junctions is skera.mirror_junctions and compute.metrics is metrics
+    assert figures.MAS_ORDER is patterns.MAS_ORDER
+    assert not {"sread_zmws", "LETTERS"} & set(vars(compute))
 
 
 def test_main_reads_the_run_under_the_out_root(tmp_path, monkeypatch):

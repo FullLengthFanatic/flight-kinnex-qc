@@ -25,6 +25,9 @@ from pathlib import Path
 
 import polars as pl
 
+from kinnex_qc import metrics
+from kinnex_qc.skera import HEAD_MOL, mirror_junctions, unwritten_head
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "pipeline"))
 from config import load_config, load_samples, out_dir  # noqa: E402
 from read_tracks import tracks  # noqa: E402
@@ -35,8 +38,6 @@ SAMPLES = [("BD144_ND", "ND", "None"), ("BD144_HM", "HM", "Home-made biotin-Read
 ORDER3 = ["ND", "HM", "kin"]
 ARG = "ArgenTag"
 ARG_HIFI = 1_964_147         # HiFi reads of the ArgenTag 8-fold cell, Table 1 of the ArgenTag/PacBio technical note
-HEAD_MOL = 2.0               # unwritten-head flag: parent read before the first S-read >= 2 mean written molecules
-LETTERS = "ABCDEFGHQ"
 KEY = {"ND": "nd", "HM": "hm", "kin": "kin", ARG: "arg"}     # library -> prefix of its numbers.json keys
 FIG3_CHAINS = ("Q' H' H Q", "Q' H' G' G H Q", "Q' H' G' F' E' D' D E F G H Q")
 
@@ -69,13 +70,10 @@ def per_sample(o: Path) -> dict:
     nsk = skera.group_by("zm").len().rename({"len": "skera_sreads"})
     reads = summ.join(proper, on="zm", how="left").join(nsk, on="zm", how="left").with_columns(
         pl.col("proper").fill_null(0), pl.col("skera_sreads").fill_null(0),
-        pl.col("primary_pattern").replace({"skipped_slot": "other", "repeated": "other", "unresolved": "other"}).alias("pattern"))
-    junction = segs.filter(pl.col("left_token").is_not_null() & pl.col("right_token").is_not_null()
-                           & (pl.col("left_token").str.strip_chars("'") == pl.col("right_token").str.strip_chars("'"))
-                           & (pl.col("left_token").str.ends_with("'") != pl.col("right_token").str.ends_with("'"))) \
-        .with_columns(pl.col("left_token").str.strip_chars("'").alias("letter"))
+        pl.col("primary_pattern").replace(metrics._OTHER_PATTERNS).alias("pattern"))
+    junction = mirror_junctions(segs)
     bases = segs.group_by("end_class").agg((pl.col("end") - pl.col("start")).cast(pl.Int64).sum().alias("bp"))
-    return {"reads": reads, "junction": junction, "fate": fate, "bases": bases, "q1": load_json(o / "q1" / "q1_summary.json"),
+    return {"reads": reads, "segs": segs, "junction": junction, "fate": fate, "bases": bases, "q1": load_json(o / "q1" / "q1_summary.json"),
             "q2": load_json(o / "q2" / "q2_summary.json"), "gates": {g: load_json(o / "gates" / f"gate_{g}.json") for g in
                                                                      ("synthetic", "adapter_index", "lima", "skera")},
             "skera_sreads": skera.height}
@@ -150,23 +148,10 @@ def compute(inputs: Inputs, cells: dict[str, str]) -> dict:
     d["tso_tso_base_share_ND"] = b["tso_tso"] / sum(b.values())
     d["mirror_junction_tso_tso_share_ND"] = nd["q2"]["mirror_junction_tso_tso_share"]
     j = nd["junction"]
-    d["junction_letters"] = (j.with_columns(pl.when(pl.col("end_class") == "tso_tso").then(pl.lit("TSO-TSO"))
-                                            .when(pl.col("end_class") == "r1_r1").then(pl.lit("R1-R1")).otherwise(pl.lit("other")).alias("molecule"))
-                             .group_by("letter", "molecule").len().rename({"len": "junctions"}).sort("letter", "molecule"))
-    comp = j.group_by("zm").agg((pl.col("end_class") == "tso_tso").sum().alias("tt"), (pl.col("end_class") == "r1_r1").sum().alias("rr"),
-                                pl.len().alias("junctions"), pl.col("letter").first().alias("letter"))
-    comp = comp.join(nd["reads"].select("zm", "n_mas", "skera_passing"), on="zm")
-    d["junction_composition"] = (comp.with_columns(
-        pl.when((pl.col("tt") > 0) & (pl.col("rr") > 0)).then(pl.lit("TSO-TSO and R1-R1")).when(pl.col("tt") > 0).then(pl.lit("TSO-TSO only"))
-        .when(pl.col("rr") > 0).then(pl.lit("R1-R1 only")).otherwise(pl.lit("other molecule")).alias("junction_molecules"))
-        .group_by("junction_molecules").agg(pl.len().alias("reads"), (pl.col("n_mas") - 1).median().alias("median_molecules"),
-                                            pl.col("skera_passing").mean().alias("skera_pass_share")).sort("reads", descending=True))
-    single = comp.filter((pl.col("junctions") == 1) & (pl.col("tt") == 1)).with_columns(
-        (pl.col("n_mas") - 1).alias("molecules"),
-        (2 * (8 - pl.col("letter").map_elements(LETTERS.index, return_dtype=pl.Int64)) + 1).alias("predicted"))
-    d["mirror_rule"] = single.group_by("letter").agg(pl.len().alias("reads"), pl.col("predicted").first(),
-                                                     pl.col("molecules").median().alias("median_molecules"),
-                                                     (pl.col("molecules") == pl.col("predicted")).mean().alias("share_matching")).sort("letter")
+    d["junction_letters"] = metrics.junction_table(nd["segs"])
+    d["junction_composition"] = metrics.junction_composition(nd["segs"], nd["reads"])
+    d["mirror_rule"] = metrics.mirror_size_rule(nd["segs"], nd["reads"])
+    single = metrics.mirror_size_reads(nd["segs"], nd["reads"])
     d["mirror_rule_overall"] = float((single["molecules"] == single["predicted"]).mean())
     d["mirror_rule_reads"] = single.height
     # why junctions pile up at H: ordinary mirrors need 2 x (8 - i) joins, double mirrors (A..X X' X..Q) the same number at every letter
@@ -204,7 +189,7 @@ def compute(inputs: Inputs, cells: dict[str, str]) -> dict:
     hifi = {short: raw[short]["reads"].height for _, short, _ in SAMPLES} | {ARG: ARG_HIFI}
     tests = []
     for lib in ORDER3 + [ARG]:
-        z, n = sread_zmws(sk[lib]), hifi[lib]
+        z, n = unwritten_head(sk[lib]), hifi[lib]
         row = {"library": lib, "hifi_zmws": n, "sreads": sk[lib].height, "q_not_a": z["q_not_a"].sum() / n, "flag": z["flag"].sum() / n}
         if lib != ARG:
             t = raw[lib]["reads"].select(pl.col("zm").cast(pl.Int64), "pattern").join(z, on="zm", how="left").with_columns(
@@ -263,33 +248,17 @@ def compute(inputs: Inputs, cells: dict[str, str]) -> dict:
     d["bd_full"] = {}
     for _, short, _ in SAMPLES:
         jl = raw[short]["junction"]
-        per = jl.group_by("zm").agg(pl.len().alias("nj"), (pl.col("end_class") == "tso_tso").sum().alias("tt"),
-                                    pl.col("letter").first().alias("letter"))
-        one = per.filter((pl.col("nj") == 1) & (pl.col("tt") == 1)).join(raw[short]["reads"].select("zm", "n_mas"), on="zm").with_columns(
-            (2 * (8 - pl.col("letter").map_elements(LETTERS.index, return_dtype=pl.Int64)) + 1).alias("predicted"))
+        one = metrics.mirror_size_reads(raw[short]["segs"], raw[short]["reads"])
         pr = {r["pattern"]: r for r in d["pattern"] if r["library"] == short}
         d["bd_full"][short] = {
             "junctions": jl.height, "junctions_tso_tso_share": float((jl["end_class"] == "tso_tso").mean()) if jl.height else float("nan"),
             "junctions_at_A_tso_tso": jl.filter((pl.col("letter") == "A") & (pl.col("end_class") == "tso_tso")).height,
-            "single_tt_matching_rule": float(((one["n_mas"] - 1) == one["predicted"]).mean()) if one.height else float("nan"),
+            "single_tt_matching_rule": float((one["molecules"] == one["predicted"]).mean()) if one.height else float("nan"),
             "usable_per_mirror_read": pr["mirror"]["proper_per_read"],
             "mirror_shortfall": pr["mirror"]["share"] * (pr["complete"]["proper_per_read"] - pr["mirror"]["proper_per_read"])}
     d["bd_letters"] = (raw["ND"]["junction"].filter(pl.col("end_class") == "tso_tso").group_by("letter").len()
                        .rename({"len": "junctions"}).sort("letter"))
     return d
-
-
-def sread_zmws(sk: pl.DataFrame) -> pl.DataFrame:
-    """Per ZMW, from skera's documented S-read tags (dl, dr, qs, qe; https://skera.how/read-segments.html): the adapter span
-    of its S-reads, whether all are in forward adapter order, and the stretch of the parent read before the first S-read
-    ("head") in units of the mean written molecule. flag: S-reads reach Q but not A, all forward, head >= HEAD_MOL."""
-    return (sk.with_columns(pl.min_horizontal("dl", "dr").alias("lo"), pl.max_horizontal("dl", "dr").alias("hi"))
-            .group_by("zm").agg(pl.col("lo").min().alias("first"), pl.col("hi").max().alias("last"), pl.len().alias("n"),
-                                pl.col("qs").min().alias("head"), (pl.col("qe").max() - pl.col("qs").min()).alias("span"),
-                                (pl.col("dl") < pl.col("dr")).all().alias("fwd"))
-            .with_columns((pl.col("head") * pl.col("n") / pl.col("span")).alias("head_mol"),
-                          ((pl.col("last") == 8) & (pl.col("first") > 0)).alias("q_not_a"))
-            .with_columns((pl.col("q_not_a") & pl.col("fwd") & (pl.col("head_mol") >= HEAD_MOL)).alias("flag")))
 
 
 def run_commits(markers) -> list[str]:
