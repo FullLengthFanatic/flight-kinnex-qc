@@ -37,7 +37,7 @@ WRAP = 100                    # bases per line of an example read
 
 # ---------------------------------------------------------------- example reads
 
-def _clean(read_summary: pl.DataFrame, molecules: pl.DataFrame, features: pl.DataFrame) -> pl.DataFrame:
+def clean(read_summary: pl.DataFrame, molecules: pl.DataFrame, features: pl.DataFrame) -> pl.DataFrame:
     """The reads clean enough to show, with their columns from read_summary: no fused molecule, every adapter an
     exact match, MAS hits = molecules + 1 and primer hits = 2 x molecules (molecules: the n_mas - 1 stretches
     between adapters), every primer within 1 edit, and rq >= 0.999."""
@@ -57,7 +57,7 @@ def _zm_series(zms) -> pl.Series:
     return pl.Series("zm", list(zms), dtype=pl.UInt32)
 
 
-def _at_adapters(block: list[int], sreads: pl.DataFrame, features: pl.DataFrame, tol: int = skera.TOL) -> set[int]:
+def at_adapters(block: list[int], sreads: pl.DataFrame, features: pl.DataFrame, tol: int = skera.TOL) -> set[int]:
     """The ZMWs of block whose every S-read starts within tol bp of the end of one of our adapters and ends within
     tol bp of the start of one."""
     s = (sreads.filter(pl.col("zm").is_in(_zm_series(block))).with_row_index("sid")
@@ -151,7 +151,7 @@ def _example(category: str, zm: int, read_summary, molecules, features, order, s
 def pick_examples(read_summary: pl.DataFrame, molecules: pl.DataFrame, features: pl.DataFrame, n: int, *, order,
                   sreads: pl.DataFrame | None = None, passing: pl.DataFrame | None = None,
                   fc: pl.DataFrame | None = None) -> list[dict]:
-    """Up to n clean example reads (see _clean) per category, in CATEGORIES order and, within one, by hash_key, the
+    """Up to n clean example reads (see clean) per category, in CATEGORIES order and, within one, by hash_key, the
     order the hash sample admits ZMWs in, so the picks spread over the cell whatever the file order.
 
     complete: complete pattern; with sreads, also one S-read per molecule, each starting and ending at our
@@ -164,11 +164,11 @@ def pick_examples(read_summary: pl.DataFrame, molecules: pl.DataFrame, features:
     the read's box opens; None for complete arrays); the caller adds the read's sequence as "seq"."""
     if n <= 0:
         return []
-    clean = _clean(read_summary, molecules, features)
+    clean_reads = clean(read_summary, molecules, features)
     junctions = skera.mirror_junctions(molecules).group_by("zm").agg(pl.len().alias("nj"), pl.col("end_class").first().alias("jclass"))
     single = junctions.filter(pl.col("nj") == 1)
-    clean_zm = clean["zm"]
-    complete = clean.filter(pl.col("primary_pattern") == "complete")
+    clean_zm = clean_reads["zm"]
+    complete = clean_reads.filter(pl.col("primary_pattern") == "complete")
     picks = {"tso_tso": _first_by_hash(skera.single_tso_tso_mirrors(molecules).filter(pl.col("zm").is_in(clean_zm))["zm"], n),
              "r1_r1": _first_by_hash(single.filter((pl.col("jclass") == "r1_r1") & pl.col("zm").is_in(clean_zm))["zm"], n)}
     cuts = {}
@@ -177,7 +177,7 @@ def pick_examples(read_summary: pl.DataFrame, molecules: pl.DataFrame, features:
     else:
         n_sreads = sreads.group_by("zm").len().rename({"len": "n_sreads"}).with_columns(pl.col("n_sreads").cast(pl.Int64))
         one_each = complete.join(n_sreads, on="zm").filter(pl.col("n_sreads") == pl.col("n_mas").cast(pl.Int64) - 1)["zm"]
-        picks["complete"] = _first_by_hash(one_each, n, ok=lambda block: _at_adapters(block, sreads, features))
+        picks["complete"] = _first_by_hash(one_each, n, ok=lambda block: at_adapters(block, sreads, features))
         target = complete.join(passing.filter(pl.col("passing")), on="zm").select("zm")
         fc_t = fc.join(target, on="zm")
         one = fc_t.filter(pl.len().over("zm") == 1)

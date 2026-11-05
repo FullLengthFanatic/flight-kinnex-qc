@@ -1,0 +1,391 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Example Kinnex reads</title><style>
+body{font:15px/1.5 Helvetica,Arial,sans-serif;color:#1B1F24;background:#FFFFFF;margin:0;padding:24px 20px 60px}
+main{max-width:1100px;margin:0 auto} h1{font-size:24px;margin:0 0 6px} h2{font-size:18px;margin:36px 0 6px}
+p,li{max-width:95ch} ul{padding-left:20px;margin:4px 0 10px} .note{color:#5B636E;font-size:14px}
+pre{font:13px/1.55 Menlo,Consolas,monospace;overflow-x:auto;background:#FAFBFC;border:1px solid #E2E7EC;padding:12px;border-radius:4px}
+.pos{color:#8A939C} .adapter{background:#1B1F24;color:#FFFFFF;font-weight:600}
+.tso{background:#9CC3E6;text-decoration:underline} .r1{background:#F4D2DF} .false{background:#F6C445;outline:2px dashed #9A6A00}
+.key span{display:inline-block;padding:0 6px;margin-right:10px;font:13px Menlo,Consolas,monospace}
+</style></head><body><main>
+<h1>Example Kinnex 8-fold reads</h1>
+<p class="note">HiFi reads from the BD144 ND library (no TSO-TSO depletion), from the first 200,000 reads of the cell. Positions are 1-based on the shown
+sequence; hover over a coloured stretch for its name and coordinates. A prime (H', TSO') marks a sequence found as its reverse complement on the read.
+The same reads are in example_reads.fasta.</p>
+<p class="key"><span class="adapter">adapter</span><span class="tso">TSO</span><span class="r1">Read1</span><span class="false">site skera called D</span>
+<span style="padding:0">lowercase: cDNA</span></p>
+<h2>Complete array (reference)</h2><p class='note'>complete_array BD144_ND zm=10229105 len=6491</p><ul><li>reference: adapters A to Q in order, 8 molecules, each Read1 ... cDNA ... TSO</li><li>skera passes it and writes 8 S-reads, one per molecule</li></ul>
+<pre><span class="pos">     1</span>  a<span class="adapter" title="A (adapter), 2-18">AGCTTACTTGTGAAGAT</span>ct<span class="r1" title="R1 (Read1), 21-40">acacgacgctcttccgatct</span>tcagctattcgcgtgacactgcatggacaggcctgtcaaccccgcctttttttttttttt
+<span class="pos">   101</span>  tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
+<span class="pos">   201</span>  tttttttttttttttttttttttttttttttttttttttttccatgaggcattttatttgtaaatatatgtattacatccctagaaaaagaatcccagga
+<span class="pos">   301</span>  ttttccctcctgtgtgttttcgtcttgcttcttcatggtccatgatgccagctgaggttgtcagtacaatgaaaccaaactggcgggatggaagcagatt
+<span class="pos">   401</span>  attctgccatttttccaggtctttgagttgcacgtcaaatctggggctgatcgccccacacttgtttagcctgcctgtgaggttcacaacaattttccca
+<span class="pos">   501</span>  gctctgtggtcatcaatgatttcaaattcgccaatgtaaccatgcttcatcatcacagtgagaaaccggacgatgactttggagcacggcctaataagca
+<span class="pos">   601</span>  cctggcgtttgcctctcttttcggcattgttgatactcttgagagcatctgccaggacattcatgcgcaccattgtggcggcgcggaaagatggcggaaa
+<span class="pos">   701</span>  gagccccat<span class="tso" title="TSO' (TSO), 710-734">gtactctgcgttgataccactgctt</span><span class="adapter" title="B (adapter), 735-751">ACTTGTAAGCTGTCTAT</span>ct<span class="r1" title="R1 (Read1), 754-773">acacgacgctcttccgatct</span>tcaggtgccgctgtgattgccattgga
+<span class="pos">   801</span>  cagcgtgttagtcccacggttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
+<span class="pos">   901</span>  ttttttttttttttttttttttttttttttttttcactagtgcaacaggattttttatttatatggcaatagttacagaccgcatacacacactcaggaa
+<span class="pos">  1001</span>  ggcccactaactgggcccaccaagagacaattacccccaccctcaatgcagagtcctttgggcttccagggaacaggccttttcttacatggctctggtc
+<span class="pos">  1101</span>  cgaggtccagtactcagcatgcgaagagccatatcacggaggggataagtggaggagtgtcctttcaattacttgggtgtgaccctgaagactcggatgt
+<span class="pos">  1201</span>  ggatggctgagttgttgcggatccgagtcagtggctcccgtgtgtcggtctctggctccagctcatcaacaagctccacggtggaggtattggcagccac
+<span class="pos">  1301</span>  ctgcaaggacccgaagctgcccgcctgcagctgcagcgcgatgttgatggcgcggttgatggccaggcccaagccgtgaatgtagatctcagagcacgcg
+<span class="pos">  1401</span>  ttctgaccccgggcccctccgtccagcagcttctggcagcgggccagctgggccttaaagtccgtcttcatgttgacataaatgtcattgggtctccggg
+<span class="pos">  1501</span>  gcaggcggctgggaagccttttcctaagggtgtattccactggatccagttcagcctccacagcaccgcggggctctcggttttctgccatgctgtgtgc
+<span class="pos">  1601</span>  ctctcttcgttccacagggccctccaggcgcgcgaggcccgctccccgccaggccactcaagggttcgccggccagcccaagtaaccgcgaccccaggtc
+<span class="pos">  1701</span>  ccagagaaagaaggatgtgggtgcaagcagccagccagctcgtgggcgccctgcccgcgccggggtcctgaacgggctgcggagtgcgcacgcgcgcccg
+<span class="pos">  1801</span>  taccccgcgagctatgaatcgccttcccggcttccgttcgccccgccccttccccgagcccccat<span class="tso" title="TSO' (TSO), 1866-1890">gtactctgcgttgataccactgctt</span><span class="adapter" title="C (adapter), 1891-1907">ACTCTGTCAG</span>
+<span class="pos">  1901</span>  <span class="adapter" title="C (adapter), 1891-1907">GTCCGAT</span>ct<span class="r1" title="R1 (Read1), 1910-1929">acacgacgctcttccgatct</span>gtggcttggccgtgacactggtcggacagcgcctagtacaattgttttttttttttttttttttttttttt
+<span class="pos">  2001</span>  tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
+<span class="pos">  2101</span>  ttttttttttttttttttttttttttttttttctgtcaagctgttctttatttcagggagagggcaggggaggggctcagtctttcttggcagcagcttt
+<span class="pos">  2201</span>  cctcatggcggccagtacgttgctcagctcctcccgcttcctcttggcgcggatgtgcgtccccacccttttcttgataaatttgagggcccgtttgtcc
+<span class="pos">  2301</span>  ttggagaccttcagtaactccatggcgcgccgctcgtacggggcaaagccacacacctcccgaatcatgtcccgcacgaacttggtgtgtttggtcagac
+<span class="pos">  2401</span>  gcccgcggcgtcggctgtgcctgggcttgctcacgttcttggtcactttgtggcccttgttgaggcccacggccatagggtagcgtagggccatggctgc
+<span class="pos">  2501</span>  tgctctccagagacggccgtggcggaagccccat<span class="tso" title="TSO' (TSO), 2535-2559">gtactctgcgttgataccactgctt</span><span class="adapter" title="D (adapter), 2560-2576">ACCTCCTCCTCCAGAAT</span>ct<span class="r1" title="R1 (Read1), 2579-2598">acacgacgctcttccgatct</span>gt
+<span class="pos">  2601</span>  ctgtacgttgtgagattcatatgacagcggagcattctcacagtttttttttttttttttttttttttttttttttttttttttttttttttttaaggta
+<span class="pos">  2701</span>  gtaagttttttaatccacttaaaaatacaagagcacaaatccacatttatttattgatttttcgttagtttaaatccttgaggggtacagcatcactcgg
+<span class="pos">  2801</span>  attctgtgtccaatggccttagcaggaagattgcttcggaattttggcacgaaccatgccactgtttccatgggcccgagttacttttccccagatgact
+<span class="pos">  2901</span>  ctggttttgtttggtttgccgccaggagtgactgtgttgttctttgctttatatacataagcgcatctcttgcccaaatagaattctgtttcatctcggg
+<span class="pos">  3001</span>  cgtaaacaccttcaattttaagaagagctgtgtgctccctttggttccggagaccccgcttatagccagcaaaaatggccttggaccacagccttccaga
+<span class="pos">  3101</span>  catagttccttttagaagtcccgttcccagcaggcctccacaggagccaagatggcggtaagagacccat<span class="tso" title="TSO' (TSO), 3171-3195">gtactctgcgttgataccactgctt</span><span class="adapter" title="E (adapter), 3196-3212">AACCG</span>
+<span class="pos">  3201</span>  <span class="adapter" title="E (adapter), 3196-3212">GACACACTTAGT</span>ct<span class="r1" title="R1 (Read1), 3215-3234">acacgacgctcttccgatct</span>tcaccttctcctgtgaactagatctgacatcgatcacgcctcaaggtttttttttttttttttttt
+<span class="pos">  3301</span>  ttcatcttcactatcctctgctgagtgagaatcatccttcttggtcttcacatctttgtcttctgagtcctcactatcttcctgtgaattctttccagat
+<span class="pos">  3401</span>  cgcctcttatttttagcttctcggggagatgatcgaattttcttagtgggagggcccgaatctcttccataatcttcatctgcatcatcagattcctgaa
+<span class="pos">  3501</span>  actgtgagtaatcaacaaccttcctatttctgacaggccgcgacatgttcgctgtcgaaacaggaccgagtcgagaagccaaagaccaggacccccccca
+<span class="pos">  3601</span>  ccccgcgcgctcggcgccccaccccccccgaacttcagccgatggaaccgctgctgccgaaccccgagctgctggcttctcaaactccgctgctctttgg
+<span class="pos">  3701</span>  ttcagggctcctggaacagacgagccccccgctcccccgtctcttcaaaatgccccat<span class="tso" title="TSO' (TSO), 3759-3783">gtactctgcgttgataccactgctt</span><span class="adapter" title="F (adapter), 3784-3800">AGAGTCCAATTCGCAGT</span>
+<span class="pos">  3801</span>  ct<span class="r1" title="R1 (Read1), 3803-3822">acacgacgctcttccgatct</span>tcagcactatgtgtgatgaggtattgacaatcttactatgtacaactttttttttttttttttttttttttttacttt
+<span class="pos">  3901</span>  tggtttcatattttttcagttaatttcagtaaaaacataatatataaaaggcattgccaccattttcccctcctgggggtgatccatcaagccagtgtgg
+<span class="pos">  4001</span>  gctgctccagtggttcatagctcatcatgcgatatgtgcagggcatggtcacaaagatctgttcgcttactgcaaagtttgtctttaacattgtcagcct
+<span class="pos">  4101</span>  ctcgggaaaagaattcaatgagttcatcctcgtattcctccacaatgctctcacacgcaaacttgagggtgccgctaatatctgagtcgattcggatgcc
+<span class="pos">  4201</span>  ttgtaggtccagttcactggattctccattccggcccactacacgtacgtagttcttgcgatgggtggaaggatcaatctgttccccatactccttcatc
+<span class="pos">  4301</span>  cggtcacatatctcctccagcagctctgtgaggtgggcctctgagcgggcataaggcacctccaccactgactggctgccatctggattgatccggaaag
+<span class="pos">  4401</span>  atcccatctgaatggtcttcttggggtccacctgggcaatttcccattctagttcatccaccagagccctgcatgctccacagtggagatcctggctcct
+<span class="pos">  4501</span>  ccgagcccaggcggttcccagcagggcccccagaagcaggggccagccaaccccagcctttcatctttagcgtaatggggtcgctccacctctgctccca
+<span class="pos">  4601</span>  gggccgccgccgtggcccaagcgctggaagaccgctggactccccat<span class="tso" title="TSO' (TSO), 4648-4672">gtactctgcgttgataccactgctt</span><span class="adapter" title="G (adapter), 4673-4689">AATCAAGGCTTAACGGT</span>ct<span class="r1" title="R1 (Read1), 4692-4711">acacgacgc</span>
+<span class="pos">  4701</span>  <span class="r1" title="R1 (Read1), 4692-4711">tcttccgatct</span>gtgagttacctgtgactggctcatgacattggtaactgaagccgtttttttttttttttttttttttttttcttcacatcctccttccg
+<span class="pos">  4801</span>  atcaaggagatcaatcttggactcctcttctgaagagctcattttgctgcctgttaatcctggaaccataggattcatcagatggacccgttttgaatag
+<span class="pos">  4901</span>  ccaagtgcagggaggtacttctctgcaaaggtgaaaatctttctctgatcaatgcctccaaattgggcatctacttttaaatactcttcatccaaagcct
+<span class="pos">  5001</span>  gcagtccggggtataagaggccactcagcaaagggtgctccacctgctttaccacctcagctccagccttcttggaatcgtgctgtgtgaccacggagga
+<span class="pos">  5101</span>  gagtctgtacacatctagtgtgtactctttgctgagctggtaatcagtgcctttgatgaacttgagcttctccaagggcacaccaatgctctccagcatt
+<span class="pos">  5201</span>  gctttgatcacattctcatagtaactgactcggagttctagaagttcccatggggctttcatgttatccaggtatgcgtggaggtccgcaaacagaattg
+<span class="pos">  5301</span>  ttacctcacgccctgcctttaagaagtctgcaatctttgacatgggcacaaagtaagccacatgtggtttgcccgtggttgccgttccccagtaaatttt
+<span class="pos">  5401</span>  aagttcccgctccttcagtatctccttcagcttctcttcccccagaacctcctgcaggttccgggtgataaggtgcagtttctcttcagggctgggagcg
+<span class="pos">  5501</span>  tcccccatggctccgctacccctgcttcccccgctcagcccggcaccagagccccttcctcccat<span class="tso" title="TSO' (TSO), 5566-5590">gtactctgcgttgataccactgctt</span><span class="adapter" title="H (adapter), 5591-5607">ATGTTGAATC</span>
+<span class="pos">  5601</span>  <span class="adapter" title="H (adapter), 5591-5607">CTAGCGT</span>ct<span class="r1" title="R1 (Read1), 5610-5629">acacgacgctcttccgatct</span>tcatgctcttccgtgactgagatatgacagttatgatgaactatatttttttttttttttttttttttttt
+<span class="pos">  5701</span>  tttttttttttttttttttttttttttttttttttttttttgggaacaaaacaataaacacctttattacatgggtgaagacaaaacaaggatttatttg
+<span class="pos">  5801</span>  cctttgcgggccttgattttcctaagatagaactccaactctttgccctctagcacatagccatctgctcggccacactgtcccggccttgaagcgatgc
+<span class="pos">  5901</span>  acgcaagaagcttgccctgctggaactgctcctccaggagactgctgattttggcattctttttcctttcatcatatttcttctgaatttttttagatcg
+<span class="pos">  6001</span>  ttttttgtttaaaatctcttcttcctcaggagtcagcttggctcccttcttgcggcccaggggcagcgcatagtgggactcgtaccactgtcggtacggt
+<span class="pos">  6101</span>  gtgctgtcgatgagcacgatgcaattcttcaccagggtcttggtacgaaccagctcgttattagatgcattgtagacaacatcgatgatccttgttttac
+<span class="pos">  6201</span>  gagtacaacactctgagccccaggagaaattccccacgtccaacctcagggcacggtatttcttgttacctccccgcacacggactgtgtggatgcggcg
+<span class="pos">  6301</span>  ggggccaatcttggtgttggcagctgggcgccccaactcatacttccgcttcttgtggtagggctttctcttgcccccggttttgcggcgcttgtgccag
+<span class="pos">  6401</span>  ttgtcccgagagatgcccatcgctcggcgctggctggaaagagaccccat<span class="tso" title="TSO' (TSO), 6451-6475">gtactctgcgttgataccactgctt</span><span class="adapter" title="Q (adapter), 6476-6489">AGTAGCTGTGTGCA</span>tt</pre>
+<h2>TSO-TSO mirror</h2><p class='note'>TSO-TSO_mirror BD144_ND zm=2689273 len=5471</p><ul><li>Q' H' [TSO-TSO] H Q: a molecule with a TSO at both ends (1767-4899) got adapter H on both ends, so the array grows to Q on both sides</li><li>skera puts the whole read in non_passing.bam and writes one S-read, 4917-5455 (H to Q); the Q'..H' arm is not written</li></ul>
+<pre><span class="pos">     1</span>  aa<span class="adapter" title="Q' (adapter), 3-16">TGCACACAGCTACT</span><span class="tso" title="TSO (TSO), 17-41">aagcagtggtatcaacgcagagtac</span>atggggagatacgttcgtcagcttgctcctttctgcccgtggacgccgccgaagaagca
+<span class="pos">   101</span>  tcgttaaagtctctcttcaccctgccgtcatgtctaagtcagagtctcctaaagagcccgaacagctgaggaagctcttcattggagggttgagctttga
+<span class="pos">   201</span>  aacaactgatgagagcctgaggagccattttgagcaatggggaacgctcacggactgtgtggtaatgagagatccaaacaccaagcgctccaggggcttt
+<span class="pos">   301</span>  gggtttgtcacatatgccactgtggaggaggtggatgcagctatgaatgcaaggccacacaaggtggatggaagagttgtggaaccaaagagagctgtct
+<span class="pos">   401</span>  ccagagaagattctcaaagaccaggtgcccacttaactgtgaaaaagatatttgttggtggcattaaagaagacactgaagaacatcacctaagagatta
+<span class="pos">   501</span>  ttttgaacagtatggaaaaattgaagtgattgaaatcatgactgaccgaggcagtggcaagaaaaggggctttgcctttgtaacctttgacgaccatgac
+<span class="pos">   601</span>  tccgtggataagattgtcattcagaaataccatactgtgaatggccacaactgtgaagttagaaaagccctgtcaaagcaagagatggctagtgcttcat
+<span class="pos">   701</span>  ccagccaaagaggtcgaagtggttctggaaactttggtggtggtcgtggaggtggtttcggtgggaatgacaacttcggtcgtggagaaaacttcagtgg
+<span class="pos">   801</span>  tcgtggtggctttggtggcagccgtggtggtggtggatatggtggcagtggggatggctataatggatttggtaatgatggaagcaattttggaggtggt
+<span class="pos">   901</span>  ggaagctacaatgattttgggaattacaacaatcagtcttcaaattttggacccatgaagggaggaaattttggaggcagaagctctggcccctatggcg
+<span class="pos">  1001</span>  gtggaggccaatactttgcaaaaccacgaaaccaaggtggctatggcggttccagcagcagcagtagctatggcagtggcagaagattttaattaggaac
+<span class="pos">  1101</span>  aaagcttagcaggagaggagagccagagaagtgacagggaagctacaggttacaacagatttgtgaactcagccaagcacagtggtggcagggcctagct
+<span class="pos">  1201</span>  gctacaaagaagacatgttttagacaaatactcatgtgtatgggcaaaaaactcgaggactgtatttgtgactaattgtataacaggttattttagtttc
+<span class="pos">  1301</span>  tgttctgtggaaagtgtaaagcattccaacaaagggttttaatgtagattttttttttgcaccccatgctgttgattgctaaatgtaacagtctgatcgt
+<span class="pos">  1401</span>  gacgctgaataaatgtcttttttttaatgtgctgtgtaaagttagtctactcttaagccatcttggtaaatttccccaacagtgtgaagttagaattcct
+<span class="pos">  1501</span>  tcagggtgatgccaggttctatttggaatttatatacaacctgcttgggtggagaagccattgtcttcggaaaccttggtgtagttgaactgatagttac
+<span class="pos">  1601</span>  tgttgtgacctgaagttcaccattaaaagggattacccaagcaaaatcatggaatggttataaaagtgattgttggcacatcctatgcaatatatctaaa
+<span class="pos">  1701</span>  ttgaataatggtaccagataaaattat<span class="r1" title="R1' (Read1), 1728-1747">agatcggaagagcgtcgtgt</span>ag<span class="adapter" title="H' (adapter), 1750-1766">ACGCTAGGATTCAACAT</span><span class="tso" title="TSO (TSO), 1767-1791">aagcagtggtatcaacgcagagtac</span>atgggagcc
+<span class="pos">  1801</span>  aaaacataggatactaaagacaacaaggaaaacatttacagataaacgatcacacatttagttccttagcactgagagaatgaaaggatatggcagatgt
+<span class="pos">  1901</span>  atgtaaccctttcttagtctttccctatgcccttgaattgtaacctcttcaagaataagggtccttgttttgtatattaatatctttgtatacccttaag
+<span class="pos">  2001</span>  tcacaagcactataagaaatgaattttagtttcttactgcacagagagatcataatctttttttttttttttggagacagagtctcactctgtcgcccag
+<span class="pos">  2101</span>  gctggagtgcaatggcgtgagcttggctcactgcaacctccacctctggggctcaagcaagcaattctcctgtctcagcctacagagtagtgggattaca
+<span class="pos">  2201</span>  ggcgcgcaccaccacacccagctaattttctgtacttttttaatagagacagggttttgccatgttggccaggctggtttcgaactcctgacctcaggta
+<span class="pos">  2301</span>  atccactcacctccgcctcccaaagtgctgggattacaggcgtgagccaccacacctggccaggatcataagcttaatagaactcattattatgtgggtt
+<span class="pos">  2401</span>  ttaaatcaatcctgttatgttgtttgcccaagggctactcatgcctcttttgcatctaagttggaatcttcattgaaaaaaaaaaaattaaatactacat
+<span class="pos">  2501</span>  gttctagttacattgtagcattataacaaatcaaacaagatatggcagaaatgtgtatgaggttgtaaatatgagatgtctagcacctacactaatttag
+<span class="pos">  2601</span>  tataatcatcactgaagtcagtcaatacaaacactaatgagaatgaactttggtatcaagctttaaaagatactgttccaataattttaggttgactttt
+<span class="pos">  2701</span>  gcattctaccttcaagccaatttgttactaatctctaaaaataaaatacttttaacctgtacaagagaacattacgtagaatcaaaagcttcactaatat
+<span class="pos">  2801</span>  cttaacaaagaaaaagagatgtgtattatagtccaggttaactgaagtacacaaagacaagacaagagatatgtacatgccaagctaaggctaatcaaag
+<span class="pos">  2901</span>  tgtaatcttgtttttgtttttttgaagcgagggagtaagggagtgaggtctccctaccaatatgtattaacccaaagttatcaggggagcaaactaggag
+<span class="pos">  3001</span>  tagaagaatacccaaacagcagttttgcaaaccaataagcttcagataggtttacttttttcttaagtagctttagtagtgttaaaatgacttttcaaat
+<span class="pos">  3101</span>  cagtaaataactgtaacatattagaccaacaggaaaaatattcagatttagatcattctaagctcctaaaaatactaatttacatttatcaatgcaaaac
+<span class="pos">  3201</span>  tactttttacttagaaacgtacatctctgcatctgcttactatactcagacatgttatctggtcttattgaccgtagaaatttgatatactcatcactgt
+<span class="pos">  3301</span>  gatattttgtcatttcttcggcagtggctttatggggcctctgtgaagagaaataaatgtcagaactgtggaattacaaccggttatatcagtattatca
+<span class="pos">  3401</span>  aacaaatatacaaattccctatcggtcccctcaaaagaaccaagtctaccagaacaaaatatataaattccaaaactaacccaaacttatatgtgtttta
+<span class="pos">  3501</span>  gaaaacagtaatcaatctcaaaactaattcaaactcctttaaaagcattacacaggcatatcaactatgatttaatcactccttattttagtggaaacag
+<span class="pos">  3601</span>  ttcgagtaaaaagtcaaatccatatgttcataaactctactttctctccttttccatgataaaacatccagtgatttcatcaatgaaatcactcactaca
+<span class="pos">  3701</span>  agagttttcaattctaaatctttgttcacgacctctcgtccttttttctatcctaatcttccttgttccgaagagctcaatttcacgtatgacacaattc
+<span class="pos">  3801</span>  ttccacaagacttccagactgagtcttattctaacttcccctcttctctaaatgtctacatgtaactgaaaataattcacatattcacatatattgccta
+<span class="pos">  3901</span>  gcattaattgttttaaatatttcttttctccccaaatagctaattgtcgtgtctgtatttgtttatacataccctcatctttatctacaaaaacattaag
+<span class="pos">  4001</span>  gcagctgttgcacttgtgttatctgtactatgcttggccacactaacacagtattccatatgtattatatgccctgcaaatatttgtgggattaatttta
+<span class="pos">  4101</span>  tgtgttattattttgtaacagtcccaggtcaactcttttcagcagcacaggcagattaacaattattgtaaaaaaaaaaaaaaaaaaaaaaaaaatactt
+<span class="pos">  4201</span>  aatatgctacactgagttgttgctatactgagttgttctccagaaccatgaaagcctagggtagggggaacttttttaaatggttaaaggaaaaggaaaa
+<span class="pos">  4301</span>  agagggtatagctctcattcttattcatctcctaagaataaacgaaaaaagaagtttgttttcttccagatcttttcatctgctaaatgccctcaaaagg
+<span class="pos">  4401</span>  ggaataatagacgaagtttcacagtagctaaaaaaaaaataaaaaagatcagtgctgaatatgtattaaaaggaatactcacatatatttccatttttct
+<span class="pos">  4501</span>  gtataagccataatttaacagcaagttatgggtcatgcggattctatgaggcttcatgggatgaccctgtccataataataatttccaatatcaccgtcg
+<span class="pos">  4601</span>  tagtagtagcagactttttttttgccgcctccttgactgtacgccatgggctccccggccaccgccgccaccgggctcctcctcctgctgctgctgctgc
+<span class="pos">  4701</span>  tgctgctgccgccgcggctcggccgggagagaaaagggctgagggaaacgtgggggcgatagtcccgcggggaagggcaggccggtgggaggagaggagg
+<span class="pos">  4801</span>  gggcgccgggaaggctcggtaccacccggcagaggtgccgaaagctcggaatcggaggtggcagcggcccccat<span class="tso" title="TSO' (TSO), 4875-4899">gtactctgcgttgataccactgctt</span><span class="adapter" title="H (adapter), 4900-4916">A</span>
+<span class="pos">  4901</span>  <span class="adapter" title="H (adapter), 4900-4916">TGTTGAATCCTAGCGT</span>ct<span class="r1" title="R1 (Read1), 4919-4938">acacgacgctcttccgatct</span>agttgtatccgtgagtacgattagacatgtgcgtcaaggttcgatttttttttttttttttt
+<span class="pos">  5001</span>  ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttactttattaaaatactgagtttta
+<span class="pos">  5101</span>  tttcacatgtatatttttgtctccccaccatttccatgtctgaccaccgctactactatgtcctatcataacattccatacatacttaaaaccaagcaaa
+<span class="pos">  5201</span>  gggtggagttccatccttaaaaactaaacaggcatttttgacaacacattcttggcaatagaacctggacaacatttatcaaacacggtagggaaagttc
+<span class="pos">  5301</span>  tcactctgcattataaaaaggacagccagatatcaactgttacagaaatgaaataagacggaaaatttttttaacaaattgtttaaactattttcttaaa
+<span class="pos">  5401</span>  gagacttcctccactgccagagatccccat<span class="tso" title="TSO' (TSO), 5431-5455">gtactctgcgttgataccactgctt</span><span class="adapter" title="Q (adapter), 5456-5469">AGTAGCTGTGTGCA</span>tt</pre>
+<h2>R1-R1 mirror</h2><p class='note'>R1-R1_mirror BD144_ND zm=54921434 len=7268</p><ul><li>A B [R1-R1] B' A': a molecule with Read1 at both ends (2327-4379) got adapter B on both ends, so the array grows to A on both sides</li><li>skera puts the whole read in non_passing.bam and writes one S-read, 19-2309 (A to B); the B'..A' arm is not written</li></ul>
+<pre><span class="pos">     1</span>  a<span class="adapter" title="A (adapter), 2-18">AGCTTACTTGTGAAGAT</span>ct<span class="r1" title="R1 (Read1), 21-40">acacgacgctcttccgatct</span>ggatccatggtgactggatgcggacaagcacttcgttagccacttttttttttttttttt
+<span class="pos">   101</span>  ttttttttttttcatctttacctttactttcttcttcttctttgacttgtccctcttagaagactcgcctcggcccccttcatattctttcatggctttt
+<span class="pos">   201</span>  tcatagtccctcctggcatcctcagccttgcgatcccactcctctttcttctctttggacattcccttccagatctcgcctgccttcttggaaagatccg
+<span class="pos">   301</span>  tgatgctgatgccaggatggtctgacttgatcttctctcggctggcattgagccacagcatgtatgcagacatgggcctcttgggggcattggggtcttt
+<span class="pos">   401</span>  gcccttcttcacctccacaggcttcttgcggctcttgcggtccttggccatcttggcctttttgagctgtttccgcttcttctcatcccggtcactgtca
+<span class="pos">   501</span>  ccctcattactggaggagctggcagaggcgttgctgtcaaactcctctgccacatcttcctcctcttcacctgggttgaatgactcatcggtttcttctc
+<span class="pos">   601</span>  ctgagtcatcgctgctgtcattggcattctcctcccggatcttgccttcctccttcatcctctccaagtaggcatcatgctggtcctcatcagagtcagc
+<span class="pos">   701</span>  atattcatcgtagcttgggttcatgccctctttcaatcctcggtttttgatgttgagctttttcgcgttgacaaaatcaaacagtttcccgtactcctcc
+<span class="pos">   801</span>  ctctcaatgctgctgaaggtatactgagtgccctgcttggtctcaatttcaaagtcaaaggaacgagtagtagtggtaccacgagcaaagttgacaaagg
+<span class="pos">   901</span>  agatctcatcgaagcggatgtgcacaggtggcttgtggacgtagatgaagccccgctccagcgggtagagcagtcctgagcttgccttgtaggaacaggt
+<span class="pos">  1001</span>  aatgcactgggcccctgagtgcccttggaagttgcctggcactgtgatcttgcggtttaccagtgctttcatgacccggctgaccatctcatagagggat
+<span class="pos">  1101</span>  cctgacatgttcttggtgagccgaccctcaaagcgcttctccacttcttcctcgttcatgttcagagtcaacgaaatgtcctcgtccttggagaagagga
+<span class="pos">  1201</span>  ggatcaggaagtggtagcgagtttggccttgcttgattgggggatccaggctgatcacaaagaacatctggcgctggtccttgtggggtaacaaaaacag
+<span class="pos">  1301</span>  acgcagtactgtggtgtaggggatcttgtagtcaaaggtcttgccatgcaggtgcagaaaggtggggtagatccgaatgtcataacgaccacgaggagtc
+<span class="pos">  1401</span>  agacactgcagctcccggaagatgcagatggcatctcccgtggcctggattacatccacctttgacaacacattctgggcaaaggcctcaacagggtcca
+<span class="pos">  1501</span>  caccatcctcctgggtgggtgggacgtagaagcgcacctccatgagagacacctctgcgtcatcgttttggtggaattccagtgtcacctcattcttgcc
+<span class="pos">  1601</span>  tgtggtgcactgggacacattgctgaggggtatctcaaagactggctggtcaccaatgtcaaaggaaagcagctgcccaccaaatttcactgtcccccag
+<span class="pos">  1701</span>  ttccagcccttcacacaaaggtccttctccattagctcaaggcgatagtgagttttgaagaaatcagagagtttctcaaactccgattctcggaagccat
+<span class="pos">  1801</span>  catacttgtagacatggccattctttgtaagcagtttaagtccatggcccagagcaacacggcgccagataccttctgttaactccccagcctggatgtt
+<span class="pos">  1901</span>  gtccactttgcctgtcttgctattcttgaagatgatgccctgacggctcaacctcagtcgaccatcattcatggaacctttcacctcctgatagacgtcg
+<span class="pos">  2001</span>  ttgaactccagtgtctctgccatgtcgacccctgcctgtggtggcctgggcagagccccaggctgcacaagggaaaccaagtaaactgggagctgggccc
+<span class="pos">  2101</span>  caactcctgagtgggtgtgcggatgctcagcaggttgggaatctgaattctcctcaggctgcggcctcgcgagggccccggcgcgagaggtgggcgcgct
+<span class="pos">  2201</span>  ggggggacgcggggggggcgcggggagggggatgggggacaccggggaagcttttcccgcgtgcgcggccccgcgtccccccat<span class="tso" title="TSO' (TSO), 2285-2309">gtactctgcgttgata</span>
+<span class="pos">  2301</span>  <span class="tso" title="TSO' (TSO), 2285-2309">ccactgctt</span><span class="adapter" title="B (adapter), 2310-2326">ACTTGTAAGCTGTCTAT</span>ct<span class="r1" title="R1 (Read1), 2329-2348">acacgacgctcttccgatct</span>tcagctgagcgtgtgatggttagttgacaactaggcagaaaagaagtttttt
+<span class="pos">  2401</span>  tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
+<span class="pos">  2501</span>  ttttgctctgttgccctggctggagtgcagtggtgtgatctcggctcactgcaacctccacctctgggttcaagtgattcttgggcctcagcctcccaag
+<span class="pos">  2601</span>  tagctgggattacaggcatgtgccgctaattttttgtatttttagtagagacagagtttcgctattttgcccaggctggtctggaatgcttggccttcca
+<span class="pos">  2701</span>  aagtgctgggattgtaggcatgagctgttgcgcctggcctctgacgctccaattctgatatccaggaaatttaactggtttatcaggattcagagaacaa
+<span class="pos">  2801</span>  ataattcagaaatgtttctgaaggccctcagatgaggaacatttcatgctgactgtctagtaagcaagcccatcacatgctcacatggcgtgatggccag
+<span class="pos">  2901</span>  aggggctgcagggcacaattggtctgctctctcctatcctcccccaagttgtacgtatttggagggcagggactgcagtacagtccccttatttgggttc
+<span class="pos">  3001</span>  attgcttctgggaagcccgatctgctgtgcctcctaaaatgtggaactggccctagttccagttcctagcgtgctttggcgtatgcttaggcccctctgc
+<span class="pos">  3101</span>  caatctcttccccagtgctttgtacctggcttctcaacccagagccagggcagggactttgacaactatgaagggtggtgagcaaagagctgttgctgct
+<span class="pos">  3201</span>  gccgcataggggtctgagagcacttatatcttaacagtctgccctttttcactctcgtctcaaaccaggagtatgacagtagttttccaaactgggaatt
+<span class="pos">  3301</span>  tgcccgaatgtttaaagaatttcgggctactttggaatgtcatccacttactatgactgatcctgtaagtacatccaaagaacttctctttcttaagtgt
+<span class="pos">  3401</span>  acaattgagagacagaaaacttctctttacaggaatgagggcatgcaggaatctttactcacctttgagggttttattattatttttttttgagatgggg
+<span class="pos">  3501</span>  tctcactctgtcacccaggctggagtgcagtggtacgatcttggatcactgcaacctccacttccctgggcttgagtgatcctccccacctcatcctccc
+<span class="pos">  3601</span>  aggtagctgggaccatagatgcattccaccgcaccctactgattttttgtatttttggtagagacagggtttcaccatgttgcccaggccaatctggaac
+<span class="pos">  3701</span>  ttctgggttcaaggaatccgcctaccttgacttcccaaagtgctgggattacaggtgtaagctactgtgcctggctgaggttattttattttactttttt
+<span class="pos">  3801</span>  ttgagacagagtctcgctctgtcgcccaggctggagtgcaatggcatggtcttggctcactgcagcctccacctcccaggtttaagtgattctcctgcct
+<span class="pos">  3901</span>  cagcctccccagtagctgggattacaggcatgtgccaccacgcctaggtaatttttgtatttttagtagagatggggttttaccatgttggtcaggctgg
+<span class="pos">  4001</span>  tgtcgaactcctgacctcgtgatctgcccacctcagcctcccaaagtgctgggattacaggcgtgagccaccatgcccagccgaggttattttttaatat
+<span class="pos">  4101</span>  cctttggtgggctgaagctagtgaggcccacatggggaggggtctgatctttataaactgggttccacccccataccataggttggctagattcctgcat
+<span class="pos">  4201</span>  tagtaaaaatcatgaaagtagtgctgaaactcttgtaggcagcagagtgagaaaaatgggaacaaaatccagtgctcccttcttgtgctctggagtatct
+<span class="pos">  4301</span>  aatggaggatgcaggggtcctagtgttagatcttggcctctgactgggccagacatg<span class="r1" title="R1' (Read1), 4358-4377">agatcggaagagcgtcgtgt</span>ag<span class="adapter" title="B' (adapter), 4380-4396">ATAGACAGCTTACAAGT</span><span class="tso" title="TSO (TSO), 4397-4421">aagc</span>
+<span class="pos">  4401</span>  <span class="tso" title="TSO (TSO), 4397-4421">agtggtatcaacgcagagtac</span>atgggaaggggaacgaaagatggcggcggaaacgctgctgtccagtttgttaggactgctgcttctgggactcctgtta
+<span class="pos">  4501</span>  cccgcaagtctgaccggcggtgtcgggagcctgaacctggaggagctgagtgagatgcgttatgggatcgagatcctgccgttgcctgtcatgggagggc
+<span class="pos">  4601</span>  agagccaatcttcggacgtggtgattgtctcctctaagtacaaacagcgctatgagtgtcgcctgccagctggagctattcacttccagcgtgaaaggga
+<span class="pos">  4701</span>  ggaggaaacacctgcttaccaagggcctgggatccctgagttgttgagcccaatgagagatgctccctgcttgctgaagacaaaggactggtggacatat
+<span class="pos">  4801</span>  gaattctgttatggacgccacatccagcaataccacatggaagattcagagatcaaaggtgaagtcctctatctcggctactaccaatcagccttcgact
+<span class="pos">  4901</span>  gggatgatgaaacagccaaggcctccaagcagcatcgtcttaaacgctaccacagccagacctatggcaatgggtccaagtgcgaccttaatgggaggcc
+<span class="pos">  5001</span>  ccgggaggccgaggttcggttcctctgtgacgagggtgcaggtatctctggggactacatcgatcgcgtggacgagcccttgtcctgctcttatgtgctg
+<span class="pos">  5101</span>  accattcgcactcctcggctctgcccccaccctctcctccggcccccacccagtgctgcaccgcaggccatcctctgtcacccttccctacagcctgagg
+<span class="pos">  5201</span>  agtacatggcctacgttcagaggcaagccgactcaaagcagtatggagataaaatcatagaggagctgcaagatctaggcccccaagtgtggagtgagac
+<span class="pos">  5301</span>  caagtctggggtggcaccccaaaagatggcaggtgcgagcccgaccaaggatgacagtaaggactcagatttctggaagatgcttaatgagccagaggac
+<span class="pos">  5401</span>  caggccccaggaggggaggaggtgccggctgaggagcaggacccaagccctgaggcagcagattcagcttctggtgctcccaatgattttcagaacaacg
+<span class="pos">  5501</span>  tgcaggtcaaagtcattcgaagccctgcggatttgattcgattcatagaggagctgaaaggtggaacaaaaaaggggaagccaaatataggccaagagca
+<span class="pos">  5601</span>  gcctgtggatgatgctgcagaagtccctcagagggaaccagagaaggaaaggggtgatccagaacggcagagagagatggaagaagaggaggatgaggat
+<span class="pos">  5701</span>  gaggatgaggatgaagatgaggatgaacggcagttactgggagaatttgagaaggaactggaagggatcctgcttccgtcagaccgagaccggctccgtt
+<span class="pos">  5801</span>  cggaggtgaaggctggcatggagcgggaactggaaaacatcatccaggagacagagaaagagctggacccagatgggctgaagaaggagtcagagcggga
+<span class="pos">  5901</span>  tcgggcaatgctggctctcacatccactctcaacaaactcatcaaaagactggaggaaaaacagagtccagagctggtgaagaagcacaagaaaaagagg
+<span class="pos">  6001</span>  gttgtccccaaaaagcctcccccatcaccccaacctacagaggaggatcctgagcacagagtccgggtccgggtcaccaagctccgtctcggaggcccta
+<span class="pos">  6101</span>  atcaggatctgactgtcctcgagatgaaacgggaaaacccacagctgaaacaaatcgaggggctggtgaaggagctgctggagagggagggactcacagc
+<span class="pos">  6201</span>  tgcagggaaaattgagatcaaaattgtccgcccatgggctgaagggactgaagagggtgcacgttggctgactgatgaggacacgagaaacctcaaggag
+<span class="pos">  6301</span>  atcttcttcaatatcttggtgccgggagctgaagaggcccagaaggaacgccagcggcagaaagagctggagagcaattaccgccgggtgtggggctctc
+<span class="pos">  6401</span>  caggtggggagggcacaggggacctggacgaatttgacttctgagaccaacactacacttgacccttcacggaatccagactcttcctggactggcttgc
+<span class="pos">  6501</span>  ctcctccccacctccccaccctggaacccctgagggccaaacagcagagtggagctgagctgtggacctctcgggcaactctgtgggtgtgggggccctg
+<span class="pos">  6601</span>  ggtgaatgctgctgcccctgctggcagccaccttgagacctcaccgggcctgtgatatttgctctcctgaactctcactcaatcctcttcctctcctctg
+<span class="pos">  6701</span>  tggcttttcctgttattgtcccctaatgataggatattccctgctgcctacctggagattcagtaggatcttttgagtggaggtgggtagagagagcaag
+<span class="pos">  6801</span>  gagggcaggacacttagcaggcactgagcaagcaggcccccacctgcccttagtgatgtttggagtcgttttaccctcttctattgaattgccttgggat
+<span class="pos">  6901</span>  ttccttctccctttccctgcccaccctgtcccctacaatttgtgcttctgagttgaggagccttcacctctgttgctgaggaaatggtagaatgctgcct
+<span class="pos">  7001</span>  atcacctccagcacaatcccagtaaaaaaggtgtgaagcacccaccatgttcttgaacaatcaggtttctaaataaacaactggaccatcaaaaaaaaaa
+<span class="pos">  7101</span>  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaattcaaaatcgaatt
+<span class="pos">  7201</span>  gctgtcacctgtgagtcacgcgtgtatc<span class="r1" title="R1' (Read1), 7229-7248">agatcggaagagcgtcgtgt</span>ag<span class="adapter" title="A' (adapter), 7251-7267">ATCTTCACAAGTAAGCT</span>t</pre>
+<h2>Double mirror: TSO-TSO and R1-R1 side by side</h2><p class='note'>double_mirror BD144_ND zm=233505323 len=14509</p><ul><li>as sequenced: Q' H' [TSO-TSO] H [R1-R1] H' G' F' E' D' C' B' A' (reverse complement: A .. H [R1-R1] H' [TSO-TSO] H .. Q): a TSO-TSO molecule (2918-5066) and an R1-R1 molecule (5084-6516) with the same adapter H sit side by side; the arm on the TSO-TSO side grows to Q, the one on the R1-R1 side to A, so the array holds 10 molecules whatever the letter</li><li>skera passes the read and writes 8 S-reads: 17-6516 (Q to H); 6534-7660 (H to G); 7678-8951 (G to F); 8969-9665 (F to E); 9683-10758 (E to D); 10776-11930 (D to C); 11948-13341 (C to B); 13359-14491 (B to A). The one at 17-6516 holds 3 molecules, the TSO-TSO and the R1-R1 molecule among them, yet starts with a TSO and ends with Read1 like one proper molecule: lima passes it, isoseq refine removes it, so it never reaches the mapped BAM. In the 1,389 double mirrors of the hash sample there are 1,365 such S-reads: lima passes 96%, isoseq refine keeps 0%</li></ul>
+<pre><span class="pos">     1</span>  aa<span class="adapter" title="Q' (adapter), 3-16">TGCACACAGCTACT</span><span class="tso" title="TSO (TSO), 17-41">aagcagtggtatcaacgcagagtac</span>atgggggggacttcctggaagattcctaccacacacgcatgagtcagtgagtctctagc
+<span class="pos">   101</span>  cgtcccctgggagggagcgagtcttcctctccgggaactcggggccccactgggggatcagtgctgttccccactgttcatccggggtcctcagaggctg
+<span class="pos">   201</span>  cttacttacctggggggtccccaccagcacatggtcagggtccatgctgaggccaagggctcagcagagcaggtgggggtttacaatgtgggtccctggg
+<span class="pos">   301</span>  gtggggatcaggggcatcctctctgtctttaagcttcacctcaagggttcattcaaacccgagacacggaggctggttctgttggcccaagcctgtttaa
+<span class="pos">   401</span>  agagaatgtgtgtttgtgccaaggctgagaactcaggcaatctctctgaaaactccagactgtcagcttctgttgagaaagggaggacgcgtggccgcac
+<span class="pos">   501</span>  cacggaagccttcctgcctggccgcacagggctggtataagacagttctgctcttcagacaaaacacttttcagtctgtgctgctccccaaggcccccaa
+<span class="pos">   601</span>  caaatttacaatatttgcacccctctacctcgacacaccccgcaggcctctgagtttacaatccctgccccacagagccaggtgagttacctgtgaccag
+<span class="pos">   701</span>  gtgaggcccatgcacagccctcggctagatgacagagccaaaggccctgaagtgccacttcaggccacagtcccttccgctctctgcctgggataggacc
+<span class="pos">   801</span>  ccaaatgcaatctccttggcagaaaggacatcttcctggggggtggggaggaccattcccagccttctgggagacatcaagcaaccacctcctcccaaag
+<span class="pos">   901</span>  agcctggaggacagccccacaggcagccagacagtgagggaggtggggacagcatctcagccgaggtgggaggctggggaggaagggagggatcatagtc
+<span class="pos">  1001</span>  acgagagaaggctgaataatggccccagggatagcatgtcctaatccctagacctgcaaatgggaccttgtttggaacaagagtttttgcatctgtgatt
+<span class="pos">  1101</span>  cagttgcagatcttgctgtggcgagagcaccctggatggtctaggtggtccctaaaggcagtctcggtgctcatacaagacgggggcagagggagatttg
+<span class="pos">  1201</span>  acacagacagggatggccaagtggagatggggcccggagagatctgtagatgctggtgttgaaggtaagggccatgcagccacaagccaagggacaccca
+<span class="pos">  1301</span>  cagccaccagaggctcaaaggggcaggcgatgaaggcagtggcccccaacctttttggcacctgggatcggtttcagggaagacaatttttccacagacc
+<span class="pos">  1401</span>  agggagtggggagatggttttgagatgattcaagtgtattatatttattattttattttattttattttattttattgagacagagtctcgctctgccac
+<span class="pos">  1501</span>  ccaggctggagtacagtggcactatctcagttcactgcaacctccgccacctgggttcaagcaattcttctgcctcagcctcccaagaagctgggactac
+<span class="pos">  1601</span>  agacgcctgccaccgtgtccggctaatttttgtatttttagtagaaacggggtttcaccatattggccaggctgatcttgaactcctgacctcgtgatcc
+<span class="pos">  1701</span>  gccagccttggcctcccaaagtgctgggattacaggcataagccactgtgcctggcctttattttttattttttgagacagagtttcactctgggattac
+<span class="pos">  1801</span>  aggtgtgagccactgcacccggccacaagcacgttgtattgattgtgcactttatttctattattattataatatataatgagataattatacaactcac
+<span class="pos">  1901</span>  cataatgtagaatcagttggagccctgagcttattttcctgcaaccagacggtcccatctggtggtgatgggagacggtgacagatcatcaggcatcaga
+<span class="pos">  2001</span>  ttctcataagaagcacgcaacctagatccctcacatgtgccgttcacaatacggttcactctcctataagaatccaatgccatggctgatcagacaggag
+<span class="pos">  2101</span>  gcagagcttgggcagtaatgcgagcaatggggagtgactgtaaatacagatgaagcttcgctcgcttgccagtcactcacctcctgctgtgcaggccagt
+<span class="pos">  2201</span>  tcctaataggacacacggggctgggaacccctgccctagagcctccagagggctatgcccagtggacaccctgacttcagcctggtgaccctgatctcgg
+<span class="pos">  2301</span>  atgtgtggcctgcagagctgtgagaggatggctgggcgttgttgtgacccagccagcttgtggccactcgttacagcagctgcaggaaactgatgcagcg
+<span class="pos">  2401</span>  ccacagacggagccagggctcagctcactggagttgctttctgttattctatttcttcctaaaacattgtgttaagccaaccactaacaaccactgactc
+<span class="pos">  2501</span>  cgatgggcaggaatcgcagaggtttcttggtttgtttctttaatcccttttccaattttgaaataatattccttgttggtttttctgattataaatgtaa
+<span class="pos">  2601</span>  tatctttctttgtattgagtttagaaacaagagaaaaagtaaaaagcagaaaccccagctgggcaaggtggcacgtgcctgtaatctcagcactttggga
+<span class="pos">  2701</span>  ggctgcggcggaaggattgcttgaagccaggagttcgaggctgctgtgagctataattgcactactgcaccctggctgggtaaaaagagtgagaccctgt
+<span class="pos">  2801</span>  ctcaaataaaaaaaaaaaaaaaaaaaaaaaaaaagaaattctgatctgagatgtccaagccgaatcacatgcaaggct<span class="r1" title="R1' (Read1), 2879-2898">agatcggaagagcgtcgtgt</span>ag
+<span class="pos">  2901</span>  <span class="adapter" title="H' (adapter), 2901-2917">ACGCTAGGATTCAACAT</span><span class="tso" title="TSO (TSO), 2918-2942">aagcagtggtatcaacgcagagtac</span>atgggataaccatgcacactactataaccaccctaaccctaacttccctaattccccc
+<span class="pos">  3001</span>  catccttaccaccctcgttaaccctaacaaaaaaaactcatacccccattatgtaaaatccattgtcgcatccacctttattatcagtctcttccccaca
+<span class="pos">  3101</span>  acaatattcatgtgcctagaccaagaagttattatctcgaactgacactgagccacaacccaaacaacccagctctccctaagcttcaaactagactact
+<span class="pos">  3201</span>  tctccataatattcatccctgtagcattgttcgttacatggtccatcatagaattctcactgtgatatataaactcagacccaaacattaatcagttctt
+<span class="pos">  3301</span>  caaatatctactcatcttcctaattaccatactaatcttagttaccgctaacaacctattccaactgttcatcggctgagagggcgtaggaattatatcc
+<span class="pos">  3401</span>  ttcttgctcattagttgatgatacgcccgagcagatgccaacacagcagccattcaagcaatcctatacaaccgtatcggcgatatcggtttcatcctcg
+<span class="pos">  3501</span>  ccttagcatgatttatcctacactccaactcatgagacccacaacaaatagcccttctaaacgctaatccaagcctcaccccactactaggcctcctcct
+<span class="pos">  3601</span>  agcagcagcaggcaaatcagcccaattaggtctccacccctgactcccctcagccatagaaggccccaccccagtctcagccctactccactcaagcact
+<span class="pos">  3701</span>  atagttgtagcaggaatcttcttactcatccgcttccaccccctagcagaaaatagcccactaatccaaactctaacactatgcttaggcgctatcacca
+<span class="pos">  3801</span>  ctctgttcgcagcagtctgcgcccttacacaaaatgacatcaaaaaaatcgtagccttctccacttcaagtcaactaggactcataatagttacaatcgg
+<span class="pos">  3901</span>  catcaaccaaccacacctagcattcctgcacatctgtacccacgccttcttcaaagccatactatttatgtgctccgggtccatcatccacaaccttaac
+<span class="pos">  4001</span>  aatgaacaagatattcgaaaaataggaggactactcaaaaccatacctctcacttcaacctccctcaccattggcagcctagcattagcaggaatacctt
+<span class="pos">  4101</span>  tcctcacaggtttctactccaaagaccacatcatcgaaaccgcaaacatatcatacacaaacgcctgagccctatctattactctcatcgctacctccct
+<span class="pos">  4201</span>  gacaagcgcctatagcactcgaataatccttctcaccctaacaggtcaacctcgcttccccacccttactaacattaacgaaaataaccccaccctacta
+<span class="pos">  4301</span>  aaccccattaaacgcctggcagccggaagcctattcgcaggatttctcattactaacaacatttcccccgcatcccccttccaaacaacaatccccctct
+<span class="pos">  4401</span>  acctaaaactcacagccctcgctgtcactttcctaggacttctaacagccctagacctcaactacctaaccaacaaacttaaaataaaatccccactata
+<span class="pos">  4501</span>  cacattttatttctccaacatactcggattctaccctagcatcacacaccgcacaatcccctatctaggccttcttacgagccaaaacctgcccctactc
+<span class="pos">  4601</span>  ctcctagacctaacctgactagaaaagctattacctaaaacaatttcacagcaccaaatctccacctccatcatcacctcaacccaaaaggcataattaa
+<span class="pos">  4701</span>  actttacttcctctctttcttcttcccactcatcctaaccctactcctaatcacataacctattcccccgagcaatctcaattacaatatatacaccaac
+<span class="pos">  4801</span>  aaacaatgttcaaccagtaactactactaatcaacgcccataatcatacaaagcccccgcaccaataggatcctcccgaatcaaccctgacccctctcct
+<span class="pos">  4901</span>  tcataaattattcagcttcctacactattaaagtttaccacaaccaccaccccatcatactctttcacccacagcaccaatcctacctccatcgctaacc
+<span class="pos">  5001</span>  ccactaaaacactcaccaagacctcaacccctgacccccat<span class="tso" title="TSO' (TSO), 5042-5066">gtactctgcgttgataccactgctt</span><span class="adapter" title="H (adapter), 5067-5083">ATGTTGAATCCTAGCGT</span>ct<span class="r1" title="R1 (Read1), 5086-5105">acacgacgctcttcc</span>
+<span class="pos">  5101</span>  <span class="r1" title="R1 (Read1), 5086-5105">gatct</span>agcgctctccgtgaatcgcgtcggacaacgtggagcgcataactttttttttttttttttttttttttttttttgagacagagtcttgctctgtc
+<span class="pos">  5201</span>  gcccaggctggagtgcagtggtgcaatctcggctcactgcaagctccgcctcctgggttcacaccattctcctgcctcagcctcctgagtagctgggact
+<span class="pos">  5301</span>  acaggtgcccgccaccatgccgggctaatttttttttatatttttagtagagacagggtttcaccattcacaggatggtctcgatctcctgaccttgtga
+<span class="pos">  5401</span>  tctgcctgcctcagcttcccaaagtgctgggattacaggcgtgagccaccacgcccagcctatggtaaatatattttgaactacaaaggtgctgtggtac
+<span class="pos">  5501</span>  tttaaagaaaaactatttttactagtttatctgaatggtctgtggactttatttagaaactgtttttcagtttagttttttggacatatcctttgctcag
+<span class="pos">  5601</span>  tgtattttgttacttctctagtaaaggtagaagtgaagcagatgccattgtaggttttaccagcatttaaatatattatgaattgcttagcaatgaaatg
+<span class="pos">  5701</span>  caagtatgcatcttttacttaaagatactatttatgtattcagctacagagatgaaatagcattttatgtgttaattgttttggctataaaatttaagtc
+<span class="pos">  5801</span>  cttacagcatttggggattatacacttggatttcaaaattgataaaacccttgtgaacatatctaatagatattctgtttacttgtagaaataatataat
+<span class="pos">  5901</span>  gtgtctggttctgttttgttagacattttttatgttctactgaatcagaatagtcagtgttatattccttatttcaagaattcatctattttatggctac
+<span class="pos">  6001</span>  atctcatatgtgctatgaggacttctagccagtgggtggcgctgtaataccgaagtactgcactgctttgttcctgtttccttgtgctgattcctttcta
+<span class="pos">  6101</span>  gtatttaggtaacattaccggatggcatttcccttaaattccaccaactcttaatctttattttaaaaatggctactttttttgggtggttggggtaagg
+<span class="pos">  6201</span>  gttaaaaccttaaattagtaaccgctgtttattttccagtttatttgttttctgtgattatttataataattgatatttgtttttacaagtcccctgacc
+<span class="pos">  6301</span>  ctgtaataatgaatgcagctatcttaggcaaagcaaataaataaactgggcatttttaaaataaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+<span class="pos">  6401</span>  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaatgtcgcgtcgtccgcttgtcctcaagcactcacgtctctaac<span class="r1" title="R1' (Read1), 6495-6514">agatcg</span>
+<span class="pos">  6501</span>  <span class="r1" title="R1' (Read1), 6495-6514">gaagagcgtcgtgt</span>ag<span class="adapter" title="H' (adapter), 6517-6533">ACGCTAGGATTCAACAT</span><span class="tso" title="TSO (TSO), 6534-6558">aagcagtggtatcaacgcagagtac</span>atgggaaccacatggtttttcagtttgactgcacaaacacac
+<span class="pos">  6601</span>  tcaatgaccagaccttggagaatgtcacagtgcagatggagcccactgaggcctatgaggtgctctgttacgtgcctgcccggagcctgccctacaacca
+<span class="pos">  6701</span>  gcccgggacctgctacacactggtggcactgcccaaagaagaccccacagctgtggcctgcacattcagctgcatgatgaagttcactgtcaaggactgt
+<span class="pos">  6801</span>  gatcccaccactggggagactgatgacgaaggctatgaggatgagtatgtgctggaagatctggaagttactgtagctgatcacattcaaaaggtcatga
+<span class="pos">  6901</span>  aactgaacttcgaagcagcctgggatgaggtaggggatgaatttgagaaggaggaaacgttcaccttgtctaccatcaagacacttgaagaggctgtggg
+<span class="pos">  7001</span>  taatattgtgaagttcttgggaatgcacccttgtgagaggtcagacaaagtgccggataacaagaacacccacacgttgctcctggctggtgtgttccgg
+<span class="pos">  7101</span>  ggtggtcatgacatcctggtgcgctcccggctgctgcttttggacacagtgacaatgcaggtgacagccagaagtttggaggagctgccagtagacatca
+<span class="pos">  7201</span>  tcttggcatctgtgggataagaggccagcctgcataggacctcatacccttccccaacactacctggaagttgtgccttcctcatgaaactggcagaaac
+<span class="pos">  7301</span>  cccttcccaagcttctgtattgaaaaacaattaggaatcattgcagatttttttttattctgctcccacctcccacccgggactacttgctggtgacttt
+<span class="pos">  7401</span>  ttttttttttttttttaaataggggatgattttagcttgtcctaaatcttgctgtccacccttccaggaaagggacattgtaaatgaataaaacattctc
+<span class="pos">  7501</span>  aactcctcttgaatctatcccccaagaaaccatcttatccctgtaataaatcagcatgtatttattgaaaaaaaaaaaaaaaaaaaaaaaaaacgatact
+<span class="pos">  7601</span>  atctggatatgtcaacgttagttcacgatggctgctga<span class="r1" title="R1' (Read1), 7639-7658">agatcggaagagcgtcgtgt</span>ag<span class="adapter" title="G' (adapter), 7661-7677">ACCGTTAAGCCTTGATT</span><span class="tso" title="TSO (TSO), 7678-7702">aagcagtggtatcaacgcagagt</span>
+<span class="pos">  7701</span>  <span class="tso" title="TSO (TSO), 7678-7702">ac</span>atggggctaaacctagccccaaacccactccaccttactaccagacaaccttagccaaaccatttacccaaataaagtataggcgatagaaattgaaa
+<span class="pos">  7801</span>  cctggcgcaatagatatagtaccgcaagggaaagatgaaaaattataaccaagcataatatagcaaggactaacccctataccttctgcataatgaatta
+<span class="pos">  7901</span>  actagaaataactttgcaaggagagccaaagctaagacccccgaaaccagacgagctacctaagaacagctaaaagagcacacccgtctatgtagcaaaa
+<span class="pos">  8001</span>  tagtgggaagatttataggtagaggcgacaaacctaccgagcctggtgatagctggttgtccaagatagaatcttagttcaactttaaatttgcccacag
+<span class="pos">  8101</span>  aaccctctaaatccccttgtaaatttaactgttagtccaaagaggaacagctctttggacactaggaaaaaaccttgtagagagagtaaaaaatttaaca
+<span class="pos">  8201</span>  cccatagtaggcctaaaagcagccaccaattaagaaagcgttcaagctcaacacccactacctaaaaaatcccaaacatataactgaactcctcacaccc
+<span class="pos">  8301</span>  aattggaccaatctatcaccctatagaagaactaaggttagtataagtaacatgaaaacattctcctccgcataagcctgcgtcagattaaaacactgaa
+<span class="pos">  8401</span>  ctgacaattaacagcccaatatctacaatcaaccaacaagtcattattaccctcactgtcaacccaacacaggcatgctcataaggaaaggttaaaaaaa
+<span class="pos">  8501</span>  gtaaaaggaactcggcaaatcttaccccgcctgtttaccaaaaacatcacctctagcatcaccagtattagaggcaccgcctgcccagtgacacatgttt
+<span class="pos">  8601</span>  aacggccgcggtaccctaaccgtgcaaaggtagcataatcacttgttccttaagtagggacctgtatgaatggctccacgagggttcagctgtctcttac
+<span class="pos">  8701</span>  ttttaaccagtgaaattgacctgcccgtgaagaggcgggcatgacacagcaagacgagaagaccctatggagctttaatttattaatgcaaacagtacct
+<span class="pos">  8801</span>  aacaaacccacaggtcctaaactaccaaacctgcattaaaaatttcggttaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaatggtccccgaagtg
+<span class="pos">  8901</span>  cttgtcagaatgtgttcacatgcaccatt<span class="r1" title="R1' (Read1), 8930-8949">agatcggaagagcgtcgtgt</span>ag<span class="adapter" title="F' (adapter), 8952-8968">ACTGCGAATTGGACTCT</span><span class="tso" title="TSO (TSO), 8969-8993">aagcagtggtatcaacgcagagtac</span>atgggga
+<span class="pos">  9001</span>  gagcagcgctcccgctgcccggcggctcagacacggcccgagcgccgccgcggacgcggacagagacccgcacgggcacgggcgctgcgctggaggctcc
+<span class="pos">  9101</span>  cctcgcggtccggggctgcgcgaccatggcggacaaggaggccggcggcagcgacgggccccgagaaacggctcccacatctgcatattcatctccagcc
+<span class="pos">  9201</span>  cggagtcttggggacacaggaataacgcctctgtccccctcccatattgtgaacgacactgactccaacgtctcagaacagcagtcatttctcgtggtgg
+<span class="pos">  9301</span>  tggccgtcgactttgggaccacatccagtggctatgcctacagcttcaccaaggagccggaatgcatccatgtgatgaggctggaatgcagtggtgtgat
+<span class="pos">  9401</span>  catggctctctgcagcctcaaactcctgggctgaagtgatcctcctgccttagcctcccaagtggctgagactacaggtgcataccaccacaccctgcta
+<span class="pos">  9501</span>  atgtttgtattttaggaatttttataaagggttgtgtaaagcacaagtcataataaaagtgactcccaccccaaaaaaaaaaaaaaaaaaaaaaaaaaag
+<span class="pos">  9601</span>  cccactacgacttggatgtccataccaattcacggcacttact<span class="r1" title="R1' (Read1), 9644-9663">agatcggaagagcgtcgtgt</span>ag<span class="adapter" title="E' (adapter), 9666-9682">ACTAAGTGTGTCCGGTT</span><span class="tso" title="TSO (TSO), 9683-9707">aagcagtggtatcaacgc</span>
+<span class="pos">  9701</span>  <span class="tso" title="TSO (TSO), 9683-9707">agagtac</span>atggggagactgaccgcggggcagctgcggagcatgtcgaccccggcccggaggaggctcatgcgggatttcaagcggttacaagaggaccca
+<span class="pos">  9801</span>  cctgtgggtgtcagtggcgcaccatctgaaaacaacatcatgcagtggaatgcagttatatttggaccagaagggacaccttttgaagatggtactttta
+<span class="pos">  9901</span>  aactagtaatagaattttctgaagaatatccaaataaaccaccaactgttaggtttttatccaaaatgtttcatccaaatgtgtatgctgatggtagcat
+<span class="pos"> 10001</span>  atgtttagatatccttcagaatcgatggagtccaacatatgatgtatcttctatcttaacatcaattcagtctctgctggatgaaccgaatcctaacagt
+<span class="pos"> 10101</span>  ccagccaatagccaggcagcacagctttatcaggaaaacaaacgagaatatgagaaaagagtttcggccattgttgaacaaagctggaatgattcataat
+<span class="pos"> 10201</span>  agacaactggtctgttaatctttttcatcattgttgtgtataatttacctctcattagaaaggctaacaaattttaagtgccacaggttttaaggattct
+<span class="pos"> 10301</span>  gcagaaaaaaaagaaaaaagtccttcagtttagaacctacaaaagcttgtgtatcttgattaatgtactttttattgcatggtgtgaactaagttattgc
+<span class="pos"> 10401</span>  tgcataaatttgtaatatatcctgtttgtatttttttccaagtgtataatgttggtgtggagttttcatgacagaatatacacattttgtaaatctgtac
+<span class="pos"> 10501</span>  ttttttcaaatattgaatgccttatttttgaattctttagatttttaaattggagaaaagcacttaaagttttttatatatgaatattacatgtaaagct
+<span class="pos"> 10601</span>  gttaaaatacataacttcagtgcaagagaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacttcact
+<span class="pos"> 10701</span>  agccagtcctgtctctaggtaatcacgcctcagact<span class="r1" title="R1' (Read1), 10737-10756">agatcggaagagcgtcgtgt</span>ag<span class="adapter" title="D' (adapter), 10759-10775">ATTCTGGAGGAGGAGGT</span><span class="tso" title="TSO (TSO), 10776-10800">aagcagtggtatcaacgcagagtac</span>
+<span class="pos"> 10801</span>  atggggatgtggaggtcagagtggaagcaggtgtgagagggtccagcagaaggaaacatggctgccaaagtgtttgagtccattggcaagtttggcctgg
+<span class="pos"> 10901</span>  ccttagctgttgcaggaggcgtggtgaactctgccttatataatgtggatgctgggcacagagctgtcatctttgaccgattccgtggagtgcaggacat
+<span class="pos"> 11001</span>  tgtggtaggggaagggactcattttctcatcccgtgggtacagaaaccaattatctttgactgccgttctcgaccacgtaatgtgccagtcatcactggt
+<span class="pos"> 11101</span>  agcaaagatttacagaatgtcaacatcacactgcgcatcctcttccggcctgtcgccagccagcttcctcgcatcttcaccagcatcggagaggactatg
+<span class="pos"> 11201</span>  atgagcgtgtgctgccgtccatcacaactgagatcctcaagtcagtggtggctcgctttgatgctggagaactaatcacccagagagagctggtctccag
+<span class="pos"> 11301</span>  gcaggtgagcgacgaccttacagagcgagccgccacctttgggctcatcctggatgacgtgtccttgacacatctgaccttcgggaaggagttcacagaa
+<span class="pos"> 11401</span>  gcggtggaagccaaacaggtggctcagcaggaagcagagagggccagatttgtggtggaaaaggctgagcaacagaaaaaggcggccatcatctctgctg
+<span class="pos"> 11501</span>  agggcgactccaaggcagctgagctgattgccaactcactggccactgcaggggatggcctgatcgagctgcgcaagctggaagctgcagaggacatcgc
+<span class="pos"> 11601</span>  gtaccagctctcacgctctcggaacatcacctacctgccagcggggcagcccgtgctcctccagctgccccagtgagggcccaccctgcctgcacctccg
+<span class="pos"> 11701</span>  cgggctgactgggccacagccccgatgattcttaacacagccttccttctgctcccaccccagaaatcactgtgaaatttcatgattggcttaaagtgaa
+<span class="pos"> 11801</span>  gaaaataaaggtaaaatcacttcagatctctaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaatcatttcgcacaatgttgtcttgtgttaatcacctat
+<span class="pos"> 11901</span>  ctgactga<span class="r1" title="R1' (Read1), 11909-11928">agatcggaagagcgtcgtgt</span>ag<span class="adapter" title="C' (adapter), 11931-11947">ATCGGACCTGACAGAGT</span><span class="tso" title="TSO (TSO), 11948-11972">aagcagtggtatcaacgcagagtac</span>atgggggctagtcggtctggtaaggcaa
+<span class="pos"> 12001</span>  agcggagcggagatcctcaaacggcctagtgcttcgcgcttccggagaaaatcagcggtctaattaattcctctggatttacaaaaggtgcaggtatgag
+<span class="pos"> 12101</span>  caggtctgaagactaacattttgtgaagttgtaaaacagaaaacctgttagaaatgtggtggtttcagcaaggcctcagtttccttccttcagcccttgt
+<span class="pos"> 12201</span>  aatttggacatctgctgctttcatattttcatacattactgcagtaacactccaccatatagacccggctttaccttatatcagtgacactggtacagta
+<span class="pos"> 12301</span>  gctccagaaaaatgcttatttggggcaatgctaaatattgcggcagttttatgcattgctaccatttatgttcgttataagcaagttcatgctctgagtc
+<span class="pos"> 12401</span>  ctgaagagaacgttatcatcaaattaaacaaggctggccttgtacttggaatactgagttgtttaggactttctattgtggcaaacttccagaaaacaac
+<span class="pos"> 12501</span>  cctttttgctgcacatgtaagtggagctgtgcttacctttggtatgggctcattatatatgtttgttcagaccatcctttcctaccaaatgcagcccaaa
+<span class="pos"> 12601</span>  atccatggcaaacaagtcttctggatcagactgttgttggttatctggtgtggagtaagtgcacttagcatgctgacttgctcatcagttttgcacagtg
+<span class="pos"> 12701</span>  gcaattttgggactgatttagaacagaaactccattggaaccccgaggacaaaggttatgtgcttcacatgatcactactgcagcagaatggtctatgtc
+<span class="pos"> 12801</span>  attttccttctttggttttttcctgacttacattcgtgattttcagaaaatttctttacgggtggaagccaatttacatggattaaccctctatgacact
+<span class="pos"> 12901</span>  gcaccttgccctattaacaatgaacgaacacggctactttccagagatatttgatgaaaggataaaatatttctgtaatgattatgattctcagggattg
+<span class="pos"> 13001</span>  gggaaaggttcacagaagttgcttattcttctctgaaattttcaaccacttaatcaaggctgacagtaacactgatgaatgctgataatcaggaaacatg
+<span class="pos"> 13101</span>  aaagaagccatttgatagattattctaaaggatatcatcaagaagactattaaaaacacctatgcctatacttttttatctcagaaaataaagtcaaaag
+<span class="pos"> 13201</span>  actatgaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaatcggatcgtgctcaagttgtcatga
+<span class="pos"> 13301</span>  ggtattcaccggcgtcagt<span class="r1" title="R1' (Read1), 13320-13339">agatcggaagagcgtcgtgt</span>ag<span class="adapter" title="B' (adapter), 13342-13358">ATAGACAGCTTACAAGT</span><span class="tso" title="TSO (TSO), 13359-13383">aagcagtggtatcaacgcagagtac</span>atgggggtcgtgcacgc
+<span class="pos"> 13401</span>  ggttgtagctgcccggcggcggcagaagcggcgctcgcgccaagggacgtgtttctgcgctcgcgtggtcatggaggcgctgccgctgctagccgcgaca
+<span class="pos"> 13501</span>  actccggaccacggccgccaccgaaggctgcttctgctgccgctactgctgttcctgctgccggctggagctgtgcagggctgggagacagaggagaggc
+<span class="pos"> 13601</span>  cccggactcgcgaagaggagtgccacttctacgcgggtggacaagtgtacccgggagaggcatcccgggtatcggtcgccgaccactccctgcacctaag
+<span class="pos"> 13701</span>  caaagcgaagatttccaagccagcgccctactgggaaggaacagctgtgatcgatggagaatttaaggagctgaagttaactgattatcgtgggaaatac
+<span class="pos"> 13801</span>  ttggttttcttcttctacccacttgatttcacatttgtgtgtccaactgaaattatcgcttttggcgacagacttgaagaattcagatctataaatactg
+<span class="pos"> 13901</span>  aagtggtagcatgctctgttgattcacagtttacccatttggcctggattaatacccctcgaagacaaggaggacttgggccaataaggattccacttct
+<span class="pos"> 14001</span>  ttcagatttgacccatcagatctcaaaggactatggtgtatacctagaggactcaggccacactcttagaggtctcttcattattgatgacaaaggaatc
+<span class="pos"> 14101</span>  ctaagacaaattactctgaatgatcttccggtgggtagatcagtggatgagacactacgtttggttcaagcattccagtacactgacaaacacggagaag
+<span class="pos"> 14201</span>  tctgccctgctggctggaaacctggtagtgaaacaataatcccagatccagctggaaagctgaagtatttcgataaactgaattgagaaatacttcttca
+<span class="pos"> 14301</span>  agttatgatgcttgaaagttctcaataaagttcacggtttcattaccacaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+<span class="pos"> 14401</span>  aaaaaaaaaaaaaaaaaaaaaaaaatgggtccgtgaacgtcctgtcaattatcaatcaccgaacgatct<span class="r1" title="R1' (Read1), 14470-14489">agatcggaagagcgtcgtgt</span>ag<span class="adapter" title="A' (adapter), 14492-14508">ATCTTCACA</span>
+<span class="pos"> 14501</span>  <span class="adapter" title="A' (adapter), 14492-14508">AGTAAGCT</span>t</pre>
+<h2>skera false cut at a D-like sequence</h2><p class='note'>skera_false_cut BD144_ND zm=1576268 read positions 2723-5795 of 14028 (adapter C to adapter E)</p><ul><li>skera skips the real adapter D (exact match) and calls D at GCATACTCCTCCAGAAT inside the next molecule, 3 edits from D ACCTCCTCCTCCAGAAT</li><li>skera S-reads here: 18-2255 (C to D); 2270-3056 (D to E): the first is a chimera (C..D molecule + real D + start of the D..E molecule), the second a fragment with only the TSO end; across the library lima passes 0.3% of such chimeras and none of the fragments</li></ul>
+<pre><span class="pos">     1</span>  <span class="adapter" title="C (adapter), 1-17">ACTCTGTCAGGTCCGAT</span>ct<span class="r1" title="R1 (Read1), 20-39">acacgacgctcttccgatct</span>agatcggagcgtgatggagtcttgacaaggttctaggcaagcctttttttttttttttttt
+<span class="pos">   101</span>  tttttttttttttttttttttttttcacgcttaattcactttatttttcttgtataaaaaccctatgttgtagccacagctggagcctgagtccgctgca
+<span class="pos">   201</span>  cggagactctggtgtgggtcttgacgaggtggtcagtgaactcctgatagggagacttggtgaatacagtctccttccagaggtcgggggtcaggtagct
+<span class="pos">   301</span>  gtaggtcttagaaatggcatcaaaggtggccttggcgaagttgcccagggtggcagtgcagccccgggctgaggtgtagcagtcatcgataccagccatc
+<span class="pos">   401</span>  atgagcagcttcttaggcacaggtgcggagacgatgccagtgcccctgggtgcagggatgaggcgtaccagcacagagccgcagcggcctgtcaccttgc
+<span class="pos">   501</span>  aagggacagtgtggggcttgccgatcttgttcccccagtagcctctgcgcacggggacgatggagagcttggccaggatgatggccccacggatggcggt
+<span class="pos">   601</span>  ggccacctccttggagcacttaacacccagaccgacgtggccattgtagtccccgatagcaacaaatgccttgaacctggtgcgctggccggcacgggtc
+<span class="pos">   701</span>  tgcttctgcactggcataatcttcaaaacctcatccttgagagaggcccccaggaagaaatcaatgatctctgattccttaatgggcagggagaagagat
+<span class="pos">   801</span>  agatctcctccagggacttgatcttcatgtccttgaccaagcggcccaacttggtgacgggcatccactccttatcctcggccttgcctccgcgagctcc
+<span class="pos">   901</span>  gcggcctcggccccggccccgtccacggccgcgaccccggccccgaatgccactgccgaaacctccgcggaagccaccgcggttccccatcccagggcca
+<span class="pos">  1001</span>  ccagggcctccgggcccccccgctgcaccggcgtcatccgccatttggtgttttgtcggaaaagaagcccat<span class="tso" title="TSO' (TSO), 1073-1097">gtactctgcgttgataccactgctt</span><span class="adapter" title="D (adapter), 1098-1114">ACC</span>
+<span class="pos">  1101</span>  <span class="adapter" title="D (adapter), 1098-1114">TCCTCCTCCAGAAT</span>ct<span class="r1" title="R1 (Read1), 1117-1136">acacgacgctcttccgatct</span>ccttcgaccgtgattgatgtatgacataccaggactcttccagttttttttttttttttttttt
+<span class="pos">  1201</span>  tttttttttttttttttgaaatttagaaacaaattttatttaagatctgaaatacaattcctaaaatatcaacttttccagaaaaccgtggctacacaat
+<span class="pos">  1301</span>  aatgcattgcctctatcatgttagaacgtgcattagactcaaatacaaaaaccatgaaacaaatcaccatccttcaacaatttgagcaaagatagaatgc
+<span class="pos">  1401</span>  ctaagaacaacatagatggacttgcagaggatgggctgttttacttcaagcaccataaaaaaaaaaaaagagcacaaatgcatgggttttcaggtatata
+<span class="pos">  1501</span>  cattaagttgaacctttggcactaggaatcagggcgttttgtcacatagcattaacacatattagaaaattgtgtagtgtcaaagggataggaaccacca
+<span class="pos">  1601</span>  gcattcaagcaatgttgtcaactaggcaataaaatgttctactgaatgtttcttctttgttctaattaccgcatacactggtagcaactttgaaatgaga
+<span class="pos">  1701</span>  aaaggagcttacactccttttattttctgtttaaaacagaacgggaaacgaactgaaacataagccctgttatacattaacgattttaaagaacatcaat
+<span class="pos">  1801</span>  tttacaagaaaaagactaagaacaaaaagtgtttacagatacaggacaaaaatggtgagctgtctgtagacgctcacagggctttgcggtggtactcagc
+<span class="pos">  1901</span>  agaagccactttgtaatcactggcagtaaagagagatgcagaattctttgccagatattttaggaaatcatgcaaatagcccaacaataatgcaaggctt
+<span class="pos">  2001</span>  ttctcatcaaggggcgtataggccaacattgctccaattctcacaaataatctcagtaggtgtggtgctccataaacctgggacattggagcatcagggt
+<span class="pos">  2101</span>  gagccaagaggatttcagcatactggggcctctcaaatttgtagagcagctgagtgcccaacctcacattgaaatattcttttattcctgccacaacttc
+<span class="pos">  2201</span>  attaaccgcatattccttattatcaacatttccctgcgatttcttgcaattt<span class="false" title="skera_D (site skera called adapter D), 2253-2269">GCATACTCCTCCAGAAT</span>tgcatctacatttttcttggcagggagttga
+<span class="pos">  2301</span>  aacagctgcttctgcctggtaactaagtcccagtcctcaacaagccatggttttaattcttcaggaatcttcactttaacctccattctattcttaaacg
+<span class="pos">  2401</span>  cctcctcactttcaacagtggggtctgcccgggcccttttcttccgagggggctgaggtgcttcgctggtactgccaccatctccgtttccaggagtctt
+<span class="pos">  2501</span>  ctgcttgttctttctggtcttcctcacggatcctgaaggggggttctctgcagagcgaccaccccatcttcctgggagagctggttcaagatttttctgc
+<span class="pos">  2601</span>  tgtggaccagctgtcttctttcctgaggaggcccctctcattttacttctctgcatgttgcttctagttggtttttttgaagttctcttcttctgcagat
+<span class="pos">  2701</span>  tgctgtccacgaggttgagaaccctgctttctggaactcattcaaccctgtttttattccaaccaacaatcttccttctttcccttccaagaactcctag
+<span class="pos">  2801</span>  tgatttcccagatgaaatcttatagatcttctgggatggtctagaagggtgaagtgggagatacaacccaagattctgtaatcagggaaggttctgcaat
+<span class="pos">  2901</span>  caggatcagatctcctgatcctcactatacagcaaacttagcttttctgatggtgacctgaaacgagaatccagatcttcccagcagccgacgtgtgatc
+<span class="pos">  3001</span>  actgccgttcctccaaccgccatagtcccat<span class="tso" title="TSO' (TSO), 3032-3056">gtactctgcgttgataccactgctt</span><span class="adapter" title="E (adapter), 3057-3073">AACCGGACACACTTAGT</span></pre>
+</main></body></html>

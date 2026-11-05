@@ -9,10 +9,11 @@ CSS = """pre{font:13px/1.55 Menlo,Consolas,monospace;overflow-x:auto;background:
 .key span{display:inline-block;padding:0 6px;margin-right:10px;font:13px Menlo,Consolas,monospace}"""
 
 
-def html_sequence(seq: str, features: list[tuple[str, int, int, str]], wrap: int = 100) -> str:
+def html_sequence(seq: str, features: list[tuple[str, int, int, str]], wrap: int = 100, labels: dict[str, str] | None = None) -> str:
     """seq in lines of `wrap` bases, each led by its 1-based position, with every feature (name, start, end, kind),
     0-based half-open on seq, kind one of LABEL's keys, as a span of that class whose hover title gives the name,
-    the kind and its 1-based inclusive coordinates. Where features overlap, adapters are drawn last, on top."""
+    the kind (worded by labels, default LABEL) and its 1-based inclusive coordinates. Where features overlap, adapters are drawn last, on top."""
+    labels = labels or LABEL
     owner = [None] * len(seq)
     for m in sorted(features, key=lambda m: ("r1", "tso", "false", "adapter").index(m[3])):      # adapters drawn last, on top
         for i in range(m[1], m[2]):
@@ -26,7 +27,7 @@ def html_sequence(seq: str, features: list[tuple[str, int, int, str]], wrap: int
                 k += 1
             m = owner[j]
             out.append(seq[j:k] if m is None else
-                       f'<span class="{m[3]}" title="{m[0]} ({LABEL[m[3]]}), {m[1] + 1}-{m[2]}">{seq[j:k]}</span>')
+                       f'<span class="{m[3]}" title="{m[0]} ({labels[m[3]]}), {m[1] + 1}-{m[2]}">{seq[j:k]}</span>')
             j = k
         lines.append(f'<span class="pos">{i + 1:>6}</span>  ' + "".join(out))
     return "\n".join(lines)
