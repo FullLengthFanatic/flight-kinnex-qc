@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `discordant_reads.html` carries plotly inline (about 4.7 MB), so the review page opens without a network; v10's page loaded plotly from the plotly CDN. Its six figures hold the same data and layout as v10's (the same 30 reads in the same order). No number changed.
+
 - The threshold text in `gates/gate_skera.json` is now "reported only"; v10's carried an internal reference ("reported only (spec 17)"). No number changed.
 
 - The ArgenTag `independent_scan.txt` holds aggregate lines only. v10's listed, under "Disagreement details (first 10):", the 8 reads where the independent scan and the study disagree, by ZMW id; those ids belong to a file ArgenTag shared privately, so the list now goes to `independent_scan_disagreements.tsv` in the run's private ArgenTag output folder, next to the other non-public per-read tables (`argentag_sread_coords.parquet`, `full_reads/`). The heading line stays, with no rows under it. No number changed.

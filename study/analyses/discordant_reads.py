@@ -6,8 +6,10 @@ within 5 bp (skera.false_cuts), or one of our adapters lies inside an S-read by 
 the strict rule qs + 5 < start and end < qe - 5, as in the skera gate). From a random subset of skera-passing reads
 (--pool, fixed seed), draws --n disagreeing reads (fixed seed) and writes the automatic description of each
 disagreement to discordant_reads_auto.tsv, every disagreeing read of the subset to discordant_all_in_pool.tsv, the drawn
-ZMWs to discordant_reads_zmws.tsv and the counts to discordant_summary.json. The review page of the drawn reads is
-rendered from these tables by the report's read-track code, not here.
+ZMWs to discordant_reads_zmws.tsv and the counts to discordant_summary.json. The review page discordant_reads.html
+draws the drawn reads in the order of discordant_reads_zmws.tsv, five per figure, with the report's read-track code
+(study/report/read_tracks.py): our adapters, primers and molecules, and skera's S-read boundaries as ticks; plotly is
+inlined, so the page opens without a network.
 In discordant_summary.json, our_adapters_inside_sreads counts one item per ';'-separated entry of each disagreeing read's
 inside_adapters, so a disagreeing read with no adapter of ours inside an S-read (only a gap without our adapter) counts
 one empty item: the value is the number of adapters inside S-reads plus the number of such reads (3,880 = 3,864 adapters
@@ -19,11 +21,15 @@ Usage: study/analyses/discordant_reads.py --sample-dir <pipeline sample dir> --o
 import argparse
 import json
 import random
+import sys
 from pathlib import Path
 
 import polars as pl
 
 from kinnex_qc.skera import adapters_inside_sreads, false_cuts
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "report"))
+from read_tracks import read_track_figure, tracks  # noqa: E402
 
 
 def disagreements(sk: pl.DataFrame, feats: pl.DataFrame) -> pl.DataFrame:
@@ -55,6 +61,17 @@ def summary(disc: pl.DataFrame, n_pool: int, drawn: int) -> dict:
             "inside_adapter_D": int((ins["letter"] == "D").sum()), "drawn_for_review": drawn}
 
 
+def review_page(tr: list[dict]) -> str:
+    """The HTML page of the drawn reads' tracks, five reads per figure, plotly inlined once."""
+    figs = []
+    for i in range(0, len(tr), 5):
+        f = read_track_figure(tr[i:i + 5], f"Reads {i + 1} to {min(i + 5, len(tr))} of {len(tr)}: ticks are skera S-read boundaries")
+        figs.append(f.to_html(full_html=False, include_plotlyjs=i == 0))
+    return ("<html><head><meta charset='utf-8'><title>Discordant reads</title></head><body>"
+            "<h2>Reads where skera's cuts and our adapters disagree</h2><p>Judge each read before "
+            "opening discordant_reads_auto.tsv. Hover shows edit distances.</p>" + "".join(figs) + "</body></html>")
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--sample-dir", required=True, help="pipeline output directory of one sample")
@@ -74,6 +91,10 @@ def main(argv: list[str] | None = None) -> None:
     n_pool = sk["zm"].n_unique()
     print(f"{disc.height:,} of {n_pool:,} skera-passing reads disagree ({disc.height / n_pool:.3%})")
     pick = sorted(random.Random(args.seed + 1).sample(disc["zm"].to_list(), min(args.n, disc.height)))
+    segs = pl.read_parquet(d / "annot_segments.parquet", columns=["zm", "source", "start", "end", "pos", "end_class", "internal",
+                                                                 "polyT_len", "tso_side"]).filter(pl.col("zm").is_in(pick))
+    tr = tracks(pick, reads, segs, feats.filter(pl.col("zm").is_in(pick)), sk.select("zm", "qs", "qe"))
+    (out / "discordant_reads.html").write_text(review_page(tr), encoding="utf-8")
     seq_note = reads.filter(pl.col("zm").is_in(pick)).select("zm", "read_len", "chain", "primary_pattern")
     disc.filter(pl.col("zm").is_in(pick)).join(seq_note, on="zm").sort("zm").write_csv(out / "discordant_reads_auto.tsv", separator="\t")
     pl.DataFrame({"zm": pick}).write_csv(out / "discordant_reads_zmws.tsv", separator="\t")

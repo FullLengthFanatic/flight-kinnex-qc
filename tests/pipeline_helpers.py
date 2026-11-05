@@ -1,7 +1,7 @@
 """Helpers for the study stage and analysis tests: the stage modules, the mini dataset, running a stage as the study
 runs it, and comparing an analysis' output with its v10 golden files. Importing this module puts study/pipeline,
-study/analyses, study/argentag and study/calibration on sys.path, so tests import the stage, analysis, ArgenTag and
-calibration modules by name."""
+study/analyses, study/argentag, study/calibration and study/report on sys.path, so tests import the stage, analysis,
+ArgenTag, calibration and report modules by name."""
 import json
 import shutil
 import subprocess
@@ -15,11 +15,14 @@ PIPELINE = REPO / "study" / "pipeline"
 ANALYSES = REPO / "study" / "analyses"
 ARGENTAG = REPO / "study" / "argentag"
 CALIBRATION = REPO / "study" / "calibration"
-GOLDEN_INPUTS = Path(__file__).resolve().parent / "golden" / "v10_inputs"
+REPORT = REPO / "study" / "report"
+GOLDEN = Path(__file__).resolve().parent / "golden"
+GOLDEN_INPUTS = GOLDEN / "v10_inputs"
 sys.path.insert(0, str(PIPELINE))
 sys.path.insert(0, str(ANALYSES))
 sys.path.insert(0, str(ARGENTAG))
 sys.path.insert(0, str(CALIBRATION))
+sys.path.insert(0, str(REPORT))
 sys.path.insert(0, str(REPO / "study"))
 
 from compare_runs import compare_trees  # noqa: E402

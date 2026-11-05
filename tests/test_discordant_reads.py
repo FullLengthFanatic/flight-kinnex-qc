@@ -1,6 +1,7 @@
 """Tests for study/analyses/discordant_reads.py: the reads where skera's cuts and our adapters disagree, on hand-built
-reads with known answers, and the summary on the v10 hash sample against the golden file."""
+reads with known answers, the review page of the drawn reads, and the tables on the v10 hash sample against v10's."""
 import json
+import re
 
 import polars as pl
 import pytest
@@ -25,11 +26,17 @@ def _reads() -> dict:
     return reads
 
 
+TABLES = ["discordant_all_in_pool.tsv", "discordant_reads_auto.tsv", "discordant_reads_zmws.tsv", "discordant_summary.json"]
+
+
 def _sample_dir(path):
-    feats, _, sreads = frames(_reads())
+    feats, mols, sreads = frames(_reads())
     path.mkdir()
     feats.with_columns(pl.lit("hifi").alias("source")).write_parquet(path / "read_features.parquet")
     sreads.write_parquet(path / "segments.parquet")
+    (mols.with_columns(pl.lit("hifi").alias("source"), pl.lit(None, pl.Int8).alias("pos"), pl.lit(None, pl.Int16).alias("polyT_len"),
+                       pl.lit(None, pl.Utf8).alias("tso_side"))
+     .write_parquet(path / "annot_segments.parquet"))
     pl.DataFrame({"zm": [1, 2, 3, 4, 5], "source": "hifi", "read_len": [2051, 2051, 1800, 2051, 1800],
                   "chain": ["C D E", "C D E", "", "E' D' C'", ""], "primary_pattern": ["complete", "complete", "unresolved", "complete", "unresolved"],
                   "skera_passing": [True, True, True, True, False]},
@@ -53,22 +60,35 @@ def test_disagreeing_reads_on_hand_built_reads(tmp_path):
     auto = pl.read_csv(tmp_path / "out" / "discordant_reads_auto.tsv", separator="\t")
     assert auto.columns == [*pool.columns, "read_len", "chain", "primary_pattern"]
     assert auto["zm"].to_list() == picked
-    assert not (tmp_path / "out" / "discordant_reads.html").exists()
+    assert page_tracks((tmp_path / "out" / "discordant_reads.html").read_text()) == [str(z) for z in picked]
 
 
-def test_writes_tables_only_and_has_no_hifi_option(tmp_path):
+def page_tracks(html: str) -> list[str]:
+    """The ZMW of every read track on the review page, in page order (each figure's y-axis labels), after checking that
+    the page loads nothing from the network: plotly is inlined, no script or link points to a URL."""
+    tags = re.findall(r"<(?:script|link|img|iframe)\b[^>]*>", html, flags=re.I)
+    assert tags and not [t for t in tags if re.search(r"\b(?:src|href)=", t, flags=re.I)]
+    return [z for tick in re.findall(r'"ticktext":\[([^\]]*)\]', html) for z in json.loads(f"[{tick}]")]
+
+
+def test_writes_tables_and_review_page_and_has_no_hifi_option(tmp_path):
     _sample_dir(tmp_path / "s")
     with pytest.raises(SystemExit):
         dr.main(["--sample-dir", str(tmp_path / "s"), "--out", str(tmp_path / "o2"), "--hifi", "x.bam"])
     dr.main(["--sample-dir", str(tmp_path / "s"), "--out", str(tmp_path / "out")])
-    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == ["discordant_all_in_pool.tsv", "discordant_reads_auto.tsv",
-                                                                     "discordant_reads_zmws.tsv", "discordant_summary.json"]
+    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == sorted([*TABLES, "discordant_reads.html"])
+    html = (tmp_path / "out" / "discordant_reads.html").read_text()
+    assert page_tracks(html) == ["1", "3", "4"]                     # every disagreeing read, fewer than --n
 
 
 @pytest.mark.real
-def test_hash_sample_summary_equals_golden(local, tmp_path):
+def test_hash_sample_tables_equal_v10_and_page_draws_the_30_reads(local, tmp_path):
     run_analysis("discordant_reads.py", "--sample-dir", str(local["hash_dir"] / "BD144_ND"), "--out", str(tmp_path / "out"))
-    golden = GOLDEN_INPUTS / "discordant_reads"
-    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == ["discordant_all_in_pool.tsv", "discordant_reads_auto.tsv",
-                                                                     "discordant_reads_zmws.tsv", "discordant_summary.json"]
-    assert golden_diffs(tmp_path / "out", golden, tmp_path / "cmp") == []
+    out = tmp_path / "out"
+    assert sorted(p.name for p in out.iterdir()) == sorted([*TABLES, "discordant_reads.html"])
+    assert golden_diffs(out, GOLDEN_INPUTS / "discordant_reads", tmp_path / "cmp") == []
+    v10 = local["hash_dir"].parent / "discordant_reads"           # v10's analysis outputs sit beside its hash sample
+    for name in TABLES:
+        assert (out / name).read_bytes() == (v10 / name).read_bytes(), name
+    zmws = pl.read_csv(out / "discordant_reads_zmws.tsv", separator="\t")["zm"].cast(pl.Utf8).to_list()
+    assert len(zmws) == 30 and page_tracks((out / "discordant_reads.html").read_text()) == zmws
