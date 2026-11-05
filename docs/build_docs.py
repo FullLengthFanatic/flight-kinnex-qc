@@ -7,9 +7,8 @@ other outputs of the same run:
                                        (numbers.json holds most of these values only as the range over the libraries)
   <!--excerpt skera_false_cut-->       ten lines of examples/example_reads.fasta, record skera_false_cut
 The claims the Note pins to the data (render.check_claims) are checked first; build stops on one that no longer holds.
-The docs are built from the numbers.json and tables computed from the v10 inputs, tests/golden/v10_numbers.json and
-tests/golden/v10_tables/ (the defaults), until the full rerun's report/numbers.json and report/tables/ are adopted; then
-give --numbers report/numbers.json --tables report/tables.
+The docs are built from the Note of the full study rerun, report/numbers.json and report/tables/ (the defaults), which
+tests/test_golden.py holds to the numbers and tables computed from the v10 inputs (tests/golden/).
 Each generated file starts with a comment naming its source; tests/test_docs.py checks that they are up to date.
 Usage: docs/build_docs.py [--numbers PATH] [--tables DIR]
 """
@@ -24,8 +23,8 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "study" / "report"))
 from render import FORMATS, check_claims, fill  # noqa: E402
 
-NUMBERS = REPO / "tests" / "golden" / "v10_numbers.json"
-TABLES = REPO / "tests" / "golden" / "v10_tables"
+NUMBERS = REPO / "report" / "numbers.json"
+TABLES = REPO / "report" / "tables"
 FASTA = REPO / "examples" / "example_reads.fasta"
 LIBRARIES = ("ND", "HM", "kin")
 # The rows of the false-cut table: column of fig1_skera_false_cut_anatomy.tsv, label, format. "Those" are the false cuts
@@ -101,8 +100,8 @@ def build(numbers_path: Path, tables: Path) -> dict[Path, str]:
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--numbers", type=Path, default=NUMBERS, help="numbers.json (default: the v10 numbers in tests/golden)")
-    ap.add_argument("--tables", type=Path, default=TABLES, help="the report's tables/ folder (default: the v10 tables in tests/golden)")
+    ap.add_argument("--numbers", type=Path, default=NUMBERS, help="numbers.json (default: report/numbers.json)")
+    ap.add_argument("--tables", type=Path, default=TABLES, help="the report's tables/ folder (default: report/tables)")
     args = ap.parse_args(argv)
     for path, text in build(args.numbers, args.tables).items():
         path.write_text(text)

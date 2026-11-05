@@ -1,6 +1,6 @@
 """Tests for docs/build_docs.py and the documentation it builds. README.md and docs/*.md are generated from their .md.in
-sources, with every number taken from numbers.json (v10's, tests/golden/v10_numbers.json, until the rerun's report is
-adopted) through the Note's own formatter, and must be up to date. Also: the README's order, length, figure and read
+sources, with every number taken from numbers.json (the full rerun's, report/numbers.json, which tests/test_golden.py holds
+to v10's) through the Note's own formatter, and must be up to date. Also: the README's order, length, figure and read
 excerpt; the sections and PacBio quotes of docs/skera_cutting_error.md; the per-library false-cut table; each open item
 in one marked place; no number typed by hand in a source; the text rules on every Markdown file; the CI and CITATION.cff
 details the docs rely on."""
@@ -69,6 +69,10 @@ CONSTANTS = {
     # this machine: memory, disk of the archives, the inputs and the mapped BAMs, the free-space floor of
     # prepare_inputs.sh (CPUs, times and the rest are among the numbers above)
     "117", "438", "422", "135", "146", "44", "400",
+    # the full rerun of 2026-11-05 (its log and du -sh of its out root): stage 06 in minutes on BD144_ND and BD144_HM, the
+    # calibration set, analyses and ArgenTag in minutes, the out root, its libraries and the calibration set in GiB, and the
+    # bound on the rest (BD144_kin's 64 minutes and the whole run's 14 hours are among the numbers above)
+    "56", "69", "46", "151", "45", "53", "2.2", "0.5",
 }
 NUM_TOKEN = re.compile(r"(?<![\w./:#-])\d(?:[\d,:]*\d)?(?:\.\d+)*(?:%|th)?'?(?!\w)")
 
@@ -93,13 +97,13 @@ def cells(row: str) -> list[str]:
 
 @pytest.fixture(scope="module")
 def built() -> dict:
-    return build_docs.build(GOLDEN / "v10_numbers.json", GOLDEN / "v10_tables")
+    return build_docs.build(REPO / "report" / "numbers.json", REPO / "report" / "tables")
 
 
-def test_docs_are_built_from_the_v10_numbers_until_the_rerun_is_adopted():
-    assert build_docs.NUMBERS == GOLDEN / "v10_numbers.json" and build_docs.TABLES == GOLDEN / "v10_tables"
+def test_docs_are_built_from_the_report_of_the_full_rerun():
+    assert build_docs.NUMBERS == REPO / "report" / "numbers.json" and build_docs.TABLES == REPO / "report" / "tables"
     assert build_docs.fill is render.fill and build_docs.FORMATS is render.FORMATS
-    assert "until the full rerun" in " ".join(build_docs.__doc__.split())
+    assert "report/numbers.json and report/tables/" in " ".join(build_docs.__doc__.split())
 
 
 def test_generated_files_are_up_to_date(built):
@@ -256,7 +260,7 @@ def test_open_items_each_in_one_marked_place():
     assert where("ACCESSION_TBD") == {"README.md.in": 1, "README.md": 1, "docs/data.md.in": 1, "docs/data.md": 1, "CITATION.cff": 1}
     assert where("ARGENTAG_WORDING_TBD") == {"docs/data.md.in": 1, "docs/data.md": 1}
     assert where("AUTHORS_TBD") == {"CITATION.cff": 1}
-    assert where("RERUN_TBD") == {"README.md.in": 1, "README.md": 1}
+    assert where("RERUN_TBD") == {}
     assert ARGENTAG_SENTENCE in (REPO / "docs" / "data.md").read_text()
 
 
