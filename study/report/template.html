@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><!--title--></title>
+<meta name="description" content="Supplementary report: TSO-TSO artifacts, mirror arrays and concatenation bias in Kinnex 8-fold libraries of BD Rhapsody cDNA, with a comparison to public ArgenTag data.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+:root { color-scheme: light; --ink: #1B1F24; --ink2: #5B636E; --rule: #C9D0D7; --tint: #F4F6F8; --accent: #1F5F8B; --nd: #D55E00;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif; --sans: IBM Plex Sans, Helvetica Neue, Arial, sans-serif; --mono: "IBM Plex Mono", Menlo, Consolas, monospace; }
+* { box-sizing: border-box; }
+body { background: #FFFFFF; color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.6; margin: 0; padding-inline: 20px; }
+main { max-width: 1040px; margin: 0 auto; padding-block: 48px 80px; }
+.prose { max-width: 68ch; }
+h1 { font-family: var(--serif); font-weight: 600; font-size: 34px; line-height: 1.2; margin: 10px 0 14px; text-wrap: balance; max-width: 30ch; }
+h2 { font-family: var(--sans); font-weight: 600; font-size: 21px; margin: 56px 0 10px; text-wrap: balance; }
+h2 .sec { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums; }
+h3 { font-family: var(--sans); font-weight: 600; font-size: 16px; margin: 28px 0 6px; }
+p { margin: 0 0 14px; }
+.byline { font-family: var(--sans); font-size: 14px; color: var(--ink2); }
+.findings { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin: 30px 0 8px; padding: 22px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.finding .num { font-family: var(--sans); font-weight: 600; font-size: 26px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.finding p { font-family: var(--sans); font-size: 14px; line-height: 1.45; color: var(--ink2); margin: 4px 0 0; }
+figure { margin: 34px 0 30px; }
+.figtitle { font-family: var(--sans); font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+.fignum { color: var(--accent); }
+.legend { font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: var(--ink2); max-width: 92ch; margin-top: 6px; }
+.legend b { color: var(--ink); }
+.terms { margin: 34px 0 8px; }
+.terms h2 { margin-top: 0; }
+.terms dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 4px 28px; margin: 0; font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+.terms dt { font-weight: 600; color: var(--ink); margin-top: 10px; }
+.terms dd { margin: 2px 0 0; color: var(--ink2); }
+.aside { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--ink2); border-left: 3px solid var(--rule); padding-left: 12px; }
+.plotwrap { overflow-x: auto; }
+.tablewrap { overflow-x: auto; margin: 10px 0 24px; }
+table { border-collapse: collapse; font-family: var(--sans); font-size: 13px; min-width: 640px; }
+th { text-align: left; font-weight: 600; color: var(--ink); border-bottom: 1.5px solid var(--ink2); padding: 6px 12px 6px 0; vertical-align: bottom; }
+td { border-bottom: 1px solid var(--rule); padding: 6px 12px 6px 0; vertical-align: top; }
+td:first-child { white-space: nowrap; }
+table.num td { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tablecap { font-family: var(--sans); font-size: 14px; font-weight: 600; margin-top: 26px; }
+.tablecap span { color: var(--accent); }
+code, .mono { font-family: var(--mono); font-size: 0.86em; background: var(--tint); padding: 1px 4px; border-radius: 3px; }
+.schematic { width: 100%; height: auto; display: block; background: #FFFFFF; }
+.svglabel { font: 600 13px var(--sans); fill: #1B1F24; }
+.svgsmall { font: 12px var(--sans); fill: #5B636E; }
+.svgadapter { font: 600 11px var(--sans); fill: #FFFFFF; }
+.svgpanel { font: 600 14px var(--sans); fill: #1B1F24; }
+nav.toc { font-family: var(--sans); font-size: 14px; color: var(--ink2); margin: 18px 0 0; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+nav.toc a { color: var(--accent); text-decoration: none; }
+nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.methods p, .methods li { font-size: 15.5px; }
+.methods ul { padding-left: 20px; }
+footer { font-family: var(--sans); font-size: 13px; color: var(--ink2); border-top: 1px solid var(--rule); margin-top: 60px; padding-top: 16px; }
+@media (max-width: 640px) { h1 { font-size: 27px; } body { font-size: 16px; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Supplementary Note: Kinnex array integrity in FLIGHT-seq libraries</h1>
+<p class="byline">FLIGHT-seq full-length cDNA from one BD Rhapsody cartridge, split after lysis into three technical replicates and concatenated with the
+Kinnex 8-fold kit with no TSO-TSO depletion (ND), a home-made biotin-Read1 pulldown (HM) or the Kinnex TSO artifact removal (kin);
+one Revio SMRT Cell each. Compared with the public ArgenTag MDA-MB-453 8-fold dataset.</p>
+<nav class="toc" aria-label="Sections"><a href="#terms">Terms</a><a href="#s1">1 Data and validation</a><a href="#s2">2 Array structure</a><a href="#s3">3 Mirror arrays</a>
+<a href="#s4">4 Effect on yield</a><a href="#s5">5 Concatenation bias</a><a href="#s6">6 ArgenTag comparison</a><a href="#s7">7 Methods</a><a href="#s8">8 Code and data</a></nav>
+</header>
+<section class="findings" aria-label="Key findings">
+<div class="finding"><div class="num">{nd_mirror_share|pct1}</div><p>of HiFi reads from the library without TSO-TSO depletion (ND) are mirror arrays; {nd_mirror_junction_tso_tso_share|pct1} of their junctions hold a TSO-TSO molecule. With the home-made (HM) or Kinnex (kin) depletion: {hm_mirror_share|small_pct} and {kin_mirror_share|small_pct}.</p></div>
+<div class="finding"><div class="num">{loss_mapped|pct1}</div><p>fewer molecules per HiFi read reach the mapped BAM without depletion, with the standard skera workflow ({nd_mapped_fltnc_per_hifi_zmw|fmt} against {kin_mapped_fltnc_per_hifi_zmw|fmt} in kin). Cutting every HiFi read ourselves narrows the gap to {loss_ours|pct1}: skera leaves many molecules of mirror arrays unwritten, and they map as well as any.</p></div>
+<div class="finding"><div class="num">{partners_shorter_bp_min|f0} to {partners_shorter_bp_max|f0} bp</div><p>shorter partners for long cDNA molecules (4 kb or more) than by chance, under 1% of the mean partner. A limit on total array length explains it; neighbours in an array show at most a small preference by length.</p></div>
+<div class="finding"><div class="num">{arg_mirror_share|pct1}</div><p>of ArgenTag 8-fold HiFi reads are mirror arrays, counted in the full reads ArgenTag shared ({nd_mirror_share|pct1} in ND, {kin_mirror_share|small_pct} in kin), with {arg_tso_tso_per_1000|f1} TSO-TSO molecules per 1,000, although ArgenTag describes its cDNA as TSO artifact-free.</p></div>
+</section>
+
+<section class="terms" id="terms" aria-label="Terms used in this note"><h2>Terms used in this note</h2><dl>
+<div><dt>HiFi read, ZMW</dt><dd>A ZMW is the well of a SMRT Cell in which one DNA molecule is read many times over; the consensus of those passes is one HiFi read.
+Here each HiFi read is one Kinnex array.</dd></div>
+<div><dt>Kinnex 8-fold array</dt><dd>Eight cDNA molecules joined end to end, separated by nine adapters, A, B, C, D, E, F, G, H and Q, always in this order.
+Each molecule is amplified in one of eight PCRs, which gives it the two adapters of its slot (A and B, B and C, ..., H and Q); an adapter joins only its own letter.</dd></div>
+<div><dt>Proper (usable) molecule</dt><dd>A cDNA molecule with the template-switching oligo (TSO) at one end and Read1, followed by the cell label and UMI, at the other.
+Only these can be assigned to a cell. Fused: two molecules joined without an adapter between them.</dd></div>
+<div><dt>TSO-TSO and R1-R1 molecules</dt><dd>Artifacts with a TSO (or Read1) at both ends. A TSO-TSO molecule carries no cell label; TSO-TSO depletion removes these
+molecules before the arrays are made.</dd></div>
+<div><dt>Mirror junction, mirror array</dt><dd>An adapter followed by its own reverse complement, for example H then H' (the prime marks the opposite strand). In ND a TSO-TSO
+molecule sits at almost every such junction, and the array on one side mirrors the array on the other (section 3).</dd></div>
+<div><dt>skera, S-read, passing read</dt><dd>skera is PacBio's tool that cuts each HiFi read at its adapters into S-reads, one per cDNA molecule, written to segmented.bam.
+A read whose adapters are not all found in the expected order also goes, whole, to non_passing.bam (section 6); reads not in that file are passing reads.</dd></div>
+<div><dt>lima, refine, fltnc, mapped BAM</dt><dd>The standard steps after skera. lima keeps S-reads with the expected primer at each end; isoseq refine trims the polyA tail and
+removes chimeras, leaving full-length non-chimeric (fltnc) reads, which are then aligned to the genome. The mapped BAM of these libraries came from that pipeline.</dd></div>
+<div><dt>Full-read segmentation</dt><dd>Our own search for adapters and primers along every HiFi read, which this note uses in place of skera's cuts (section 1 and Methods).</dd></div>
+<div><dt>Hash sample, calibration set</dt><dd>The analyses use a random {fraction|pct0} of the ZMWs of each cell, picked by a hash of the ZMW number. Comparisons that need the
+same reads under two methods use the first 200,000 ND HiFi reads instead (the calibration set), which are not a random sample.</dd></div>
+<div><dt>PPV and sensitivity</dt><dd>For a test that flags reads: the PPV (positive predictive value) is the share of flagged reads that truly have the property, and the
+sensitivity is the share of reads with the property that the test flags.</dd></div>
+</dl></section>
+
+<h2 id="s1"><span class="sec">1</span>Data and validation</h2>
+<div class="prose">
+<p>Each SMRT Cell carried one library. To keep compute to one day, every analysis uses a random {fraction|pct0} of each cell's ZMWs, picked by a hash of the ZMW number
+({hifi_analysed_min|mio2} to {hifi_analysed_max|mio2} million HiFi reads per library). Taking the first reads of the HiFi BAM instead
+would bias the results: along the BAM order, the share of mirror reads in ND ranges from {nd_mirror_by_tenth_min|pct1} to {nd_mirror_by_tenth_max|pct1}
+between tenths of the sample. The hash sample matches skera's whole-cell report in S-reads per HiFi read and in passing reads (Supplementary Table 1).
+The S-reads that skera wrote for the sampled reads, the existing lima and refine outputs and the existing mapped fltnc BAM were matched to them by ZMW.</p>
+<p>We cut every HiFi read ourselves rather than use skera's S-reads, because skera sometimes cuts in the wrong place, and always in the same way
+(Supplementary Fig. 1). In complete arrays that skera passes, {false_cut_reads_share_min|pct1} to {false_cut_reads_share_max|pct1}
+of reads carry such a false cut, in all three libraries alike. skera skips a real adapter, most often D ({nd_false_cut_missed_is_d|pct0}), and calls the same letter
+({nd_false_cut_missed_same_letter|pct0} of false cuts) at a sequence that resembles it inside the next molecule, a median {nd_false_cut_median_cut_to_missed_bp|f0} bp
+further along the read. Two S-reads come out wrong. The one before the false cut is a chimera: a whole molecule, the skipped adapter and the first part of the cut molecule.
+The one after it is a fragment, the rest of the cut molecule. On reads whose adapters run A to Q it keeps the TSO end; on reads from the other strand (Q to A)
+it keeps the Read1 end, with the cell label. skera's next cut, at the far end of the fragment, is at a real adapter in {nd_false_cut_fused_far_end_at_real_adapter|pct0}. lima rejects both S-reads: it passes
+{false_cut_frag_lima_max|pct1} of fragments and {false_cut_fused_lima_min|pct1} to
+{false_cut_fused_lima_max|pct1} of chimeras, against {false_cut_baseline_lima_pass_min|pct1} or more of proper S-reads.
+Each false cut therefore costs two molecules in the standard workflow: the cut one and the whole one fused to it. In kin that comes to
+{kin_false_cut_molecules_per_hifi_read|f2} molecules per HiFi read, most of the {budget_kin_not_written_cleanly|fmt} that skera does not write cleanly
+(section 4).</p>
+<p>On the calibration set (the first 200,000 ND HiFi reads; section 7) we checked what skera accepts as an adapter. The sequence at
+{cal_false_cuts_closest_to_d_3_to_5_edits_share|pct0} of its false cuts differs from adapter D, its closest Kinnex adapter, by 3 to 5 edits (an edit is one substituted,
+inserted or deleted base); only {cal_false_cuts_within_2_edits_share|pct1} are within 2 edits of any adapter, the most our search accepts. A
+<span class="mono">CTCCTCC</span> repeat lies within 10 bp of {cal_false_cuts_ctcctcc_share|pct0}, so the false matches are not one fixed motif. skera does not
+document how many edits it accepts. The adapter it skips is a good match: {cal_skipped_adapters_le1_edit_with_primer_share|pct1} of them are within 1 edit of
+the adapter and next to a TSO or Read1.</p>
+<p>Both tools search for the same nine adapter sequences; they differ in what they accept as an adapter (Supplementary Table 2). Ours keeps an adapter hit only next to a TSO or
+Read1, where every real adapter sits, and so rejects the look-alikes inside cDNA. It has the opposite, smaller weakness: it misses an adapter that skera finds in
+{missed_adapter_share_min|pct2} to {missed_adapter_share_max|pct2} of the reads skera passes, mostly the A or Q at the end of a read, and skera's S-reads in those reads pass lima {sread_lima_pass_missed_min|pct1} to {sread_lima_pass_missed_max|pct1}
+of the time, against {sread_lima_pass_complete_min|pct1} to {sread_lima_pass_complete_max|pct1} in complete arrays.</p>
+</div>
+<figure id="fig1"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 1</span> How one skera false cut breaks two molecules</figcaption><!--schematic fig1--><figcaption class="legend">Drawn to explain, not to scale, for a read whose adapters run A to Q, with the false cut after adapter D, which skera skips in {nd_false_cut_missed_is_d|pct0} of false cuts. Grey boxes R1 and TSO: the primer ends of each molecule. Right: lima pass rates in kin; ND and HM differ by less than 0.1 percentage point. Measured on every false cut in complete arrays that skera passes in the hash samples (study/analyses/false_cut_anatomy.py; source data tables/fig1_skera_false_cut_anatomy.tsv).</figcaption></figure>
+<div class="prose">
+<p>Our segmentation passes its validation checks in all libraries (Supplementary Table 3). On synthetic reads of known structure at HiFi error rates, it calls each class
+correctly in at least {bench_hifi_class_min|pct1} of reads and never calls a read a mirror array when it is not one (Supplementary Table 4).</p>
+</div>
+<p class="tablecap"><span>Supplementary Table 1</span> Libraries and reads analysed</p><!--table S1-->
+<p class="tablecap"><span>Supplementary Table 2</span> How our segmentation differs from skera</p><div class="tablewrap"><table class=""><thead><tr><th></th><th>skera</th><th>Our segmentation</th></tr></thead><tbody><tr><td>Sequences searched</td><td>The 9 Kinnex adapters</td><td>The same 9 adapter sequences, plus the TSO and Read1, and after Read1 the cell-label linkers and polyT</td></tr><tr><td>Match tolerance</td><td>Not documented, and <span class="mono">skera split</span> has no option for it; its false cuts lie 3 to 5 edits from adapter D</td><td>Up to 2 edits for an adapter and 3 for TSO and Read1 (edlib, both strands; TSO up to 4 in fail reads)</td></tr><tr><td>Context check</td><td>None documented</td><td>An adapter hit is kept only within 4 bp of a TSO or Read1 hit</td></tr><tr><td>Adapter order</td><td>A read passes only if its adapters follow the order of the FASTA</td><td>Any order; the adapter chain is classified afterwards (complete, truncated, mirror, ...)</td></tr><tr><td>Mirror arrays</td><td>Writes mainly the arm with forward adapters: {mirror_after_clean_share|pct0} of its molecules as clean S-reads, against {mirror_before_clean_share|pct0} on the other arm (section 6)</td><td>Finds the adapters of both arms</td></tr><tr><td>Molecule ends</td><td>Not classified</td><td>The primers in the first and last 150 bp give the end class; a primer inside a molecule marks it as fused</td></tr><tr><td>Errors measured here</td><td>False cuts in {false_cut_reads_share_min|pct1} to {false_cut_reads_share_max|pct1} of complete passing reads; lima rejects both S-reads around each (Supplementary Fig. 1)</td><td>Misses an adapter that skera finds in {missed_adapter_share_min|pct2} to {missed_adapter_share_max|pct2} of passing reads, mostly the A or Q at a read end; an interior adapter in {skipped_slot_share_min|pct2} to {skipped_slot_share_max|pct2}</td></tr></tbody></table></div>
+<p class="legend">skera: what its documentation states (https://skera.how) and what we observe on these reads; its matching rules are not public. Ours: patterns.py, scan.py,
+annotate.py and classify.py in src/kinnex_qc. Error rates are for the three BD144 libraries (hash samples); source data in tables/S2_segmentation_vs_skera_errors.tsv.</p>
+<p class="tablecap"><span>Supplementary Table 3</span> Validation</p><!--table S3-->
+<p class="legend">Synthetic arrays: 200 arrays of 8 real S-reads per error rate, mutated at HiFi error rates ({synthetic_error_rates|str}),
+lowest recall and precision over adapters, TSO and Read1 (gate: recall of at least 0.99, precision of at least 0.999).
+Adapter letters: share of skera S-read boundaries where our adapter within 5 bp has the letter skera assigns (gate: 0.99).
+lima pair: share of skera S-reads whose lima primer pair matches our end class (lima names the TSO-side primer 5p and the Read1-side primer 3p: a proper molecule should give 5p--3p, a TSO-TSO molecule 5p--5p, an R1-R1 molecule 3p--3p, all others none); the mismatches are
+mostly one-sided molecules that lima calls 5p--5p or 3p--3p (gate: 0.98). fltnc in lima pass: share of the existing mapped fltnc reads that our lima run passes (gate: 0.995).
+skera agreement: share of skera-passing reads in which every gap between S-reads holds one of our adapters and no adapter of ours lies inside an S-read (reported, not gated).</p>
+<p class="tablecap"><span>Supplementary Table 4</span> Adapter-chain classes on synthetic reads of known structure</p><!--table S4-->
+<p class="legend">{bench_reads_per_class|fmt} reads per class and error rate, built from clean ND S-reads with the gate's mutation model and classified with the
+pipeline's own adapter search and chain rules; error 0.05 uses the fail-read thresholds. A TSO-TSO (R1-R1) junction molecule carries a TSO (Read1) at both ends on opposite
+strands; the arms of a mirror carry their adapters in opposite orientation. Shares are of reads given the expected call (for opposite-orientation joins: not called mirror).</p>
+
+<h2 id="s2"><span class="sec">2</span>Array structure</h2>
+<div class="prose">
+<p>A complete array carries adapters A, B, ..., H, Q in order on one strand with eight cDNA molecules between them. Without depletion,
+{nd_mirror_share|pct1} of reads instead contain a mirror junction, where an adapter is followed by its own reverse complement (for example H then H').
+The depleted libraries are almost free of them. TSO-TSO molecules are about {tso_tso_ratio_nd_hm|sig2} times more frequent in ND than in HM and {tso_tso_ratio_nd_kin|sig2} times more than in kin;
+R1-R1 molecules follow the same pattern at a lower level.</p>
+</div>
+<figure id="fig2"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 2</span> Array completeness and artifact molecules</figcaption><!--figure fig2--><figcaption class="legend"><b>a</b>, Share of HiFi reads by adapter chain: complete (A to Q in order), truncated (in order but missing an end), mirror (contains X followed by X'), other (skipped or repeated slot, unresolved). <b>b</b>, Molecules per 1,000 molecules found by our segmentation, by end class: TSO-TSO (TSO at both ends), R1-R1 (Read1 at both ends), one primer only, and fused molecules (a TSO or Read1 inside a molecule, so two molecules joined without an adapter). Log scale; points at the left edge are below 0.001.</figcaption></figure>
+<figure id="fig3"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 3</span> Example ND reads</figcaption><!--figure fig3--><figcaption class="legend">One complete array and three mirror arrays from the ND library, to scale. Adapters are coloured and lettered (a prime marks the minus strand); TSO and Read1 with its cell label and UMI are drawn shorter; ticks below each track mark skera S-read boundaries; non-proper molecules are labelled. The mirror arrays hold 3, 5 and 11 molecules: the TSO-TSO molecule sits at the centre, and the halves on either side run to Q. ZMWs: {fig3_zmws|list}. <span class="screen">Hover for coordinates, edit distance and segment class.</span></figcaption></figure>
+
+<h2 id="s3"><span class="sec">3</span>How TSO-TSO molecules make mirror arrays</h2>
+<div class="prose">
+<p>In every library, the TSO end of a proper molecule sits next to the higher-index adapter (the share next to the lower-index adapter is
+{tso_toward_lower_adapter_max|pct0} in all three),
+so each position PCR puts the lower-index adapter on the Read1 end and the higher-index adapter on the TSO end. A TSO-TSO molecule lacks a Read1 site, is primed
+by the TSO primer at both ends and receives the same higher-index adapter twice. Each copy then joins the next slot's molecule, so both halves grow toward Q
+(Supplementary Fig. 4a). This predicts three things the ND data show: junctions occur at adapters B to Q but not at A (A is never on a TSO primer); a mirror array with its junction at adapter X holds
+2 x (slots from X to Q) + 1 molecules, which {mirror_rule_overall|pct1} of single-junction reads match exactly; and R1-R1 molecules, which receive the lower-index adapter twice,
+make mirrors whose halves run to A, with junctions at A to H but never at Q. TSO-TSO and R1-R1 molecules of the same letter can also pair with each other, giving long double mirrors
+(Supplementary Table 5).</p>
+<p>Why the junctions pile up at H. The adapter at a junction tells which of the eight PCRs made the TSO-TSO molecule, and all eight PCRs start from the same cDNA. An ordinary
+mirror array is sequenced only once both of its arms reach Q, since Kinnex removes incomplete arrays with a nuclease step
+(<a href="https://www.pacb.com/wp-content/uploads/Technical-note-Concatenating-amplicons-using-Kinnex-kits.pdf">PacBio technical note</a>). Each arm grows by one
+ligation (two adapters of the same letter joined) per molecule, so completing both arms takes 2 ligations beyond the junction when it is at H and 14 when it is at B, and the
+number of mirror reads falls about {mirror_fold_per_letter|f1}-fold per letter from H to G to F (Supplementary Fig. 4b). Double mirrors make a control. In these reads a TSO-TSO molecule and
+an R1-R1 molecule of the same letter X sit side by side, one arm grows to A and the other to Q, and the array reads A ... X X' X ... Q. It holds
+{double_mirror_median_molecules_h|f0} molecules (median {double_mirror_median_read_len_min|kb1} to
+{double_mirror_median_read_len_max|kb1} kb) whatever X is, so it needs the same number of ligations at every letter. Double mirrors
+show no H peak: B {double_mirrors_b|int}, C {double_mirrors_c|int}, D {double_mirrors_d|int}, E {double_mirrors_e|int}, F {double_mirrors_f|int}, G {double_mirrors_g|int}, H {double_mirrors_h|int}, against B {ordinary_mirrors_b|int}, C {ordinary_mirrors_c|int}, D {ordinary_mirrors_d|int}, E {ordinary_mirrors_e|int}, F {ordinary_mirrors_f|int}, G {ordinary_mirrors_g|int}, H {ordinary_mirrors_h|int} ordinary
+mirrors. So the steep H peak comes from the ligations an ordinary mirror needs. The letters still differ among double mirrors (from {double_mirrors_min|int}
+to {double_mirrors_max|int}), so the eight PCRs may differ in how many artifact molecules they make, but not in a way that favours H. HiFi yield adds at most {hifi_yield_ratio_h_b|f1}-fold between H and B,
+whose ordinary mirror reads are {ordinary_mirror_median_read_len_h|kb1} and {ordinary_mirror_median_read_len_b|kb1} kb long. Junctions at Q need no ligation but are rarer than at
+H: such a read holds one TSO-TSO molecule, and the ones that remain are longer (median {tso_tso_median_len_q|comma0} bp, against {tso_tso_median_len_other_min|comma0} to {tso_tso_median_len_other_max|comma0} bp at
+the other letters), as expected if short SMRTbells are lost in the bead cleanups (inferred). B is more common than C in both ordinary and double mirrors, a slot-specific
+difference we cannot explain. ArgenTag shows the same profile (section 6).</p>
+</div>
+<figure id="fig4"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 4</span> TSO-TSO molecules make mirror arrays</figcaption><!--schematic fig4a--><!--figure fig4--><figcaption class="legend"><b>a</b>, Mechanism (schematic). <b>b</b>, Mirror junctions in ND by the adapter on both sides of the junction, coloured by the molecule at the junction. <b>c</b>, Molecules per read for reads with one mirror junction holding a TSO-TSO molecule: observed median against the prediction 2 x (slots from X to Q) + 1.</figcaption></figure>
+<p class="tablecap"><span>Supplementary Table 5</span> Molecules at mirror junctions in ND</p><!--table S5-->
+
+<h2 id="s4"><span class="sec">4</span>Effect on yield</h2>
+<div class="prose">
+<p>A TSO-TSO molecule costs little sequencing by itself: these molecules make up {nd_tso_tso_base_share|pct1} of the bases of all molecules our segmentation finds in ND.
+The cost comes from the short arrays they create. A mirror read holds {nd_mirror_proper_per_read|fmt} usable molecules, against {nd_complete_proper_per_read|fmt} in a complete read, yet it takes a ZMW
+like any other read (median length {nd_mirror_median_read_len|kb1} kb, against {nd_complete_median_read_len|kb1} kb).</p>
+<p>When every read is cut by our segmentation, ND yields {gap_ours|fmt} fewer usable molecules per HiFi read than kin ({loss_ours|pct1}). Short mirror arrays account
+for {gap_mirror_capacity|fmt} of these {gap_ours|fmt}: a mirror read holds about {nd_mirror_molecules_fewer|f1} fewer usable molecules
+than a complete read, and {nd_mirror_share|pct1} of ND reads are mirror reads. This is a calculation, not a measurement: it assumes those reads would otherwise have held as
+many molecules as complete reads. With the standard workflow (skera, lima, refine, mapping) the gap in
+mapped molecules is larger, {gap_mapped|fmt} per HiFi read ({loss_mapped|pct1}), because skera writes only part of what a mirror read holds. It puts almost every mirror read
+in non_passing.bam (it passes {nd_mirror_skera_pass_share|pct1} of them) and writes {nd_mirror_skera_sreads_per_read|fmt} S-reads per mirror read, mainly from one arm
+of the mirror (section 6; an observation on these reads, not documented skera behaviour).</p>
+<p>The molecules skera never writes are usable. Cut at our coordinates and run through lima, refine and mapping as in the existing pipeline (minimap2 in place of pbmm2),
+{downstream_unwritten_lima_5p3p|pct1} of {downstream_unwritten_molecules|fmt} such molecules from ND mirror reads pass lima,
+{downstream_unwritten_refine|pct1} refine and {downstream_unwritten_mapped|pct1} map, against
+{downstream_complete_lima_5p3p|pct1}, {downstream_complete_refine|pct1} and {downstream_complete_mapped|pct1} for molecules from complete reads.
+Truncated arrays are also marked non-passing ({nd_truncated_non_passing_share|pct1}), but skera writes their molecules ({nd_truncated_skera_sreads_per_read|fmt} S-reads
+against {nd_truncated_proper_per_read|fmt} molecules) and they reach the mapped BAM as often as molecules from complete arrays.</p>
+</div>
+<figure id="fig5"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 5</span> Where ND loses molecules</figcaption><!--figure fig5--><figcaption class="legend"><b>a</b>, Usable molecules (proper, not fused) per HiFi read found by our segmentation, and molecules in the existing mapped fltnc BAM per HiFi read (skera, lima, refine, mapping). <b>b</b>, ND reads by adapter chain: molecules per read found by our segmentation against S-reads written by skera, with the share of reads skera passes. <b>c</b>, The gap between kin and ND in molecules per HiFi read. With the skera workflow it splits into the molecules mirror arrays cannot hold (grey) and the mirror-array molecules skera never writes (hatched amber, as in Supplementary Fig. 6); the two parts add up to the observed gap.</figcaption></figure>
+<div class="prose">
+<p>Supplementary Fig. 6 follows the eight slots of each HiFi read in all three libraries. In ND, {budget_nd_unfilled_slots|fmt} slots per read stay empty because mirror
+arrays are short, {budget_nd_artifact|fmt} hold artifact molecules and {budget_nd_downstream|fmt} hold usable molecules whose S-reads fail lima, refine or mapping; we count
+these as lost in either workflow. Another {budget_nd_not_written_cleanly|fmt} hold usable molecules that skera never writes as a clean S-read: the standard workflow loses
+them, a full-read segmentation keeps them. The depleted libraries lose far less, {budget_hm_total|fmt} (HM) and {budget_kin_total|fmt} (kin) slots per read, but
+{budget_hm_unwritten_share|pct0} and {budget_kin_unwritten_share|pct0} of that is again molecules skera does not write cleanly. In ND's complete arrays these are mostly
+molecules that skera merges with a neighbour or cuts short (section 6), where its cuts and ours disagree (section 1). A full-read segmentation therefore keeps
+{budget_nd_kept_full|fmt} molecules per ND HiFi read against {budget_nd_kept_standard|fmt} with the standard workflow, and {budget_kin_kept_full|fmt} against
+{budget_kin_kept_standard|fmt} in kin.</p>
+</div>
+<figure id="fig6"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 6</span> What each workflow keeps</figcaption><!--figure fig6--><figcaption class="legend">Each HiFi read of a Kinnex 8-fold library has 8 slots. Each bar shows, per HiFi read, the slots whose molecule the standard workflow (skera, lima, refine, mapping) does not keep, by reason, for each library (hash samples); right, molecules kept per HiFi read with each workflow. <b>Greys</b>, lost in either workflow: slots the array does not fill (mirror and truncated arrays hold fewer than 8 molecules; averaged over all reads), artifact molecules, and usable molecules (proper, not fused) whose clean S-read fails lima, refine or mapping. <b>Hatched amber</b>, usable molecules that skera does not write as a clean S-read: the standard workflow loses them, a full-read segmentation keeps them. In a test on ND, {downstream_unwritten_mapped|pct1} of such molecules map. A clean S-read is one S-read that covers at least 80% of its molecule and at least 20% of no other molecule. Kept with the standard workflow: usable molecules whose clean S-read is in the existing mapped fltnc BAM. This differs from the mapped S-reads of Supplementary Fig. 5a by at most {budget_other_mapped_max|f3} per read (S-reads holding a split, fused or artifact molecule).</figcaption></figure>
+
+<h2 id="s5"><span class="sec">5</span>Concatenation bias</h2>
+<div class="prose">
+<p>Kinnex joins eight cDNA molecules into each array. If the eight PCR products mix freely, the molecules that end up in the same array are a random draw,
+whatever their length. We asked whether long molecules (4 kb or more) instead tend to end up with short partners, and if so, why.</p>
+<p>They do, slightly. On complete arrays, the seven partners of a long molecule are on average {partners_shorter_bp_min|f0} to {partners_shorter_bp_max|f0} bp shorter than by chance, under 1% of the mean
+partner length (Supplementary Fig. 7, Supplementary Table 6). "By chance" is null P: molecule lengths shuffled between arrays, slot by slot, so that molecules in an array are unrelated.</p>
+<p>A limit on total array length explains the deficit. If arrays with a large total length are underrepresented among the HiFi reads, an array that already holds a long
+molecule has less room for the others, so its partners are shorter on average. A model in which slots are independent and each array survives with a probability that depends only on
+its total length (M_T) reproduces the partner means within {diff_vs_mt_bp_abs_max|f0} bp and the number of arrays with two long molecules.</p>
+<p>We could not tell where along the workflow that limit acts: array formation, size selection, loading or HiFi read calling. HiFi read calling builds the consensus from
+several passes over the molecule and keeps reads accurate enough, so it favours shorter reads, which get more passes from the same polymerase read. We therefore reweighted each
+array by the inverse of its HiFi yield w(T), the chance that a read of total length T becomes a HiFi read, and estimated w(T) in two ways. With the empirical estimate (the HiFi
+share among HiFi and fail reads), the gap to chance becomes {ipw_empirical_diff_min|sf1} to {ipw_empirical_diff_max|sf1} bp, so HiFi calling would explain most or all of the deficit. With the model
+estimate (from polymerase read length and pass counts), it stays at {ipw_model_diff_min|sf1} to {ipw_model_diff_max|sf1} bp, so HiFi calling would explain none of it (Supplementary Table 6).
+The two estimates disagree, and the length model cannot tell which step the limit acts at either (technical note below).</p>
+<p>Molecules are joined only to their direct neighbours, so a ligation preference by length would make neighbours more (or less) alike than molecules further apart in the
+same array. We measured how much more alike the lengths of neighbours are than those of molecules two to seven positions apart (D, a difference of rank correlations), and
+subtracted what M_T expects. That excess (residual D) is {nd_d_residual|sf4} in ND (95% interval {nd_d_residual_lo|sf4} to
+{nd_d_residual_hi|sf4}), {hm_d_residual|sf4} in HM and {kin_d_residual|sf4} in kin, against a rank correlation of neighbour lengths of about
+{lag1_mean|sf3} (Supplementary Fig. 8). Any length preference between ligation partners is therefore small.</p>
+<p class="aside">Technical note. D is the rank correlation of lengths at distance 1 minus the mean at distances 2 to 7; its interval combines the bootstrap and M_T spreads but
+leaves out the uncertainty of the M_T fit itself. M_T cannot say when selection acts: tilting the input length distributions by exp(&lambda;x) and s(T) by exp(-&lambda;T) fits
+equally well, so the shape of s(T) is not identified. The reweighted partner means were compared with independent positions in the reweighted population (Methods).</p>
+</div>
+<figure id="fig7"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 7</span> Partner length against index length</figcaption><!--figure fig7--><figcaption class="legend">Mean length of the other seven molecules in the same complete array (partners), by the length of one molecule (index), for cDNA insert length. Bands: 95% range of 200 null P and 200 M_T replicates. Bins with at least 2,000 index molecules are shown.</figcaption></figure>
+<figure id="fig8"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 8</span> Adjacency test and selection on array length</figcaption><!--figure fig8--><figcaption class="legend"><b>a-c</b>, Rank correlation of molecule lengths between two positions, by their distance in the array (1: direct neighbours, the only ligation partners), with bootstrap 95% intervals over arrays and the M_T band. <b>d-f</b>, Selection on total array length s(T) from the M_T fit, against the HiFi yield w(T) estimated from the HiFi share among HiFi and fail reads (empirical) and from polymerase read length and pass counts (model); each scaled to 1 at its maximum. The shape of s(T) is identified only up to a factor exp(-&lambda;T), so the comparison does not show when selection acts.</figcaption></figure>
+<p class="tablecap"><span>Supplementary Table 6</span> Concatenation bias, cDNA insert length, index molecules of 4 kb or more</p><!--table S6-->
+
+<h2 id="s6"><span class="sec">6</span>Comparison with ArgenTag</h2>
+<div class="prose">
+<p>ArgenTag's technical note states: "Note that the TSO artifact removal step is not required. ArgenTag cDNA is inherently TSO artifact-free, streamlining library preparation to ~5 hours."
+Its MDA-MB-453 8-fold dataset is public as skera S-reads only (<span class="mono">0-Sreads/segmented.bam</span>, skera 1.2.0), and a mirror junction cannot be seen in S-reads.
+ArgenTag shared with us the matching <span class="mono">segmented.non_passing.bam</span>, which "contains the bam records that have adapters found in non-sequential order"
+(<a href="https://skera.how/output.html">skera.how/output.html</a>): the whole parent read of each of {arg_non_passing_reads|fmt} ZMWs. Together with the ZMWs that have S-reads,
+they account for all {arg_hifi_zmws|fmt} HiFi reads of the cell in the technical note. A mirror junction makes adapters non-sequential, so mirror reads are in this file
+unless skera passed them; in ND, skera passed {nd_tso_tso_only_skera_pass_share|pct1} of reads whose only junction molecule is TSO-TSO, so the counts below are a slight underestimate.</p>
+<p>We ran this pipeline's own annotation on these reads (Supplementary Table 7). {arg_mirror_share|pct1} of ArgenTag's HiFi reads are mirror arrays, against
+{nd_mirror_share|pct1} in ND, {hm_mirror_share|small_pct} in HM and {kin_mirror_share|small_pct} in kin. The arrays have the structure of section 3:
+{arg_junctions_tso_tso_share|pct0} of {arg_mirror_junctions|fmt} mirror junctions hold a TSO-TSO molecule, none of them at adapter A, the letters follow the same
+pattern as in ND (Supplementary Fig. 9c), and {arg_single_tt_matching_rule|pct0} of reads with a single TSO-TSO junction hold exactly 2 x (slots from X to Q) + 1 molecules.
+ArgenTag cDNA carries {arg_tso_tso_per_1000|f1} TSO-TSO molecules per 1,000 molecules, against {nd_tso_tso_per_1000|f1} in ND, {hm_tso_tso_per_1000|g2} in HM
+and {kin_tso_tso_per_1000|g2} in kin, but hardly any R1-R1 molecules ({arg_r1_r1_per_1000|f3} per 1,000, against {nd_r1_r1_per_1000|f2} in ND), although
+{arg_proper_share_of_molecules|pct0} of its molecules carry Read1 and TSO as expected. A second, independent adapter scan written without this pipeline's code agreed with our
+mirror calls on {arg_independent_agree_share|pct1} of {arg_independent_sample|fmt} random non-passing reads.</p>
+<p>What this costs: an ArgenTag mirror read holds {arg_usable_per_mirror_read|f2} usable molecules, against {arg_sreads_per_passing_read|f1} in a read that skera passes (counted as its S-reads), a shortfall of
+{arg_mirror_shortfall_ours|f2} molecules per HiFi read ({arg_mirror_shortfall_ours_share|pct1} of a full array) with a
+full-read segmentation; skera writes {arg_sreads_per_mirror_read|f2} S-reads per mirror read, so the shortfall in S-reads is {arg_mirror_shortfall_sreads|f2}
+({arg_mirror_shortfall_sreads_share|pct1}), before lima, refine and mapping. Whether that justifies a depletion step is a cost judgement;
+that the cDNA is free of TSO-TSO artifacts is not supported by these reads.</p>
+<p>Could mirror reads be counted from the public S-reads alone? We built such a test and checked it against the parent reads. Both arms of a mirror run from the
+junction letter to Q, so whatever skera writes from a mirror read covers adapters up to Q but never A. That alone is a weak flag: of the reads it flags, the share that truly are
+mirror reads (the PPV) is {hm_q_not_a_ppv|f3} in HM, {nd_q_not_a_ppv|f2} in ND and {arg_q_not_a_ppv|f2} in ArgenTag (Supplementary Table 8).
+A second condition makes it specific: the first S-read starts at least {head_mol|f0} mean written molecules (the average length per S-read) into the parent read,
+as skera's documented <span class="mono">qs</span> tag shows. That unwritten stretch at the start of the read is, in a mirror read, the arm skera did not write. Against the
+parent reads this unwritten-head flag has a PPV of {arg_flag_ppv|f3} in ArgenTag and {nd_flag_ppv|f2} in ND. The non-mirror reads it flags amount to
+{arg_flag_non_mirror|pct2} of HiFi reads in ArgenTag and {bd144_flag_non_mirror_min|pct2} to {bd144_flag_non_mirror_max|pct2} in the BD144 libraries. It finds {arg_flag_sensitivity|pct0} of
+ArgenTag's and {nd_flag_sensitivity|pct0} of ND's mirror reads, its sensitivity (Supplementary Fig. 9d). On the same ND reads it behaves the same with
+skera 1.2.0, the version behind the public ArgenTag S-reads, as with 26.1.0, the version behind ours: it flags {skera120_flagged|fmt} and
+{skera2610_flagged|fmt} reads, with a PPV of {skera120_ppv|f3} and {skera2610_ppv|f3} (Supplementary Table 9). The flag can screen datasets released only as S-reads, but the count it gives needs the parent reads to confirm. S-reads with a TSO at both ends are not a usable signal: with skera 1.2.0 on ND, {tso_both_ends_background|fmt} of the first
+{tso_both_ends_checked|fmt} S-reads ({tso_both_ends_background_share|pct2}) carry a TSO near both ends while lying on complete arrays without a TSO-TSO molecule.</p>
+<p>What skera writes from a mirror read decides what reaches lima. The skera documentation defines <span class="mono">segmented.bam</span> as
+"all segmented reads that have sequential leading and trailing adapters based on the order of adapters in the input fasta" and says nothing about mirror arrays. A PacBio developer
+described what happens when skera finds 14 of 15 expected segments: "the 14 expected segments will be output to the segmented read output <em>and</em> the HiFi input read will be output
+to the non_passing bam" (<a href="https://github.com/PacificBiosciences/pbbioconda/issues/608#issuecomment-1726413858">pbbioconda issue 608</a>). In ND, {mirror_arms_non_passing_share|pct1}
+of the {mirror_arms_single_tso_tso_reads|fmt} reads with a single TSO-TSO junction are in <span class="mono">non_passing.bam</span> as whole reads, yet only
+{mirror_arms_clean_share_mirror|pct1} of the proper molecules they hold are written as clean S-reads, against {mirror_arms_clean_share_complete|pct1} in complete arrays
+(Supplementary Table 10). The two arms differ: skera writes {mirror_after_clean_share|pct1} of the molecules on the arm after the junction (forward adapters, X to Q)
+as clean S-reads and {mirror_before_clean_share|pct1} of those on the arm before it (reverse-complement adapters, Q' to X'), leaving
+{mirror_before_not_written_share|pct1} of the latter unwritten. By read, {mirror_reads_after_only|pct1} have S-reads on the arm after the junction only,
+{mirror_reads_spans_junction|pct1} have an S-read that runs into the TSO-TSO molecule and {mirror_reads_no_sread|pct1} have none; {mirror_reads_no_sread_at_q_share|pct1} of these last are reads with the
+junction at Q, a lone TSO-TSO molecule with nothing usable in it. On the calibration set, skera 1.2.0 found {skera120_found_after_arm|pct1} of our adapters on the arm after the junction
+and {skera120_found_before_arm|pct1} on the arm before it, and its ligation table counts {skera120_ligations_same_letter|fmt} ligations of an adapter to the same letter among
+{skera120_ligations_total|fmt}: it mostly does not detect the reverse-complement arm. skera 1.2.0 and 26.1.0 give the same shares on that set to within {skera_versions_share_diff_max|pp1} percentage points.
+Which arm skera writes is an observation on our reads, not documented behaviour. The molecules it does not write are recovered by a full-read segmentation and pass lima, refine
+and mapping as often as any (section 4).</p>
+</div>
+<figure id="fig9"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 9</span> TSO-TSO artifacts in ArgenTag cDNA</figcaption><!--figure fig9--><figcaption class="legend"><b>a</b>, Mirror reads as a share of HiFi reads: BD144 from the full reads of the hash samples, ArgenTag from its parent reads (all reads skera did not pass). <b>b</b>, TSO-TSO molecules per 1,000 molecules (ArgenTag: our molecules in the non-passing reads plus skera S-reads of the passing reads). <b>c</b>, Adapter at each TSO-TSO mirror junction, as a share of all TSO-TSO junctions, ND against ArgenTag. <b>d</b>, ZMWs flagged by the S-read-only unwritten-head test (filled) against the mirror reads found in the parent reads (open circles); band, non-mirror reads flagged. Log scales in a, b and d.</figcaption></figure>
+<p class="tablecap"><span>Supplementary Table 7</span> ArgenTag parent reads against BD144</p><!--table S7-->
+<p class="legend">BD144: full reads of the hash samples. ArgenTag: the {arg_non_passing_reads|fmt} non-passing parent reads, annotated with this pipeline; passing reads are taken
+as complete arrays with their skera S-reads. Mirror shortfall: share of mirror reads times (molecules per complete read minus usable molecules per mirror read), a bookkeeping figure.</p>
+<p class="tablecap"><span>Supplementary Table 8</span> S-read tests against the parent reads</p><!--table S8-->
+<p class="legend">Shares are of HiFi reads (ArgenTag: {arg_hifi_reads|fmt} HiFi reads, technical note Table 1). Unwritten-head flag: S-reads reach Q but not A, all in forward adapter order,
+first S-read at least {head_mol|f0} mean written molecules into the parent read.</p>
+<p class="tablecap"><span>Supplementary Table 9</span> skera version check on the same 200,000 ND HiFi reads</p><!--table S9-->
+<p class="tablecap"><span>Supplementary Table 10</span> What skera writes from ND mirror reads</p><!--table S10-->
+<p class="legend">ND hash sample, skera 26.1.0 S-reads as delivered; reads with a single mirror junction holding a TSO-TSO molecule; complete arrays: the
+{mirror_arms_complete_reads_baseline|fmt} complete reads in a 1% hash sample of the cell. Each proper, unfused molecule of our full-read segmentation is matched to skera's S-reads by
+their parent-read coordinates (qs, qe). Clean S-read: one S-read covers at least 80% of the molecule and at least 20% of no other molecule. Fused with a neighbour: such an S-read
+also covers at least 20% of another molecule. Partly covered: the best S-read covers 20 to 80%. Not written: less. The source tables also hold the calibration set with both skera versions.</p>
+
+<h2 id="s7"><span class="sec">7</span>Methods</h2>
+<div class="prose methods">
+<p><b>Reads.</b> HiFi reads, fail reads, skera S-reads and ZMW metrics were extracted from the instrument archives as plain files (study/prepare_inputs.sh). A ZMW was sampled when the splitmix64 hash of
+its number, XORed with a fixed salt, fell in the lowest {fraction|pct0} of the 64-bit range; every input file (HiFi reads, skera S-reads, non-passing reads) was read to the end and filtered
+by this rule, and lima and refine outputs were restricted to the same ZMWs. The share of the cell's HiFi reads in the sample, the sampling probability behind the w(T) weights, is the
+number of sampled HiFi reads over skera's whole-cell count. Fail reads were indexed in full and annotated on a separate 1-in-10 hash subsample of ZMWs.</p>
+<p><b>Calibration set.</b> Comparisons that need the same reads under two methods (skera 1.2.0 against 26.1.0, skera's cuts against ours, molecules skera did not write
+through lima and refine) use the first 200,000 ND HiFi reads, with base-modification tags removed because skera 1.2.0 fails on them. These reads were annotated with stage 02
+of the pipeline and matched by ZMW to the S-reads skera 26.1.0 delivered and to skera's verdict (study/calibration/build_calibration_set.py). They are not a random sample of the
+cell and serve only for comparisons within the same reads. At each skera cut with no adapter of ours within 5 bp, the gap between the two S-reads plus 5 bp on each side was
+aligned to every Kinnex adapter on both strands (edlib, infix mode) and the smallest edit distance kept (study/analyses/false_cuts_calibration.py).</p>
+<p><b>Segmentation.</b> Every HiFi read was searched for the nine Kinnex adapters (A to H, Q; up to 2 edits), the TSO core <span class="mono">AAGCAGTGGTATCAACGCAGAGTAC</span> (up to 3 edits) and the Read1 primer
+<span class="mono">ACACGACGCTCTTCCGATCT</span> (up to 3 edits) on both strands with edlib. An adapter hit was kept only within 4 bp of a TSO or Read1 hit. Reads were cut at adapters into molecules,
+and each molecule was classed by the primers in its first and last 150 bp: proper (TSO at one end, Read1 at the other, opposite strands), TSO-TSO, R1-R1, TSO only, R1 only, or none; a TSO or Read1 inside a molecule
+marks it as fused. The bead cell label linkers and an anchored polyT were scored after Read1. For fail reads the TSO threshold was relaxed to 4 edits, chosen on synthetic arrays at 5 to 12% error
+(adapter and Read1 thresholds stayed, because relaxing them dropped precision below 0.99). Adapter chains were classed as complete, truncated, mirror, skipped slot, repeated or unresolved; a mirror is a pair of adjacent adapters with the same letter in opposite orientation.
+The classes were benchmarked on synthetic reads of known structure built from clean S-reads (study/analyses/chain_benchmark.py; Supplementary Table 4), and a random sample of 30 ND reads where
+skera's cuts and ours disagree was rendered for inspection (study/analyses/discordant_reads.py).</p>
+<p><b>Concatenation bias.</b> For complete arrays, the mean length of the seven partners of each index molecule was compared, by index length, with two nulls of 200 replicates each: null P permutes lengths
+between arrays within each position; M_T draws positions independently from their own length distributions and accepts arrays with probability s(T), fitted by iterative proportional fitting so that the simulated
+array-length distribution matches the observed one. The adjacency statistic D is the rank correlation of lengths at distance 1 minus the mean at distances 2 to 7, with 200 bootstrap resamples of arrays;
+the residual D is D minus its mean under M_T, with an interval from the bootstrap and M_T spreads combined. HiFi yield w(T) was estimated as the HiFi share among annotated HiFi and fail reads of
+each length, each read weighted by the inverse of its sampling probability, and from polymerase read length and the rate of rq of at least 0.99 per pass count; arrays were reweighted by 1/w(T),
+clipped at the 99th percentile. The reweighted partner means were compared with independent positions in the reweighted population: a partner at position j has the weighted mean of position j,
+whatever the index (ipw_independence_null in study/pipeline/stats.py), with 200 bootstrap resamples of arrays and the weights held fixed. A permutation null weighted by 1/w(T) would be biased: it draws arrays
+from the selected marginals and then reweights them as if they had been selected.</p>
+<p><b>Fate.</b> lima 2.13.0 was run on skera S-reads in Iso-Seq mode and in plain mode to obtain primer pairs; isoseq refine 4.3.0 as run and with polyA required at 5, 8, 12 and 20 nt; membership in the existing
+mapped fltnc BAM was taken from the BAM by ZMW and S-read index. To test the molecules skera does not write, every proper unfused molecule of 3,000 mirror and 3,000 complete reads of the
+calibration set was cut at our coordinates, written with the read group of a skera S-read BAM, and run through lima --isoseq --peek-guess and isoseq refine with the existing primers,
+then mapped with minimap2 -ax splice:hq -uf to GRCh38 (pbmm2 and its index were not available; study/analyses/downstream_test.py). For every false cut in complete arrays
+that skera passes (a gap between consecutive S-reads with no adapter of ours within 5 bp), the molecule that holds it, the adapter of ours left inside the neighbouring S-read,
+the end classes and lima, refine and mapping fates of both S-reads, and the read orientation were tabulated (study/analyses/false_cut_anatomy.py). In reads with a single mirror junction holding a
+TSO-TSO molecule, each proper molecule was matched to skera's S-reads by their parent-read coordinates, and skera 1.2.0's list of found adapters (found_adapters.csv.gz) to our
+adapters within 10 bp (study/analyses/mirror_arms.py; definitions in the legend of Supplementary Table 10).</p>
+<p><b>ArgenTag.</b> The public 8-fold S-read BAM ({arg_sreads|fmt} S-reads, skera 1.2.0) was downloaded from PacBio's public dataset server; its HiFi read count ({arg_hifi_reads|fmt})
+is taken from Table 1 of the ArgenTag and PacBio technical note; every HiFi ZMW of the cell has S-reads or a record in skera's non_passing.bam, which ArgenTag
+shared on request (not public). Those {arg_non_passing_reads|fmt} parent reads were annotated with stage 02 of this pipeline at HiFi thresholds
+(study/argentag/annotate_non_passing.py) and summarised with full_read_view.py; independent_scan.py re-called mirror reads in {arg_independent_sample|fmt} random reads with its own minimal
+adapter search. For the S-read flag, per ZMW we used only the documented S-read tags: the adapter span of its S-reads from dl and dr, forward order (dl below dr
+for every S-read), the start of its first S-read in the parent read (lowest qs) and the mean written molecule (highest qe minus lowest qs, over the number of S-reads).
+The flag threshold was set on the three BD144 libraries against the full-read calls: at 1, 1.5 and 2 mean written molecules, non-mirror reads were flagged in up to
+{non_mirror_flagged_1_0_max|pct2}, {non_mirror_flagged_1_5_max|pct2} and {bd144_flag_non_mirror_max|pct2} of HiFi reads,
+while ND sensitivity was {nd_sensitivity_1_0|f2}, {nd_sensitivity_1_5|f2} and {nd_flag_sensitivity|f2}. For the version check,
+skera 1.2.0 (bioconda pbskera 1.2.0) was run on the calibration set and both tests were computed for both versions (head_version_check.py). The TSO-at-both-ends check takes
+the first {tso_both_ends_checked|fmt} skera 1.2.0 S-reads of the calibration set and looks for the TSO core within 80 bp of each end (up to 3 edits, either strand; tso_end_validation.py).</p>
+<p><b>Limitations.</b> One library per arm. The arms are technical replicates (beads split into separate cell pools after lysis, separate RT-PCR reactions from the same mix),
+so a difference between arms is depletion plus replicate variation; the TSO-TSO rate before depletion is only observable in ND, and HM and kin are assumed to have started from a similar rate. Arrays lost before sequencing
+(for example very short mirror arrays removed by size selection) are not observable, so the cost of skipping depletion may be larger than measured. The ArgenTag comparison rests on one cell-line library; its mirror share counts the reads skera did not pass, so mirror reads that skera passed are missing (a small share
+in ND); which arm skera writes is an observation on our reads with skera 26.1.0 and 1.2.0, not documented behaviour. Intervals for the HiFi-yield correction hold w(T) fixed,
+and the residual D interval leaves out the uncertainty of the M_T fit.</p>
+</div>
+
+<h2 id="s8"><span class="sec">8</span>Code and data</h2>
+<div class="prose">
+<p>The flight-kinnex-qc repository holds everything needed to reproduce this Note: <span class="mono">src/kinnex_qc</span> (the package kinnex-qc {kinnex_qc_version|str}:
+the adapter and primer search, the chain classes and the S-read checks; it also provides the <span class="mono">kinnex-qc</span> command for other datasets),
+<span class="mono">study/pipeline</span> (the analysis pipeline and its validation gates), <span class="mono">study/analyses</span> (the classification benchmark, the discordant-read
+sample, the false-cut measurement and anatomy, the mirror-arm measurement, the molecule budget and the downstream test), <span class="mono">study/argentag</span> (ArgenTag S-read
+extraction, parent-read annotation and the independent scan), <span class="mono">study/calibration</span> (the calibration set, and the skera version and TSO-end checks on it)
+and <span class="mono">study/report</span> (computes every number and figure in this Note from the run's outputs and builds this page). <span class="mono">study/run_study.sh</span>
+runs the steps in order. The run behind this Note was made at {run_commits|commits}, as its step markers record; its numbers were computed at {kinnex_qc_commit|str}.
+Next to this page, <span class="mono">tables/</span> holds the source data for every figure and table, <span class="mono">numbers.json</span> every number in the text and
+<span class="mono">figures/</span> each figure as SVG and PDF. See README.md for the order of the steps.</p>
+</div>
+<footer>Generated by study/report/compute.py and render.py from the run's outputs. Software: Python {version_python|str}, polars {version_polars|str}, pysam {version_pysam|str}, edlib {version_edlib|str}, numpy {version_numpy|str}, scipy {version_scipy|str}, plotly {version_plotly|str}, kaleido {version_kaleido|str}, lima 2.13.0, isoseq 4.3.0, minimap2 2.30, skera 26.1.0 (BD144, as delivered) and 1.2.0 (ArgenTag, as published; version check), samtools 1.13.</footer>
+</main>
+</body>
+</html>

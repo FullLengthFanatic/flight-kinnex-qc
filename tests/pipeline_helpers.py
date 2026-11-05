@@ -28,6 +28,15 @@ sys.path.insert(0, str(REPO / "study"))
 from compare_runs import compare_trees  # noqa: E402
 from config import load_samples  # noqa: E402
 
+# Two made-up reads in the form of report/fig3_reads.json, for rendering the Note without the per-read data of Fig. 3.
+EXAMPLE_TRACKS = [
+    {"zm": 5, "read_len": 1600, "chain": "B C", "pattern": "truncated",
+     "features": [{"name": "B", "kind": "MAS", "strand": "+", "start": 0, "end": 17, "edits": 0},
+                  {"name": "C", "kind": "MAS", "strand": "+", "start": 1500, "end": 1517, "edits": 1}],
+     "segments": [{"start": 17, "end": 1500, "end_class": "proper", "polyT_len": None, "tso_side": None}],
+     "skera": [[17, 1500]]},
+    {"zm": 2, "read_len": 900, "chain": "", "pattern": "unresolved", "features": [], "segments": [], "skera": []}]
+
 
 def mini_samples(mini: Path) -> dict:
     return load_samples(mini / "samples_mini.tsv")

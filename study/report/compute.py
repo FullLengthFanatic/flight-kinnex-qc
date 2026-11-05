@@ -31,7 +31,7 @@ from kinnex_qc import metrics
 from kinnex_qc.skera import HEAD_MOL, mirror_junctions, unwritten_head
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "pipeline"))
-from common import ARG, ORDER3  # noqa: E402
+from common import ARG, KEY, ORDER3  # noqa: E402
 from config import load_config, load_samples, out_dir  # noqa: E402
 from read_tracks import tracks  # noqa: E402
 
@@ -39,7 +39,6 @@ REPO = Path(__file__).resolve().parent.parent.parent
 SAMPLES = [("BD144_ND", "ND", "None"), ("BD144_HM", "HM", "Home-made biotin-Read1 pulldown"),
            ("BD144_kin", "kin", "Kinnex TSO artifact removal")]
 ARG_HIFI = 1_964_147         # HiFi reads of the ArgenTag 8-fold cell, Table 1 of the ArgenTag/PacBio technical note
-KEY = {"ND": "nd", "HM": "hm", "kin": "kin", ARG: "arg"}     # library -> prefix of its numbers.json keys
 FIG3_CHAINS = ("Q' H' H Q", "Q' H' G' G H Q", "Q' H' G' F' E' D' D E F G H Q")
 
 

@@ -1,0 +1,6 @@
+# Number tokens of the Note's visible text that differ from report v10 (v10_text_numbers.txt), as tests/test_golden.py finds them:
+# old tokens, new tokens and the reason, tab-separated; tokens separated by spaces, "none" for no token. CHANGELOG.md lists the same changes.
+8	none	Title: the Note is retitled for the manuscript, "Supplementary Note: Kinnex array integrity in FLIGHT-seq libraries"; v10's title named the Kinnex 8-fold libraries
+none	0.1	Section 8 names the package version, kinnex-qc 0.1.0 in the frozen numbers.json (tokens 0.1 and 0; its 0 lines up with the first token of v10's commit 0ec84dd)
+84	none	Section 8: v10 named the commit of its own pipeline folder, 0ec84dd (tokens 0 and 84); this repository names the commits of the run and of compute instead
+none	7 419 4	Section 8: the commit compute ran at, kinnex_qc_commit (7d419a4 in the frozen numbers.json)
