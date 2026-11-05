@@ -120,6 +120,16 @@ def test_screen_variant_inlines_plotly_once_and_print_variant_draws_svg_files(ht
     assert visible_text(print_html) == visible_text(html)
 
 
+def test_screen_and_print_pages_load_nothing_from_the_network(html, print_html):
+    """No web fonts, stylesheets, scripts or images fetched by URL, so Chrome prints the same PDF offline; hyperlinks (<a href>)
+    are allowed. The inlined plotly bundle is left out: its code holds URLs it does not load here."""
+    bundle = re.search(r"<script>/\*\*\n\* plotly\.js v.*?</script>", html, flags=re.S)
+    for page in (html.replace(bundle.group(0), ""), print_html):
+        tags = re.findall(r"<(?!a\b)[a-z][^>]*>", page, flags=re.I)
+        assert [t for t in tags if re.search(r"\b(?:src|href)\s*=\s*[\"']?(?:https?:)?//", t, flags=re.I)] == []
+        assert not re.search(r"@import|url\(\s*[\"']?(?:https?:)?//", page, flags=re.I)
+
+
 def test_false_cut_lima_claim_is_checked_against_the_source_table(tmp_path):
     """Fig. 1's caption says the lima pass rates of ND and HM differ from kin's by less than 0.1 percentage point; render
     stops rather than print it when the false-cut anatomy table says otherwise."""
