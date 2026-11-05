@@ -79,6 +79,7 @@ def test_writes_tables_and_review_page_and_has_no_hifi_option(tmp_path):
     assert sorted(p.name for p in (tmp_path / "out").iterdir()) == sorted([*TABLES, "discordant_reads.html"])
     html = (tmp_path / "out" / "discordant_reads.html").read_text()
     assert page_tracks(html) == ["1", "3", "4"]                     # every disagreeing read, fewer than --n
+    assert re.findall(r'"text":"(Reads \d+ to \d+ of \d+[^"]*)"', html) == ["Reads 1 to 3 of 3: ticks are skera S-read boundaries"]
 
 
 @pytest.mark.real

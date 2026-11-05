@@ -2,6 +2,7 @@
 inputs and compares the tables with tests/golden/v10_tables/ byte for byte and numbers.json with the frozen
 tests/golden/v10_numbers.json (the input of the render step's golden test)."""
 import json
+import re
 
 import pytest
 
@@ -66,11 +67,11 @@ REQUIRED = {
     "tso_toward_lower_adapter_max": "max(g['tso_toward_lower_adapter'] for g in gates.values())",
     "bench_reads_per_class": "int(d['bench_classes']['n'][0])",
     "bench_hifi_class_min": "hifi_class_min",
-    **{f"bench_{c}_{r}": f"bench_rows cell ({c}, error {r})"
+    **{f"bench_{c}_{r}": f"bench_rows cell ({c}, error {r.replace('_', '.')})"
        for c in ("complete", "tso_tso_mirror", "r1_r1_mirror", "truncated_no_a", "truncated_no_q", "adapter_destroyed",
                  "decoy_motif", "opposite_join")
-       for r in ("0.001", "0.005", "0.01", "0.05")},
-    **{f"bench_mirror_precision_{r}": f"bench[{r}]['mirror_precision']" for r in ("0.001", "0.005", "0.01", "0.05")},
+       for r in ("0_001", "0_005", "0_01", "0_05")},
+    **{f"bench_mirror_precision_{r}": f"bench[{r.replace('_', '.')}]['mirror_precision']" for r in ("0_001", "0_005", "0_01", "0_05")},
     # skera false cuts: anatomy (Supplementary Fig. 1) and calibration set
     "false_cut_reads_share_min": "min(v['reads_with_false_cut'] for v in fca.values())",
     "false_cut_reads_share_max": "max(v['reads_with_false_cut'] for v in fca.values())",
@@ -137,7 +138,8 @@ REQUIRED = {
     **{f"arg_{f}": f"af['{f}']" for f in ("mirror_share", "tso_tso_per_1000", "r1_r1_per_1000", "non_passing_reads", "hifi_zmws",
                                            "junctions_tso_tso_share", "mirror_junctions", "single_tt_matching_rule",
                                            "proper_share_of_molecules", "usable_per_mirror_read", "sreads_per_passing_read",
-                                           "sreads_per_mirror_read", "junctions_at_A_tso_tso")},
+                                           "sreads_per_mirror_read")},
+    "arg_junctions_at_a_tso_tso": "af['junctions_at_A_tso_tso']",
     "arg_mirror_shortfall_ours": "af['mirror_shortfall_ours_per_hifi_zmw']",
     "arg_mirror_shortfall_sreads": "af['mirror_shortfall_sreads_per_hifi_zmw']",
     "arg_mirror_shortfall_ours_share": "af['mirror_shortfall_ours_per_hifi_zmw'] / af['sreads_per_passing_read']",
@@ -224,6 +226,9 @@ def test_main_reads_the_run_under_the_out_root(tmp_path, monkeypatch):
     samples.write_text((REPO / "study" / "samples.tsv").read_text())
     (tmp_path / "study.toml").write_text(f'fraction = 0.18\nsamples = "{samples}"\nout_root = "<out>"\n')
     out = tmp_path / "out"
+    (out / "argentag").mkdir(parents=True)
+    for name in compute.ARGENTAG_FILES:
+        (out / "argentag" / name).write_bytes(b"")
     (out / "logs" / "BD144_ND").mkdir(parents=True)
     (out / "logs" / "BD144_ND" / "s01_extract_segments.ok").write_text("2026-11-05 01:00:00 abcdef0123 10 fraction 0.18\n")
     seen = {}
@@ -236,6 +241,29 @@ def test_main_reads_the_run_under_the_out_root(tmp_path, monkeypatch):
                                             markers=(out / "logs" / "BD144_ND" / "s01_extract_segments.ok",))
     assert seen["report"] == run / "report" and seen["report"].is_dir()
     assert seen["fraction"] == 0.18 and seen["cells"]["BD144_ND"] == "PB538_3_r0912"
+
+
+def test_main_names_the_missing_argentag_outputs(tmp_path):
+    """Without the ArgenTag outputs compute stops at the start with one line, not a FileNotFoundError at the end."""
+    samples = tmp_path / "samples.tsv"
+    samples.write_text((REPO / "study" / "samples.tsv").read_text())
+    (tmp_path / "study.toml").write_text(f'fraction = 1\nsamples = "{samples}"\nout_root = "<out>"\n')
+    out = tmp_path / "out"
+    (out / "argentag").mkdir(parents=True)
+    (out / "argentag" / "full_read_summary.tsv").write_text("")
+    with pytest.raises(SystemExit) as e:
+        compute.main(["--config", str(tmp_path / "study.toml"), "--out-root", str(out)])
+    msg = str(e.value)
+    assert "\n" not in msg and "the Note needs the ArgenTag check" in msg
+    assert str(out / "argentag" / "independent_scan.txt") in msg and str(out / "argentag" / "full_read_summary.tsv") not in msg
+    assert not (out / "report").exists() and not (out / "hash_1").exists()
+
+
+def test_numbers_keys_are_lowercase_words():
+    """Every numbers.json key is a template placeholder name: lowercase letters, digits and underscores (no dots in the
+    benchmark's error rates)."""
+    keys = list(json.loads(V10_NUMBERS.read_text())) + list(REQUIRED)
+    assert [k for k in keys if not re.fullmatch(r"[a-z0-9_]+", k)] == []
 
 
 def test_run_commits_from_the_markers(tmp_path):

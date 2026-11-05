@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `read_track_figure` drew its title from the last legend group title instead of its `title` argument (a loop variable shadowed the argument, a bug carried from v10), so every `discordant_reads.html` figure showed a stray legend title. The page's five headings now read "Reads 1 to 5 of 30: ticks are skera S-read boundaries" and so on; the Note's Fig. 3, which passes no title, is unchanged. No number changed.
+
 - `discordant_reads.html` carries plotly inline (about 4.7 MB), so the review page opens without a network; v10's page loaded plotly from the plotly CDN. Its six figures hold the same data and layout as v10's (the same 30 reads in the same order). No number changed.
 
 - The threshold text in `gates/gate_skera.json` is now "reported only"; v10's carried an internal reference ("reported only (spec 17)"). No number changed.

@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import polars as pl
 from plotly.subplots import make_subplots
 
-from compute import ARG, ORDER3
+from common import ARG, ORDER3
 from kinnex_qc.patterns import MAS_ORDER
 from kinnex_qc.scan import Hit
 from kinnex_qc.schematics import FATE

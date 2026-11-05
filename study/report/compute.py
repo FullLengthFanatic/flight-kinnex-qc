@@ -9,8 +9,10 @@
 Read: the sample outputs <run>/<sample>/ (read_summary, annot_segments, segments, fate and read_features parquets, q1,
 q2 and gates), the analyses <run>/analyses/<analysis>/, the calibration set's checks and the ArgenTag outputs under the
 out root (<out root>/calibration, <out root>/argentag), and the cell of each sample from the samples table. <run> is the
-out root at fraction 1 and <out root>/hash_<fraction> below it, as in run_study.sh. Nothing is typed in by hand except
-the HiFi read count of the ArgenTag cell (ARG_HIFI), from Table 1 of the ArgenTag/PacBio technical note.
+out root at fraction 1 and <out root>/hash_<fraction> below it, as in run_study.sh. Typed in by hand:
+the HiFi read count of the ArgenTag cell (ARG_HIFI), from Table 1 of the ArgenTag/PacBio technical note; the depletion
+labels of the three BD144 libraries in Supplementary Table 1 (SAMPLES); the three example chains of Supplementary Fig. 3
+(FIG3_CHAINS). Everything else is read from the run's outputs.
 Usage: study/report/compute.py --config study/study.toml [--out-root <out root>]
 """
 import argparse
@@ -29,14 +31,13 @@ from kinnex_qc import metrics
 from kinnex_qc.skera import HEAD_MOL, mirror_junctions, unwritten_head
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "pipeline"))
+from common import ARG, ORDER3  # noqa: E402
 from config import load_config, load_samples, out_dir  # noqa: E402
 from read_tracks import tracks  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent.parent
 SAMPLES = [("BD144_ND", "ND", "None"), ("BD144_HM", "HM", "Home-made biotin-Read1 pulldown"),
            ("BD144_kin", "kin", "Kinnex TSO artifact removal")]
-ORDER3 = ["ND", "HM", "kin"]
-ARG = "ArgenTag"
 ARG_HIFI = 1_964_147         # HiFi reads of the ArgenTag 8-fold cell, Table 1 of the ArgenTag/PacBio technical note
 KEY = {"ND": "nd", "HM": "hm", "kin": "kin", ARG: "arg"}     # library -> prefix of its numbers.json keys
 FIG3_CHAINS = ("Q' H' H Q", "Q' H' G' G H Q", "Q' H' G' F' E' D' D E F G H Q")
@@ -53,6 +54,19 @@ class Inputs:
     calibration: Path
     argentag: Path
     markers: tuple[Path, ...] = ()
+
+
+ARGENTAG_FILES = ("argentag_sread_coords.parquet", "full_read_summary.tsv", "full_read_junctions.tsv", "flag_validation.tsv",
+                  "independent_scan.txt")
+
+
+def check_argentag(folder: Path) -> None:
+    """Stop with one line when the ArgenTag outputs are not all there (run_study.sh skips ArgenTag when argentag_dir is
+    unset or lacks its inputs)."""
+    missing = [str(folder / f) for f in ARGENTAG_FILES if not (folder / f).is_file()]
+    if missing:
+        sys.exit(f"compute.py: missing ArgenTag outputs: {', '.join(missing)}; the Note needs the ArgenTag check "
+                 f"(run_study.sh skips it when argentag_dir is unset or lacks data/segmented.bam or data/segmented.non_passing.bam)")
 
 
 def load_json(p: Path) -> dict:
@@ -371,8 +385,8 @@ def numbers(d: dict, fraction: float, fig3_zmws: list[int], markers=()) -> dict:
           "tso_toward_lower_adapter_max": max(g["tso_toward_lower_adapter"] for g in gates.values()),
           "bench_reads_per_class": int(d["bench_classes"]["n"][0]),
           "bench_hifi_class_min": min(v for (_, r), v in shares.items() if r <= 0.01)}
-    n |= {f"bench_{name}_{r:g}": v for (name, r), v in shares.items()}
-    n |= {f"bench_mirror_precision_{r:g}": bench[r]["mirror_precision"] for r in rates}
+    n |= {f"bench_{name}_{r:g}".replace(".", "_"): v for (name, r), v in shares.items()}
+    n |= {f"bench_mirror_precision_{r:g}".replace(".", "_"): bench[r]["mirror_precision"] for r in rates}
 
     # skera false cuts: their anatomy in the hash samples, and the calibration set
     n |= {"false_cut_reads_share_min": min(v["reads_with_false_cut"] for v in fca.values()),
@@ -450,7 +464,8 @@ def numbers(d: dict, fraction: float, fig3_zmws: list[int], markers=()) -> dict:
     n |= {f"arg_{f}": af[f] for f in ("mirror_share", "tso_tso_per_1000", "r1_r1_per_1000", "junctions_tso_tso_share",
                                        "single_tt_matching_rule", "proper_share_of_molecules", "usable_per_mirror_read",
                                        "sreads_per_passing_read", "sreads_per_mirror_read")}
-    n |= {f"arg_{f}": int(af[f]) for f in ("non_passing_reads", "hifi_zmws", "mirror_junctions", "junctions_at_A_tso_tso")}
+    n |= {f"arg_{f}": int(af[f]) for f in ("non_passing_reads", "hifi_zmws", "mirror_junctions")}
+    n["arg_junctions_at_a_tso_tso"] = int(af["junctions_at_A_tso_tso"])
     n |= {"arg_mirror_shortfall_ours": af["mirror_shortfall_ours_per_hifi_zmw"],
           "arg_mirror_shortfall_sreads": af["mirror_shortfall_sreads_per_hifi_zmw"],
           "arg_mirror_shortfall_ours_share": af["mirror_shortfall_ours_per_hifi_zmw"] / af["sreads_per_passing_read"],
@@ -538,6 +553,7 @@ def main(argv: list[str] | None = None) -> None:
     args = ap.parse_args(argv)
     config = load_config(args.config)
     out_root = Path(args.out_root or config["out_root"])
+    check_argentag(out_root / "argentag")
     report = out_dir(out_root, "report", config["fraction"])       # <run>/report
     run = report.parent
     inputs = Inputs(run=run, analyses=run / "analyses", calibration=out_root / "calibration", argentag=out_root / "argentag",

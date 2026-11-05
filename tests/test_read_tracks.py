@@ -35,6 +35,12 @@ def by_name(fig, name):
     return [t for t in fig.data if t.name == name]
 
 
+def test_figure_title_is_the_title_argument_not_a_legend_group_title():
+    """The loop that adds the legend entries must not overwrite the title argument."""
+    assert read_track_figure([read()], "Reads 1 to 1 of 1").layout.title.text == "Reads 1 to 1 of 1"
+    assert read_track_figure([read()], "").layout.title.text == ""
+
+
 def test_track_features_and_widths():
     fig = read_track_figure([read()], "t")
     r1 = [t for t in fig.data if t.name == "R1" and t.type == "bar"][0]

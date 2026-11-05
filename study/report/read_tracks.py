@@ -276,9 +276,9 @@ def read_track_figure(reads: list[dict], title: str) -> go.Figure:
         marker = dict(size=10, symbol="square", color=FEATURE_COLORS[name])
         if name == "unannotated":
             marker["line"] = dict(color=INK2, width=1)
-        title = "Adapters" if name == first_adapter else LEGEND_GROUP_TITLE.get(name)
+        group_title = "Adapters" if name == first_adapter else LEGEND_GROUP_TITLE.get(name)
         fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers", name=DISPLAY_NAME.get(name, name),
-                                 legendgroup=name, legendgrouptitle_text=title,
+                                 legendgroup=name, legendgrouptitle_text=group_title,
                                  legendrank=LEGEND_RANK[name], marker=marker))
     if adp_x:
         # Letters that share a row are staggered when close in x, so two adjacent adapters at 50-read

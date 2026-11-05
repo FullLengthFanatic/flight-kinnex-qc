@@ -218,6 +218,20 @@ def test_argentag_skipped_when_an_input_is_missing(tmp_path):
     assert f"ArgenTag skipped: {arg}/data/segmented.non_passing.bam does not exist" in r.stdout
 
 
+def test_report_steps_skipped_when_argentag_is_skipped(tmp_path):
+    """The Note needs the ArgenTag check: with ArgenTag skipped, the report steps are skipped too, with the reason logged,
+    even though their scripts exist."""
+    st = Study(tmp_path / "st")
+    (st.scripts / "report").mkdir()
+    for name in ("compute.py", "render.py"):
+        (st.scripts / "report" / name).write_text(STUB_PY)
+    r = st.run()
+    assert r.returncode == 0, r.stderr
+    assert not any(x.startswith(("argentag/", "report/")) for x in st.calls())
+    for step in ("report_compute", "report_render"):
+        assert re.search(rf"{step} skipped: the Note needs the ArgenTag check, which was skipped \(argentag_dir is not set\)", r.stdout)
+
+
 def test_markers_written_and_steps_skipped_on_rerun(study):
     assert study.run().returncode == 0
     m = study.markers()

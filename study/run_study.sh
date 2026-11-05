@@ -332,7 +332,8 @@ fi
 if [[ -n $ARGENTAG_SKIP ]]; then echo "[$(stamp)] ArgenTag skipped: $ARGENTAG_SKIP"; else RUN4+=("${ARGENTAG[@]}"); fi
 for st in "${REPORT[@]}"; do
   f=$SCRIPTS/report/${st#report_}.py
-  if [[ -f $f ]]; then RUN4+=("$st"); else echo "[$(stamp)] $st skipped: $f does not exist"; fi
+  if [[ -n $ARGENTAG_SKIP ]]; then echo "[$(stamp)] $st skipped: the Note needs the ArgenTag check, which was skipped ($ARGENTAG_SKIP)"
+  elif [[ -f $f ]]; then RUN4+=("$st"); else echo "[$(stamp)] $st skipped: $f does not exist"; fi
 done
 phase all -- "${RUN4[@]}"
 echo "[$(stamp)] done: $RUN_DIR"
