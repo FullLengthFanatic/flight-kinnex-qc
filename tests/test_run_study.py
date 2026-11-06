@@ -1,8 +1,9 @@
 """Tests for study/run_study.sh on stub scripts: RUN_STUDY_SCRIPTS points the step table at a scratch copy of the study
 folder layout whose scripts only record how they were called (and fail or hang when a test asks them to). Covers the
-order and arguments of every step, the .ok markers and their skipping on a rerun, --from and --fresh, a failing stage
-or hard gate stopping the run, a crashing skera gate only warning, INT and TERM stopping every chain, and the lock on
-the out root."""
+order and arguments of every step, the .ok markers and their skipping on a rerun (and their fraction and fail_subsample),
+--from and --fresh, --out over the config's out root, the memory budget from the environment, a failing stage or hard
+gate stopping the run and a failing chain the chains still running, a crashing skera gate only warning, INT, TERM and
+HUP stopping every chain, and the lock on the out root."""
 import fcntl
 import os
 import re
@@ -31,7 +32,8 @@ STAGES = ("pipeline/s01_extract_segments.py", "pipeline/s02_annotate_reads.py", 
 needs_gio = pytest.mark.skipif(shutil.which("gio") is None, reason="run_study.sh trashes markers with gio")
 
 # Every stub appends "<script> <arguments>" to $STUB_LOG; it exits 1 when the line contains one of the ;-separated
-# texts in $STUB_FAIL, and writes its pid to $STUB_PID and sleeps when the line contains $STUB_SLEEP.
+# texts in $STUB_FAIL (once $STUB_PID exists, when $STUB_SLEEP is set), and writes its pid to $STUB_PID and sleeps when
+# the line contains $STUB_SLEEP.
 STUB_PY = """import os
 import sys
 import time
@@ -45,6 +47,10 @@ if os.environ.get("STUB_SLEEP") and os.environ["STUB_SLEEP"] in call:
     Path(os.environ["STUB_PID"]).write_text(str(os.getpid()))
     time.sleep(120)
 if any(t in call for t in os.environ.get("STUB_FAIL", "").split(";") if t):
+    for _ in range(600):                 # with a sleeping stub, fail only once it sleeps
+        if not os.environ.get("STUB_SLEEP") or Path(os.environ["STUB_PID"]).exists():
+            break
+        time.sleep(0.05)
     sys.exit(1)
 """
 STUB_SH = """#!/bin/bash
@@ -241,7 +247,7 @@ def test_markers_written_and_steps_skipped_on_rerun(study):
     assert {"all/s06_concatenation_bias", "all/s07_depletion", "all/build_calibration_set", "all/mirror_arms.nd_cal_skera12",
             "all/false_cut_anatomy.BD144_kin", "all/tso_end_validation"} <= set(m)
     assert len(m) == len(SAMPLES) * len(steps) + 2 + len(phase4_calls(study, study.out))
-    assert all(re.fullmatch(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d \S+ \d+( fraction 1)?\n", t) for t in m.values()), m
+    assert all(re.fullmatch(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d \S+ \d+( fraction 1 fail_subsample 100)?\n", t) for t in m.values()), m
     assert (study.out / "logs" / "BD144_ND" / "s01_extract_segments.log").exists()
     r = study.run()
     assert r.returncode == 0, r.stderr
@@ -259,7 +265,7 @@ def test_a_new_fraction_runs_again_every_step_whose_outputs_sit_under_the_fracti
     cross-sample and analysis steps again, and skips the calibration steps, whose outputs are shared."""
     assert study.run().returncode == 0
     m = study.markers()
-    assert {k for k, t in m.items() if not t.endswith(" fraction 1\n")} == {f"all/{x}" for x in SHARED_STEPS}
+    assert {k for k, t in m.items() if not t.endswith(" fraction 1 fail_subsample 100\n")} == {f"all/{x}" for x in SHARED_STEPS}
     study.config.write_text(study.config.read_text().replace("fraction = 1\n", "fraction = 0.18\n"))
     r = study.run()
     assert r.returncode == 0, r.stderr
@@ -276,10 +282,52 @@ def test_a_new_fraction_runs_again_every_step_whose_outputs_sit_under_the_fracti
     assert "BD144_ND s01_extract_segments: the .ok marker is not from fraction 0.18" in r.stdout
     assert all(f"all {x} skip" in r.stdout for x in SHARED_STEPS)
     m = study.markers()
-    assert {k for k, t in m.items() if not t.endswith(" fraction 0.18\n")} == {f"all/{x}" for x in SHARED_STEPS}
+    assert {k for k, t in m.items() if not t.endswith(" fraction 0.18 fail_subsample 100\n")} == {f"all/{x}" for x in SHARED_STEPS}
     r = study.run()
     assert r.returncode == 0, r.stderr
     assert study.calls() == []
+
+
+def test_a_new_fail_subsample_runs_again_every_step_whose_outputs_sit_under_the_run_folder(study):
+    """A marker records fail_subsample with the fraction: after a change of fail_subsample in the config, every step whose
+    outputs sit under <run> runs again, the gates and stage 02 with the new value, and the calibration steps skip."""
+    assert study.run().returncode == 0
+    study.config.write_text(study.config.read_text().replace("fail_subsample = 100\n", "fail_subsample = 10\n"))
+    r = study.run()
+    assert r.returncode == 0, r.stderr
+    calls = study.calls()
+    mem = re.search(r"--mem-budget-gb (\d+)", "\n".join(calls))
+    assert mem, calls
+    for s in SAMPLES:
+        assert [x for x in calls if f"--sample {s} " in x] == [x.replace("--fail-subsample 100", "--fail-subsample 10")
+                                                               for x in per_sample_calls(study, s, mem.group(1))]
+    analyses = [x for x in phase4_calls(study, study.out) if not x.startswith("calibration/")]
+    assert calls[-len(analyses):] == analyses
+    assert "BD144_ND s02_annotate_reads: the .ok marker is not from fraction 1 and fail_subsample 10" in r.stdout
+    assert all(f"all {x} skip" in r.stdout for x in SHARED_STEPS)
+    m = study.markers()
+    assert {k for k, t in m.items() if not t.endswith(" fraction 1 fail_subsample 10\n")} == {f"all/{x}" for x in SHARED_STEPS}
+
+
+def test_memory_budget_from_the_environment(study):
+    """MEM_BUDGET_GB set in the environment is the budget s06 gets, in place of 0.8 x MemAvailable."""
+    r = study.run(MEM_BUDGET_GB="7")
+    assert r.returncode == 0, r.stderr
+    s06 = [x for x in study.calls() if "s06_concatenation_bias.py --sample " in x]
+    assert len(s06) == len(SAMPLES) and all(x.endswith(" --mem-budget-gb 7") for x in s06)
+    assert "phase 2, one sample at a time: s06 --mem-budget-gb 7" in r.stdout
+
+
+def test_out_replaces_the_out_root_of_the_config(study):
+    """--out over a config that sets out_root: every step writes under the --out folder and nothing under out_root."""
+    other = study.root / "other"
+    r = study.run("--out", str(other))
+    assert r.returncode == 0, r.stderr
+    calls = study.calls()
+    assert sum(f"--out-root {other} " in x for x in calls) == len(SAMPLES) * 11 + 2
+    assert f"--out {other}/calibration" in "\n".join(calls) and f"{other}/analyses/" in "\n".join(calls)
+    assert not any(str(study.out) in x for x in calls)
+    assert (other / "logs" / "all" / "s07_depletion.ok").exists() and not study.out.exists()
 
 
 def test_argentag_markers_are_shared_by_every_fraction(tmp_path):
@@ -361,6 +409,24 @@ def test_failing_analysis_stops_the_run(study):
     assert "FAILED: all downstream_test" in r.stderr
 
 
+def test_failing_chain_stops_the_chains_still_running(study):
+    """BD144_ND's s01 fails while BD144_HM's s01 is running: run_study.sh stops the BD144_HM chain at once (its step's
+    process is gone, its next step never starts) and exits 1, without waiting for that step to end."""
+    start = time.monotonic()
+    r = study.run(STUB_FAIL="s01_extract_segments.py --sample BD144_ND", STUB_SLEEP="s01_extract_segments.py --sample BD144_HM")
+    assert r.returncode == 1
+    assert time.monotonic() - start < 60                # the sleeping step would take 120 s
+    stub = int((study.root / "stub.pid").read_text())
+    for _ in range(100):
+        if _gone(stub):
+            break
+        time.sleep(0.1)
+    assert _gone(stub)
+    assert "FAILED: BD144_ND s01_extract_segments" in r.stderr
+    assert "STOPPED: the BD144_ND chain exited 1, every other chain was stopped" in r.stderr
+    assert not any("s02_annotate_reads.py --sample BD144_HM" in x for x in study.calls())
+
+
 @needs_gio
 def test_skera_gate_crash_only_warns_and_trashes_a_stale_gate_file(study):
     stale = study.out / "BD144_ND" / "gates" / "gate_skera.json"
@@ -381,7 +447,7 @@ def _gone(pid: int) -> bool:
         return True
 
 
-@pytest.mark.parametrize("sig, code", [(signal.SIGINT, 130), (signal.SIGTERM, 143)])
+@pytest.mark.parametrize("sig, code", [(signal.SIGINT, 130), (signal.SIGTERM, 143), (signal.SIGHUP, 129)])
 def test_signal_stops_every_chain(study, sig, code):
     study.log.write_text("")
     pid_file = study.root / "stub.pid"

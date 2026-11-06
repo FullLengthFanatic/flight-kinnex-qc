@@ -17,10 +17,10 @@
 # The first failing step or hard gate stops every other chain at once and the run (exit 1). gate_skera is a
 # measurement: a crash only warns and trashes a stale gate_skera.json, so that no later step reads it, and the run
 # goes on. A step that exits 0 writes <out root>/logs/<sample or all>/<step>.ok (date and time, git HEAD, seconds, and
-# "fraction F" when the step's outputs sit under <run>); a rerun skips it. A step without .ok, or whose .ok names
-# another fraction, runs from scratch; the steps that write into <out root>/calibration or <out root>/argentag, shared by
-# every fraction, skip whatever fraction their .ok was written at. Step logs <out root>/logs/<sample or all>/<step>.log
-# are appended.
+# "fraction F fail_subsample N" when the step's outputs sit under <run>); a rerun skips it. A step without .ok, or whose
+# .ok names another fraction or fail_subsample, runs from scratch; the steps that write into <out root>/calibration or
+# <out root>/argentag, shared by every fraction, skip whatever fraction their .ok was written at. Step logs
+# <out root>/logs/<sample or all>/<step>.log are appended.
 # INT, TERM or HUP to run_study.sh stops every chain it started. Only one run_study.sh may run at a time per out root;
 # a second one exits 3, naming the lock file it could not take.
 # Usage, from the repository root:
@@ -32,8 +32,9 @@
 #   --fresh   trash every .ok marker of the out root, then run
 # From the config: fraction, fail_subsample, processes (per sample), threads (lima, isoseq refine and the downstream
 # test), pbtools_env, samples, out_root, argentag_dir, reference_fasta, skera120_env, samtools_env, samtools and
-# minimap2. POLARS_MAX_THREADS defaults to processes; s06 gets --mem-budget-gb floor(0.8 x MemAvailable GiB), read
-# when phase 2 starts. RUN_STUDY_SCRIPTS (for the tests) replaces the study folder the step scripts are taken from.
+# minimap2. POLARS_MAX_THREADS defaults to processes; s06 gets --mem-budget-gb MEM_BUDGET_GB when it is set in the
+# environment, else floor(0.8 x MemAvailable GiB), read when phase 2 starts. RUN_STUDY_SCRIPTS (for the tests) replaces
+# the study folder the step scripts are taken from.
 set -euo pipefail
 
 for arg in "$@"; do
@@ -182,18 +183,18 @@ step_cmd() {   # step_cmd <sample|all> <step>: the command of one step, into the
 }
 
 run_stage() {   # run_stage <sample|all> <step>: one step, skipped when its .ok marker exists (and, for a step whose
-                # outputs sit under <run>, names this run's fraction)
-  local s=$1 st=$2 log=$LOGS/$1 t start secs rc=0 frac= ok
+                # outputs sit under <run>, names this run's fraction and fail_subsample)
+  local s=$1 st=$2 log=$LOGS/$1 t start secs rc=0 tag= ok
   local -a CMD
   mkdir -p "$log"
-  if [[ $SHARED != *" $st "* ]]; then frac=" fraction $FRACTION_TAG"; fi
+  if [[ $SHARED != *" $st "* ]]; then tag=" fraction $FRACTION_TAG fail_subsample $FAIL_SUBSAMPLE"; fi
   if [[ -f $log/$st.ok ]]; then
     ok=$(<"$log/$st.ok")
-    if [[ -z $frac || $ok == *"$frac" ]]; then
+    if [[ -z $tag || $ok == *"$tag" ]]; then
       echo "[$(stamp)] $s $st skip (ok: $ok)"
       return 0
     fi
-    echo "[$(stamp)] $s $st: the .ok marker is not from fraction $FRACTION_TAG (ok: $ok), running it again"
+    echo "[$(stamp)] $s $st: the .ok marker is not from fraction $FRACTION_TAG and fail_subsample $FAIL_SUBSAMPLE (ok: $ok), running it again"
   fi
   step_cmd "$s" "$st"
   t=$(stamp)
@@ -206,7 +207,7 @@ run_stage() {   # run_stage <sample|all> <step>: one step, skipped when its .ok 
     echo "[$(stamp)] FAILED: $s $st (exit $rc after $secs s, log: $log/$st.log)" >&2
     return 1
   fi
-  echo "$(stamp) $(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown) $secs$frac" > "$log/$st.ok"
+  echo "$(stamp) $(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown) $secs$tag" > "$log/$st.ok"
   echo "[$(stamp)] $s $st done in $secs s"
 }
 
@@ -314,7 +315,7 @@ fi
 
 phase "${SAMPLES[@]}" -- "${PHASE0[@]}"
 phase "${SAMPLES[@]}" -- "${PHASE1[@]}"
-MEM_BUDGET_GB=$(awk '/^MemAvailable:/ {print int(0.8 * $2 / 1048576)}' /proc/meminfo)
+MEM_BUDGET_GB=${MEM_BUDGET_GB:-$(awk '/^MemAvailable:/ {print int(0.8 * $2 / 1048576)}' /proc/meminfo)}
 export MEM_BUDGET_GB
 echo "[$(stamp)] phase 2, one sample at a time: s06 --mem-budget-gb $MEM_BUDGET_GB"
 for s in "${SAMPLES[@]}"; do phase "$s" -- "${PHASE2[@]}"; done
