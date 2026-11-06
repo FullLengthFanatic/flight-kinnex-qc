@@ -213,6 +213,39 @@ def test_false_cut_table_per_library_agrees_with_numbers_json():
     assert "\n".join(table) in (REPO / "docs" / "skera_cutting_error.md").read_text()
 
 
+def test_passages_two_readers_could_not_follow_are_rewritten():
+    """What kinnex-qc checks, the data, the chimera's real adapter and the chance baseline (README); why the PCR products line
+    up, why a real adapter sits next to a TSO or Read1, how a TSO-TSO molecule grows a mirror, the mirror size in words with an
+    example, the arms' orientation and the false-cut gap (concepts); the false cut's letter and the other strand (the skera
+    cutting error)."""
+    readme, concepts, skera = (" ".join((REPO / p).read_text().split()) for p in ("README.md", "docs/concepts.md", "docs/skera_cutting_error.md"))
+    rewritten = [
+        (readme, "a command that checks the array structure and artifact molecules (TSO-TSO, R1-R1, missing primers) in your own "
+                 "Kinnex HiFi reads and, with skera's S-reads, skera's cuts."),
+        (readme, "one BD Rhapsody cartridge (a bead-based single-cell capture kit)"),
+        (readme, "a home-made biotin-Read1 pulldown (HM)"),
+        (readme, "the public ArgenTag 8-fold dataset from the MDA-MB-453 cell line."),
+        (readme, "a whole molecule, the real adapter skera skipped, and the start of the next molecule."),
+        (readme, "bp shorter than if their lengths were randomly shuffled across arrays, under 1% of the mean partner."),
+        (concepts, "Since adjacent slots share an adapter, the eight slots require nine unique adapters: A, B, C, D, E, F, G, H and Q."),
+        (concepts, "the B end of the first product joins the B end of the second"),
+        (concepts, "or between a molecule and the end of the array for A and Q, so it lies next to the TSO or Read1 end of a molecule"),
+        (concepts, "Each X end then joins the X end of an ordinary molecule from the next slot"),
+        (concepts, "with the junction at G, two slots lie between G and Q (G to H and H to Q), so the array holds two molecules on each "
+                   "arm plus the TSO-TSO molecule, five in all."),
+        (concepts, "of the usable molecules on the arm after the junction (forward adapters, X to Q) as clean S-reads"),
+        (concepts, "of those on the arm before it (reverse-complement adapters, Q' to X')."),
+        (concepts, "(the sequence between where one S-read ends and the next begins) contains none of our adapters within 5 bp."),
+        (skera, "when it skips the real D, for example, it labels the false cut D, and the real D gets no label."),
+        (skera, "on reads from the other strand (adapters Q to A, so the read covers the array's reverse complement)"),
+    ]
+    assert [s for text, s in rewritten if s not in text] == []
+    replaced = [(readme, "runs the array and skera checks"), (readme, "the skipped adapter and the start of the next molecule"),
+                (readme, "shorter than by chance"), (concepts, "An adapter joins only its own letter"),
+                (concepts, "(where every real adapter sits)"), (concepts, "primed by the TSO-side primer"), (concepts, "2 x (slots from X to Q)")]
+    assert [s for text, s in replaced if s in text] == []
+
+
 def test_concepts_and_reader_guide_sections():
     concepts = (REPO / "docs" / "concepts.md").read_text()
     assert [x[3:] for x in concepts.splitlines() if x.startswith("## ")] == CONCEPTS_SECTIONS

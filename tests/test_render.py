@@ -232,6 +232,23 @@ CLAIMS = [
 ]
 
 
+def test_passages_a_reader_could_not_follow_are_rewritten_and_listed(html):
+    """The Note's readability edits: what the unwritten molecules map as often as (second key finding), which molecules the
+    end classes of Supplementary Fig. 2b count, what fail reads and the bead linkers are (Methods). CHANGELOG.md lists them
+    in a line under its entry on the Note's text."""
+    text = visible_text(html)
+    for s in ("skera leaves many molecules of mirror arrays unwritten (observed), and those molecules map as often as molecules from complete reads.",
+              "The end classes count only molecules with no primer inside them; fused molecules are counted separately, whatever their ends.",
+              "For fail reads (reads that failed to reach HiFi quality), the TSO threshold was relaxed to 4 edits",
+              "The two fixed linker sequences between the three parts of the BD Rhapsody bead's cell label (GTGA and GACA) and an anchored polyT "
+              "were scored after Read1."):
+        assert s in text, s
+    assert "they map as well as any" not in text and "bead cell label linkers" not in text
+    changelog = (render.HERE.parent.parent / "CHANGELOG.md").read_text().splitlines()
+    note_entry = next(i for i, line in enumerate(changelog) if line.startswith("- The Supplementary Note is built by"))
+    assert changelog[note_entry + 1].startswith("  - Readability edits")
+
+
 def test_claims_hold_for_the_golden_data(html):
     render.check_claims(GOLDEN / "v10_tables", NUMBERS)
     assert [claim for claim, _ in CLAIMS if claim not in visible_text(html)] == []

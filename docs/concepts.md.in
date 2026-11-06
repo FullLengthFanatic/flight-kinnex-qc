@@ -6,7 +6,7 @@ What you need to follow the Supplementary Note and the `kinnex-qc` report. State
 
 A PacBio HiFi read is the consensus of many passes over one DNA molecule, read in one well (ZMW) of a SMRT Cell. Kinnex makes each HiFi read carry several cDNA molecules: the 8-fold kit joins eight of them end to end into one array before sequencing.
 
-The cDNA is split into eight PCRs. The two primers of each PCR carry the two adapters of one slot: A and B for the first, B and C for the second, and so on up to H and Q for the eighth. That makes nine adapters, A, B, C, D, E, F, G, H and Q. An adapter joins only its own letter, so the eight PCR products line up in one order:
+The cDNA is split into eight PCRs. The two primers of each PCR carry the two adapters of one slot: A and B for the first, B and C for the second, and so on up to H and Q for the eighth. Since adjacent slots share an adapter, the eight slots require nine unique adapters: A, B, C, D, E, F, G, H and Q. Each product's end adapter can join only the same adapter on another product: the B end of the first product joins the B end of the second, the C end of the second joins the C end of the third, and so on. The eight PCR products therefore line up in one order, from A to Q:
 
 ```
 A [molecule 1] B [molecule 2] C [molecule 3] D [molecule 4] E [molecule 5] F [molecule 6] G [molecule 7] H [molecule 8] Q
@@ -22,17 +22,17 @@ skera writes two BAM files. Documented (https://skera.how/output.html): `segment
 
 After skera the standard workflow runs lima, which keeps S-reads with the expected primer at each end, then isoseq refine, which trims the polyA tail and removes chimeras, leaving full-length non-chimeric (fltnc) reads, which are mapped to the genome.
 
-The study does not cut reads where skera does. It searches every HiFi read for the nine adapters, the TSO and Read1 on both strands, keeps an adapter hit only within 4 bp of a TSO or Read1 hit (where every real adapter sits), and cuts at those adapters. This full-read segmentation is what the Note and `kinnex-qc` compare skera with.
+The study does not cut reads where skera does. It searches every HiFi read for the nine adapters, the TSO and Read1 on both strands, and keeps an adapter hit only within 4 bp of a TSO or Read1 hit. Every real adapter sits between two molecules, or between a molecule and the end of the array for A and Q, so it lies next to the TSO or Read1 end of a molecule; the rule drops adapter-like sequences inside the cDNA. The study then cuts at the adapters it keeps. This full-read segmentation is what the Note and `kinnex-qc` compare skera with.
 
 ## How a TSO-TSO molecule makes a mirror array
 
-Some cDNA molecules carry the TSO at both ends. Such a TSO-TSO molecule has no Read1 and no cell label. In its PCR both ends are primed by the TSO-side primer, so it gets the TSO-side adapter of its slot, call it X, at both ends. Each copy of X then joins the next slot's molecule, that one the next, and so on, so the array grows from the TSO-TSO molecule toward Q on both sides:
+Some cDNA molecules carry the TSO at both ends. Such a TSO-TSO molecule has no Read1 and no cell label. Both its ends are TSO ends, so its PCR gives it the TSO-side adapter of its slot, call it X, at both ends. Each X end then joins the X end of an ordinary molecule from the next slot, whose other end carries that slot's next adapter; that adapter joins a molecule of the slot after, and so on up to Q, on both sides:
 
 ```
 Q' ... X' [TSO-TSO] X ... Q
 ```
 
-A prime marks an adapter read on the opposite strand. The array mirrors itself around the TSO-TSO molecule, and the place where an adapter meets its own reverse complement is a mirror junction. Three predictions follow, and the library without depletion (ND) shows all three. Junctions sit at adapters B to Q, never at A, since A is never on a TSO-side primer. A mirror array with its junction at X holds 2 x (slots from X to Q) + 1 molecules, and {mirror_rule_overall|pct1} of ND reads with a single TSO-TSO junction hold exactly that many. And R1-R1 molecules (Read1 at both ends) get the lower letter twice, so their arrays grow toward A, with junctions at A to H but never at Q:
+A prime marks an adapter read on the opposite strand. The array mirrors itself around the TSO-TSO molecule, and the place where an adapter meets its own reverse complement is a mirror junction. Three predictions follow, and the library without depletion (ND) shows all three. Junctions sit at adapters B to Q, never at A, since A is never on a TSO-side primer. Each arm of a mirror array holds one molecule per slot from its junction letter to Q, and the TSO-TSO molecule sits between the arms: with the junction at G, two slots lie between G and Q (G to H and H to Q), so the array holds two molecules on each arm plus the TSO-TSO molecule, five in all. In ND, {mirror_rule_overall|pct1} of reads with a single TSO-TSO junction hold exactly the number their junction letter predicts. And R1-R1 molecules (Read1 at both ends) get the lower letter twice, so their arrays grow toward A, with junctions at A to H but never at Q:
 
 ```
 A ... X [R1-R1] X' ... A'
@@ -44,13 +44,13 @@ A TSO-TSO molecule and an R1-R1 molecule with the same letter can also join each
 A ... X [R1-R1] X' [TSO-TSO] X ... Q
 ```
 
-A mirror array costs yield because it is short. With its junction at H it holds three molecules, one of them the TSO-TSO artifact, yet it takes a ZMW like any other read. In ND a mirror read holds {nd_mirror_proper_per_read|fmt} usable molecules on average, against {nd_complete_proper_per_read|fmt} in a complete read. Observed, not documented (skera 26.1.0 on ND): skera puts almost every mirror read into `non_passing.bam` ({mirror_arms_non_passing_share|pct1} of ND reads with a single TSO-TSO junction). It writes {mirror_after_clean_share|pct1} of the usable molecules on the arm after the junction as clean S-reads, and {mirror_before_clean_share|pct1} of those on the arm before it.
+A mirror array costs yield because it is short. With its junction at H it holds three molecules, one of them the TSO-TSO artifact, yet it takes a ZMW like any other read. In ND a mirror read holds {nd_mirror_proper_per_read|fmt} usable molecules on average, against {nd_complete_proper_per_read|fmt} in a complete read. Observed, not documented (skera 26.1.0 on ND): skera puts almost every mirror read into `non_passing.bam` ({mirror_arms_non_passing_share|pct1} of ND reads with a single TSO-TSO junction). It writes {mirror_after_clean_share|pct1} of the usable molecules on the arm after the junction (forward adapters, X to Q) as clean S-reads, and {mirror_before_clean_share|pct1} of those on the arm before it (reverse-complement adapters, Q' to X').
 
 `examples/example_reads.html` shows one read of each kind from ND: a complete array, a TSO-TSO mirror, an R1-R1 mirror, a double mirror and a false cut.
 
 ## What a false cut is
 
-A false cut is a cut skera makes where the full-read segmentation finds no adapter: in a read skera passes, a gap between two consecutive S-reads with none of our adapters within 5 bp. Observed on all three libraries (skera 26.1.0): at a false cut skera has skipped a real adapter, most often D, and cut instead at a similar sequence inside the next molecule. The S-read before the cut is then a chimera (a whole molecule, the skipped adapter and the start of the next molecule) and the S-read after it a fragment (the rest of that molecule), and lima rejects both. [skera_cutting_error.md](skera_cutting_error.md) has the numbers.
+A false cut is a cut skera makes where the full-read segmentation finds no adapter: in a read skera passes, a gap between two consecutive S-reads (the sequence between where one S-read ends and the next begins) contains none of our adapters within 5 bp. Observed on all three libraries (skera 26.1.0): at a false cut skera has skipped a real adapter, most often D, and cut instead at a similar sequence inside the next molecule. The S-read before the cut is then a chimera (a whole molecule, the skipped adapter and the start of the next molecule) and the S-read after it a fragment (the rest of that molecule), and lima rejects both. [skera_cutting_error.md](skera_cutting_error.md) has the numbers.
 
 ## Glossary
 

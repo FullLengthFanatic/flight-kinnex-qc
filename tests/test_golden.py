@@ -4,7 +4,8 @@ numbers.json compute writes from the v10 inputs (tests/golden/v10_numbers.json),
 and tables are first cited in order. Fig. 3 draws per-read data, which is not frozen: the test draws two made-up reads
 (its plot is not visible text) and checks the caption's ZMWs, which come from numbers.json.
 The Note built from the full study rerun and tracked in report/ is held to the same files, apart from the approved number
-changes listed in tests/golden/approved_number_changes.json (only these report/ tests apply them): its tables are v10's
+changes listed in tests/golden/approved_number_changes.json (only these report/ tests and the real downstream test in
+tests/test_downstream_test.py apply them): its tables are v10's
 byte for byte but for the listed cells, its numbers.json is v10's but for the keys that name the run and the code and the
 listed keys, and its text numbers are v10's up to allowed_changes.txt and the listed tokens. Every listed change must
 occur in report/."""
@@ -155,3 +156,11 @@ def test_every_approved_change_occurs():
             at |= {i1 + k: j1 + k for k in range(i2 - i1)}
     for c in approved_changes("text"):
         assert (v10_tokens[c["token"]], now[at[c["token"]]]) == (c["v10"], c["new"]), c
+
+
+def test_who_applies_the_approved_changes_is_described_alike():
+    """This module's docstring, tests/golden/README.md, the about field of approved_number_changes.json and the CHANGELOG.md
+    entry that introduced the file all name both tests that apply it: the report/ tests here and the real downstream test."""
+    texts = {"docstring": __doc__, "README": (GOLDEN / "README.md").read_text(), "about": json.loads(APPROVED.read_text())["about"],
+             "CHANGELOG": next(line for line in (REPO / "CHANGELOG.md").read_text().splitlines() if "approved_number_changes.json` lists them" in line)}
+    assert [name for name, text in texts.items() if "real downstream test" not in " ".join(text.split())] == []
