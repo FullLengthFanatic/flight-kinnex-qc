@@ -166,7 +166,7 @@ R1-R1 molecules follow the same pattern at a lower level.</p>
 so each position PCR puts the lower-index adapter on the Read1 end and the higher-index adapter on the TSO end. A TSO-TSO molecule lacks a Read1 site, is primed
 by the TSO primer at both ends and receives the same higher-index adapter twice. Each copy then joins the next slot's molecule, so both halves grow toward Q
 (Supplementary Fig. 4a). This predicts three things the ND data show: junctions occur at adapters B to Q but not at A (A is never on a TSO primer); a mirror array with its junction at adapter X holds
-one molecule per slot from X to Q on each of its 2 arms, plus 1 TSO-TSO molecule (five in all with the junction at G, whose arms each span G to H and H to Q),
+one molecule per slot from X to Q on each of its 2 arms, plus 1 TSO-TSO molecule (five in all with the junction at G, since each arm of the array then spans G to H and H to Q),
 a count that {mirror_rule_overall|pct1} of single-junction reads match exactly; and R1-R1 molecules, which receive the lower-index adapter twice,
 make mirrors whose halves run to A, with junctions at A to H but never at Q. TSO-TSO and R1-R1 molecules of the same letter can also pair with each other, giving long double mirrors
 (Supplementary Table 5).</p>
@@ -186,7 +186,7 @@ H: such a read holds one TSO-TSO molecule, and the ones that remain are longer (
 the other letters), as expected if short SMRTbells are lost in the bead cleanups (inferred). B is more common than C in both ordinary and double mirrors, a slot-specific
 difference we cannot explain. ArgenTag shows the same profile (section 6).</p>
 </div>
-<figure id="fig4"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 4</span> TSO-TSO molecules make mirror arrays</figcaption><!--schematic fig4a--><!--figure fig4--><figcaption class="legend"><b>a</b>, Mechanism (schematic). <b>b</b>, Mirror junctions in ND by the adapter on both sides of the junction, coloured by the molecule at the junction. <b>c</b>, Molecules per read for reads with one mirror junction holding a TSO-TSO molecule: observed median against the prediction 2 x (slots from X to Q) + 1 molecules: one per slot from the junction adapter X to Q on each arm, plus the TSO-TSO molecule (five with the junction at G).</figcaption></figure>
+<figure id="fig4"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 4</span> TSO-TSO molecules make mirror arrays</figcaption><!--schematic fig4a--><!--figure fig4--><figcaption class="legend"><b>a</b>, Mechanism (schematic). <b>b</b>, Mirror junctions in ND by the adapter on both sides of the junction, coloured by the molecule at the junction. <b>c</b>, Molecules per read for reads with one mirror junction holding a TSO-TSO molecule: observed median against the prediction 2 x (slots from X to Q) + 1 molecules. The prediction counts one molecule per slot from the junction adapter X to Q on each arm, plus the TSO-TSO molecule (five with the junction at G).</figcaption></figure>
 <p class="tablecap"><span>Supplementary Table 5</span> Molecules at mirror junctions in ND</p><!--table S5-->
 
 <h2 id="s4"><span class="sec">4</span>Effect on yield</h2>

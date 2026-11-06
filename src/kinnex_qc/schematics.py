@@ -93,7 +93,8 @@ def false_cut_svg(fa: dict) -> str:
     out.append(f'<text x="10" y="{y4 - 12}" class="svglabel">Our segmentation keeps both molecules</text>'
                f'<rect x="{m1}" y="{y4}" width="{w}" height="22" rx="3" fill="{light}" stroke="{dark}"/><text x="{m1 + w / 2}" y="{y4 + 15}" text-anchor="middle" class="svgsmall">proper molecule</text>'
                f'<rect x="{m2}" y="{y4}" width="{w}" height="22" rx="3" fill="{light}" stroke="{dark}"/><text x="{m2 + w / 2}" y="{y4 + 15}" text-anchor="middle" class="svgsmall">proper molecule</text>')
-    out.append(f'<text x="10" y="{y4 + 48}" class="svgsmall">On reads from the other strand the picture is mirrored: the cut falls in the molecule after the skipped adapter in the direction of the read,'
+    out.append(f'<text x="10" y="{y4 + 48}" class="svgsmall">On reads that cover the array\'s reverse complement (adapters Q to A) the picture is mirrored.</text>'
+               f'<text x="10" y="{y4 + 64}" class="svgsmall">The cut falls in the molecule after the real adapter skera did not cut at, in the direction of the read,'
                f' and the fragment keeps the Read1 end.</text>')
-    return (f'<svg class="schematic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 256" role="img" aria-label="How one skera false cut breaks two molecules">'
+    return (f'<svg class="schematic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 272" role="img" aria-label="How one skera false cut breaks two molecules">'
             f'{SVG_STYLE}{"".join(out)}</svg>')

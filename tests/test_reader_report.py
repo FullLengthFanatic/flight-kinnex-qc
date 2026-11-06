@@ -367,3 +367,19 @@ def test_false_cut_svg_lima_labels_only_with_fates():
     assert reader.startswith("<svg") and reader.endswith("</svg>")
     assert "lima" not in reader
     assert schematics.schematic_svg().startswith("<svg")
+
+
+def test_report_words_the_size_rule_and_the_false_cut_as_the_note_does(with_sreads):
+    """The mirror size rule in words, the chimera, the real adapter skera did not cut at and the reads that cover the
+    array's reverse complement, in the words of the Supplementary Note and docs/ (the drawing is the Note's Fig. 1)."""
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", _html(with_sreads)))
+    new = ["A whole two-armed mirror with its junction at adapter X therefore holds one molecule per slot from X to the last adapter on "
+           "each of its 2 arms, plus 1 TSO-TSO molecule.",
+           "lima passed the chimera (a whole molecule, then the real adapter skera did not cut at, then the start of the next molecule)",
+           "with the Kinnex 8-fold letters and D as the real adapter skera did not cut at.",
+           "the strand rule (on reads that cover the array's reverse complement, adapters Q to A, the fragment keeps the Read1 end)",
+           "On reads that cover the array's reverse complement (adapters Q to A) the picture is mirrored. The cut falls in the molecule "
+           "after the real adapter skera did not cut at, in the direction of the read, and the fragment keeps the Read1 end."]
+    assert [s for s in new if s not in text] == []
+    old = ["2 x (slots from X to the last adapter)", "reads from the other strand", "before the skipped adapter", "D as the skipped adapter"]
+    assert [s for s in old if s in text] == []

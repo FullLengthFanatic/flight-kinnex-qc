@@ -36,13 +36,12 @@ PRINT_CSS = HERE / "print.css"
 FONT_DIR = HERE.parent.parent / "resources" / "fonts"
 FIGURES = ("fig2", "fig3", "fig4", "fig5", "fig6", "fig7", "fig8", "fig9")
 SCHEMATICS = {"fig1": "Supplementary_fig1", "fig4a": "Supplementary_fig4a_schematic"}      # slot -> file name in figures/
-# The fonts v10 loaded from Google Fonts, inlined in both pages: family, weight, style, file in resources/fonts (README.md
-# there names the releases). Source Serif 4 in the static cuts of the optical sizes v10 set it at: Small Text, Subhead.
-FONTS = [("IBM Plex Sans", 400, "normal", "IBMPlexSans-Regular.woff2"), ("IBM Plex Sans", 500, "normal", "IBMPlexSans-Medium.woff2"),
-         ("IBM Plex Sans", 600, "normal", "IBMPlexSans-SemiBold.woff2"), ("IBM Plex Mono", 400, "normal", "IBMPlexMono-Regular.woff2"),
-         ("IBM Plex Mono", 500, "normal", "IBMPlexMono-Medium.woff2"), ("Source Serif 4", 400, "normal", "SourceSerif4SmText-Regular.ttf.woff2"),
+# The fonts v10 loaded from Google Fonts, in the weights the template uses, inlined in both pages: family, weight, style,
+# file in resources/fonts (README.md there names the releases). Source Serif 4 in the static cuts of the optical sizes v10
+# set it at: Small Text, Subhead.
+FONTS = [("IBM Plex Sans", 400, "normal", "IBMPlexSans-Regular.woff2"), ("IBM Plex Sans", 600, "normal", "IBMPlexSans-SemiBold.woff2"),
+         ("IBM Plex Mono", 400, "normal", "IBMPlexMono-Regular.woff2"), ("Source Serif 4", 400, "normal", "SourceSerif4SmText-Regular.ttf.woff2"),
          ("Source Serif 4", 600, "normal", "SourceSerif4SmText-Semibold.ttf.woff2"), ("Source Serif 4", 400, "italic", "SourceSerif4SmText-It.ttf.woff2"),
-         ("Source Serif 4 Subhead", 400, "normal", "SourceSerif4Subhead-Regular.ttf.woff2"),
          ("Source Serif 4 Subhead", 600, "normal", "SourceSerif4Subhead-Semibold.ttf.woff2")]
 
 

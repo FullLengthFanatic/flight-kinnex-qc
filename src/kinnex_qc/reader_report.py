@@ -424,8 +424,8 @@ Junction molecules that also hold a primer inside them are counted.</p>""")
                 for r in s["mirror_size_rule"]]
         out.append(f"""<div class="prose"><p>A TSO-TSO molecule takes the adapter of the TSO end of its slot at both ends, and the array
 then grows from it towards the last adapter on both sides. A whole two-armed mirror with its junction at adapter X therefore holds
-2 x (slots from X to the last adapter) + 1 molecules. The table compares that with the reads that have exactly one mirror junction,
-holding a TSO-TSO molecule.</p></div>
+one molecule per slot from X to the last adapter on each of its 2 arms, plus 1 TSO-TSO molecule. The table compares that with the reads
+that have exactly one mirror junction, holding a TSO-TSO molecule.</p></div>
 {_table(['Junction adapter', 'Reads', 'Molecules predicted', 'Median molecules', 'Share with the predicted number'], rows, 'num')}
 <p class="legend">summary.json: <code>mirror_size_rule</code>.</p>""")
     if s["junction_composition"]:
@@ -499,15 +499,15 @@ the cut. In the three BD144 libraries of the study behind this package (observed
 a real adapter and cut at a similar sequence inside the next molecule, a median of about 900 bp past it. skera labelled the cut D in 74%
 of false cuts in each library. The adapter it skipped, found at 99.6% of false cuts, was D in 74 to 75% of those and had the letter skera
 gave the cut in 99%, so the labels still ran in order and the read still passed. Of the two S-reads around such a cut, lima passed the
-chimera (the molecule before the skipped adapter, the adapter and the start of the next molecule) in under 0.5% of cases and the fragment
-(the rest of that molecule) almost never. Our segmentation cuts at the real adapters and keeps both molecules; this command counts false
-cuts and does not run lima.</p>
+chimera (a whole molecule, then the real adapter skera did not cut at, then the start of the next molecule) in under 0.5% of cases and the
+fragment (the rest of that molecule) almost never. Our segmentation cuts at the real adapters and keeps both molecules; this command counts
+false cuts and does not run lima.</p>
 <p class="headline"><span class="big">{_pct(k['false_cut_reads_share'])}</span> of the {k['complete_passing_reads']:,} complete arrays
 skera passes have at least one false cut; they hold {k['false_cuts']:,} false cut{'s' if k['false_cuts'] != 1 else ''} in all.</p></div>
 <figure>{false_cut_svg(k)}<figcaption class="legend">One false cut, drawn to explain and not to scale, with the Kinnex 8-fold
-letters and D as the skipped adapter. The cut position (at a D-like sequence inside the next molecule) and the strand rule (on reads from
-the other strand the fragment keeps the Read1 end) are as observed in the three BD144 libraries (skera 26.1.0), not documented skera
-behaviour. The lima verdicts of the study's drawing are left out: this command does not run lima.</figcaption></figure>
+letters and D as the real adapter skera did not cut at. The cut position (at a D-like sequence inside the next molecule) and the strand
+rule (on reads that cover the array's reverse complement, adapters Q to A, the fragment keeps the Read1 end) are as observed in the three
+BD144 libraries (skera 26.1.0), not documented skera behaviour. The lima verdicts of the study's drawing are left out: this command does not run lima.</figcaption></figure>
 {_numbers([
     (f"{k['complete_reads']:,}", "Complete arrays among the reads checked.", _key("skera.complete_reads", k["complete_reads"])),
     (f"{k['complete_passing_reads']:,}", "Complete arrays that skera passes: the base of the false-cut numbers.",

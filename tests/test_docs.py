@@ -352,6 +352,13 @@ def test_open_items_each_in_one_marked_place():
     assert ARGENTAG_SENTENCE in (REPO / "docs" / "data.md").read_text()
 
 
+def test_reader_guide_words_the_size_rule_as_the_note_does():
+    guide = (REPO / "docs" / "reader_guide.md").read_text()
+    assert ("with the expected count, one molecule per slot from X to the last adapter on each of the 2 arms plus 1 TSO-TSO "
+            "molecule (") in guide
+    assert "2 x (slots from X to the last adapter)" not in guide
+
+
 def test_the_deposit_is_described_as_proposed():
     """Where the BD144 data go is still open (ACCESSION_TBD): the docs describe the files as the proposed deposit."""
     for p in (REPO / "README.md", REPO / "docs" / "data.md"):

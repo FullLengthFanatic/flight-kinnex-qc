@@ -185,13 +185,12 @@ def test_screen_and_print_pages_load_nothing_from_the_network(html, print_html):
         assert not re.search(r"@import|url\(\s*[\"']?(?:https?:)?//", page, flags=re.I)
 
 
-# The fonts v10 loaded from Google Fonts, as the Note embeds them: family, weight, style and file in resources/fonts.
-# Source Serif 4 in its static optical-size cuts: Small Text for the text, Subhead for the title.
-FONTS = {("IBM Plex Sans", 400, "normal"): "IBMPlexSans-Regular.woff2", ("IBM Plex Sans", 500, "normal"): "IBMPlexSans-Medium.woff2",
-         ("IBM Plex Sans", 600, "normal"): "IBMPlexSans-SemiBold.woff2", ("IBM Plex Mono", 400, "normal"): "IBMPlexMono-Regular.woff2",
-         ("IBM Plex Mono", 500, "normal"): "IBMPlexMono-Medium.woff2", ("Source Serif 4", 400, "normal"): "SourceSerif4SmText-Regular.ttf.woff2",
+# The fonts of v10 (which loaded them from Google Fonts) in the weights the template uses, as the Note embeds them: family,
+# weight, style and file in resources/fonts. Source Serif 4 in its static optical-size cuts: Small Text for the text,
+# Subhead for the title.
+FONTS = {("IBM Plex Sans", 400, "normal"): "IBMPlexSans-Regular.woff2", ("IBM Plex Sans", 600, "normal"): "IBMPlexSans-SemiBold.woff2",
+         ("IBM Plex Mono", 400, "normal"): "IBMPlexMono-Regular.woff2", ("Source Serif 4", 400, "normal"): "SourceSerif4SmText-Regular.ttf.woff2",
          ("Source Serif 4", 600, "normal"): "SourceSerif4SmText-Semibold.ttf.woff2", ("Source Serif 4", 400, "italic"): "SourceSerif4SmText-It.ttf.woff2",
-         ("Source Serif 4 Subhead", 400, "normal"): "SourceSerif4Subhead-Regular.ttf.woff2",
          ("Source Serif 4 Subhead", 600, "normal"): "SourceSerif4Subhead-Semibold.ttf.woff2"}
 FONT_DIR = render.HERE.parent.parent / "resources" / "fonts"
 
@@ -267,10 +266,10 @@ def test_passages_a_reader_could_not_follow_in_round_2_are_rewritten_and_listed(
            "next to a TSO or Read1, and so rejects the look-alikes inside cDNA: every real adapter lies between two molecules (or at an end "
            "of the array), so it sits next to a molecule end.",
            "holds one molecule per slot from X to Q on each of its 2 arms, plus 1 TSO-TSO molecule (five in all with the junction at G, "
-           "whose arms each span G to H and H to Q), a count that",
+           "since each arm of the array then spans G to H and H to Q), a count that",
            "hold exactly the predicted number of molecules, one per slot from X to Q on each of the 2 arms plus 1 TSO-TSO molecule.",
-           "against the prediction 2 x (slots from X to Q) + 1 molecules: one per slot from the junction adapter X to Q on each arm, plus the "
-           "TSO-TSO molecule (five with the junction at G).",
+           "against the prediction 2 x (slots from X to Q) + 1 molecules. The prediction counts one molecule per slot from the junction "
+           "adapter X to Q on each arm, plus the TSO-TSO molecule (five with the junction at G).",
            " Single TSO-TSO junction reads with one molecule per slot from X to Q on each of 2 arms plus 1 at the junction "]
     assert [s for s in new if s not in text] == [] and [s for s in new if s not in tracked] == []
     old = ["of their junctions hold", "an adapter joins only its own letter", "between tenths of the sample", "the skipped adapter and the first part",
@@ -280,6 +279,30 @@ def test_passages_a_reader_could_not_follow_in_round_2_are_rewritten_and_listed(
     changelog = (render.HERE.parent.parent / "CHANGELOG.md").read_text().splitlines()
     note_entry = next(i for i, line in enumerate(changelog) if line.startswith("- The Supplementary Note is built by"))
     assert changelog[note_entry + 2].startswith("  - Readability edits, second round")
+
+
+def test_round_2_wording_reaches_fig_1_and_the_size_rule_reads_cleanly(html):
+    """The drawing of Supplementary Fig. 1 takes section 1's round 2 wording (reads that cover the array's reverse
+    complement, the real adapter skera did not cut at); in section 3 the arms belong to the array, not to G; the Fig. 4c
+    legend gives the prediction in words in a sentence of its own. CHANGELOG.md quotes the size rule's words of sections 3
+    and 6 and of Supplementary Table 7 verbatim in round 2's line, and lists the Fig. 1 edit in the line after it."""
+    text = visible_text(html)
+    tracked = visible_text((render.HERE.parent.parent / "report" / "supplementary_note.html").read_text(encoding="utf-8"))
+    section3 = ("one molecule per slot from X to Q on each of its 2 arms, plus 1 TSO-TSO molecule (five in all with the junction at G, since "
+                "each arm of the array then spans G to H and H to Q)")
+    section6 = "one per slot from X to Q on each of the 2 arms plus 1 TSO-TSO molecule"
+    table7 = "Single TSO-TSO junction reads with one molecule per slot from X to Q on each of 2 arms plus 1 at the junction"
+    new = ["On reads that cover the array's reverse complement (adapters Q to A) the picture is mirrored. The cut falls in the molecule "
+           "after the real adapter skera did not cut at, in the direction of the read, and the fragment keeps the Read1 end.",
+           section3, section6, table7,
+           "holding a TSO-TSO molecule: observed median against the prediction 2 x (slots from X to Q) + 1 molecules. The prediction counts"]
+    assert [s for s in new if s not in text] == [] and [s for s in new if s not in tracked] == []
+    old = ["reads from the other strand", "skipped adapter", "whose arms"]
+    assert [s for s in old if s in text] == [] and [s for s in old if s in tracked] == []
+    changelog = (render.HERE.parent.parent / "CHANGELOG.md").read_text().splitlines()
+    note_entry = next(i for i, line in enumerate(changelog) if line.startswith("- The Supplementary Note is built by"))
+    assert [q for q in (section3, section6, table7) if f'"{q}"' not in changelog[note_entry + 2]] == []
+    assert changelog[note_entry + 3].startswith("  - Supplementary Fig. 1's drawing")
 
 
 def test_claims_hold_for_the_golden_data(html):
