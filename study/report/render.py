@@ -221,7 +221,7 @@ def supplementary_tables(tables: Path, n: dict) -> dict[str, str]:
         ["Mirror reads, share of HiFi reads", *[pct(share[(x, "mirror")], 3) for x in ORDER3], pct(af["mirror_share"], 3)],
         ["Mirror junctions holding a TSO-TSO molecule", *[pct(bdf[x]["junctions_tso_tso_share"], 1) for x in ORDER3], pct(af["junctions_tso_tso_share"], 1)],
         ["TSO-TSO junctions at adapter A", *[fmt(bdf[x]["junctions_at_A_tso_tso"]) for x in ORDER3], fmt(int(af["junctions_at_A_tso_tso"]))],
-        ["Single TSO-TSO junction reads with 2 x (slots from X to Q) + 1 molecules", *[pct(bdf[x]["single_tt_matching_rule"], 1) for x in ORDER3],
+        ["Single TSO-TSO junction reads with one molecule per slot from X to Q on each of 2 arms plus 1 at the junction", *[pct(bdf[x]["single_tt_matching_rule"], 1) for x in ORDER3],
          pct(af["single_tt_matching_rule"], 1)],
         ["TSO-TSO molecules per 1,000 molecules", *[f"{art[(x, 'TSO-TSO')]:.3g}" for x in ORDER3], f"{af['tso_tso_per_1000']:.3g}"],
         ["R1-R1 molecules per 1,000 molecules", *[f"{art[(x, 'R1-R1')]:.3g}" for x in ORDER3], f"{af['r1_r1_per_1000']:.3g}"],

@@ -69,7 +69,7 @@ one Revio SMRT Cell each. Compared with the public ArgenTag MDA-MB-453 8-fold da
 <a href="#s4">4 Effect on yield</a><a href="#s5">5 Concatenation bias</a><a href="#s6">6 ArgenTag comparison</a><a href="#s7">7 Methods</a><a href="#s8">8 Code and data</a></nav>
 </header>
 <section class="findings" aria-label="Key findings">
-<div class="finding"><div class="num">{nd_mirror_share|pct1}</div><p>of HiFi reads from the library without TSO-TSO depletion (ND) are mirror arrays; {nd_mirror_junction_tso_tso_share|pct1} of their junctions hold a TSO-TSO molecule. With the home-made (HM) or Kinnex (kin) depletion: {hm_mirror_share|small_pct} and {kin_mirror_share|small_pct}.</p></div>
+<div class="finding"><div class="num">{nd_mirror_share|pct1}</div><p>of HiFi reads from the library without TSO-TSO depletion (ND) are mirror arrays; {nd_mirror_junction_tso_tso_share|pct1} of their mirror junctions (an adapter followed by its own reverse complement) hold a TSO-TSO molecule. With the home-made (HM) or Kinnex (kin) depletion: {hm_mirror_share|small_pct} and {kin_mirror_share|small_pct}.</p></div>
 <div class="finding"><div class="num">{loss_mapped|pct1}</div><p>fewer molecules per HiFi read reach the mapped BAM without depletion, with the standard skera workflow ({nd_mapped_fltnc_per_hifi_zmw|fmt} against {kin_mapped_fltnc_per_hifi_zmw|fmt} in kin). Cutting every HiFi read ourselves narrows the gap to {loss_ours|pct1}: skera leaves many molecules of mirror arrays unwritten (observed), and those molecules map as often as molecules from complete reads.</p></div>
 <div class="finding"><div class="num">{partners_shorter_bp_min|f0} to {partners_shorter_bp_max|f0} bp</div><p>shorter partners for long cDNA molecules (4 kb or more) than by chance, under 1% of the mean partner. A limit on total array length explains it; neighbours in an array show at most a small preference by length.</p></div>
 <div class="finding"><div class="num">{arg_mirror_share|pct1}</div><p>of ArgenTag 8-fold HiFi reads are mirror arrays, counted in the full reads ArgenTag shared ({nd_mirror_share|pct1} in ND, {kin_mirror_share|small_pct} in kin), with {arg_tso_tso_per_1000|f1} TSO-TSO molecules per 1,000, although ArgenTag describes its cDNA as TSO artifact-free.</p></div>
@@ -79,7 +79,8 @@ one Revio SMRT Cell each. Compared with the public ArgenTag MDA-MB-453 8-fold da
 <div><dt>HiFi read, ZMW</dt><dd>A ZMW is the well of a SMRT Cell in which one DNA molecule is read many times over; the consensus of those passes is one HiFi read.
 Here each HiFi read is one Kinnex array.</dd></div>
 <div><dt>Kinnex 8-fold array</dt><dd>Eight cDNA molecules joined end to end, separated by nine adapters, A, B, C, D, E, F, G, H and Q, always in this order.
-Each molecule is amplified in one of eight PCRs, which gives it the two adapters of its slot (A and B, B and C, ..., H and Q); an adapter joins only its own letter.</dd></div>
+Each molecule is amplified in one of eight PCRs, which gives it the two adapters of its slot (A and B, B and C, ..., H and Q). An adapter can join only the same adapter on another molecule
+(the B end of a molecule from the first slot joins the B end of one from the second), which keeps the slots in this order.</dd></div>
 <div><dt>Proper (usable) molecule</dt><dd>A cDNA molecule with the template-switching oligo (TSO) at one end and Read1, followed by the cell label and UMI, at the other.
 Only these can be assigned to a cell. Fused: two molecules joined without an adapter between them.</dd></div>
 <div><dt>TSO-TSO and R1-R1 molecules</dt><dd>Artifacts with a TSO (or Read1) at both ends. A TSO-TSO molecule carries no cell label; TSO-TSO depletion removes these
@@ -102,14 +103,14 @@ sensitivity is the share of reads with the property that the test flags.</dd></d
 <p>Each SMRT Cell carried one library. To keep compute to one day, every analysis uses a random {fraction|pct0} of each cell's ZMWs, picked by a hash of the ZMW number
 ({hifi_analysed_min|mio2} to {hifi_analysed_max|mio2} million HiFi reads per library). Taking the first reads of the HiFi BAM instead
 would bias the results: along the BAM order, the share of mirror reads in ND ranges from {nd_mirror_by_tenth_min|pct1} to {nd_mirror_by_tenth_max|pct1}
-between tenths of the sample. The hash sample matches skera's whole-cell report in S-reads per HiFi read and in passing reads (Supplementary Table 1).
+across different tenths of the sample. The hash sample matches skera's whole-cell report in S-reads per HiFi read and in passing reads (Supplementary Table 1).
 The S-reads that skera wrote for the sampled reads, the existing lima and refine outputs and the existing mapped fltnc BAM were matched to them by ZMW.</p>
 <p>We cut every HiFi read ourselves rather than use skera's S-reads, because skera sometimes cuts in the wrong place, and always in the same way
 (Supplementary Fig. 1). In complete arrays that skera passes, {false_cut_reads_share_min|pct1} to {false_cut_reads_share_max|pct1}
 of reads carry such a false cut, in all three libraries alike. skera skips a real adapter, most often D ({nd_false_cut_missed_is_d|pct0}), and calls the same letter
 ({nd_false_cut_missed_same_letter|pct0} of false cuts) at a sequence that resembles it inside the next molecule, a median {nd_false_cut_median_cut_to_missed_bp|f0} bp
-further along the read. Two S-reads come out wrong. The one before the false cut is a chimera: a whole molecule, the skipped adapter and the first part of the cut molecule.
-The one after it is a fragment, the rest of the cut molecule. On reads whose adapters run A to Q it keeps the TSO end; on reads from the other strand (Q to A)
+further along the read. Two S-reads come out wrong. The one before the false cut is a chimera: a whole molecule, then the real adapter skera did not cut at, then the first part of the cut molecule.
+The one after it is a fragment, the rest of the cut molecule. On reads whose adapters run A to Q it keeps the TSO end; on reads that cover the array's reverse complement (adapters Q to A)
 it keeps the Read1 end, with the cell label. The chimera's other end sits at a real adapter in {nd_false_cut_fused_far_end_at_real_adapter|pct0} of false cuts. lima rejects both S-reads: it passes
 {false_cut_frag_lima_max|pct1} of fragments and {false_cut_fused_lima_min|pct1} to
 {false_cut_fused_lima_max|pct1} of chimeras, against {false_cut_baseline_lima_pass_min|pct1} or more of proper S-reads.
@@ -119,11 +120,11 @@ Each false cut therefore costs two molecules in the standard workflow: the cut o
 <p>On the calibration set (the first {cal_hifi_reads|fmt} ND HiFi reads; section 7) we checked what skera accepts as an adapter. The sequence at
 {cal_false_cuts_closest_to_d_3_to_5_edits_share|pct0} of its false cuts differs from adapter D, its closest Kinnex adapter, by 3 to 5 edits (an edit is one substituted,
 inserted or deleted base); only {cal_false_cuts_within_2_edits_share|pct1} are within 2 edits of any adapter, the most our search accepts. A
-<span class="mono">CTCCTCC</span> repeat lies within 10 bp of {cal_false_cuts_ctcctcc_share|pct0}, so the false matches are not one fixed motif. skera does not
+<span class="mono">CTCCTCC</span> repeat sequence appears within 10 bp of {cal_false_cuts_ctcctcc_share|pct0} of the false-cut sites, so the look-alike sequences are not one fixed motif. skera does not
 document how many edits it accepts. The adapter it skips is a good match: {cal_skipped_adapters_le1_edit_with_primer_share|pct1} of them are within 1 edit of
 the adapter and next to a TSO or Read1.</p>
 <p>Both tools search for the same nine adapter sequences; they differ in what they accept as an adapter (Supplementary Table 2). Ours keeps an adapter hit only next to a TSO or
-Read1, where every real adapter sits, and so rejects the look-alikes inside cDNA. It has the opposite, smaller weakness: it misses an adapter that skera finds in
+Read1, and so rejects the look-alikes inside cDNA: every real adapter lies between two molecules (or at an end of the array), so it sits next to a molecule end. It has the opposite, smaller weakness: it misses an adapter that skera finds in
 {missed_adapter_share_min..missed_adapter_share_max|pct2} of the reads skera passes, mostly the A or Q at the end of a read, and skera's S-reads in those reads pass lima {sread_lima_pass_missed_min..sread_lima_pass_missed_max|pct1}
 of the time, against {sread_lima_pass_complete_min..sread_lima_pass_complete_max|pct1} in complete arrays.</p>
 </div>
@@ -165,7 +166,8 @@ R1-R1 molecules follow the same pattern at a lower level.</p>
 so each position PCR puts the lower-index adapter on the Read1 end and the higher-index adapter on the TSO end. A TSO-TSO molecule lacks a Read1 site, is primed
 by the TSO primer at both ends and receives the same higher-index adapter twice. Each copy then joins the next slot's molecule, so both halves grow toward Q
 (Supplementary Fig. 4a). This predicts three things the ND data show: junctions occur at adapters B to Q but not at A (A is never on a TSO primer); a mirror array with its junction at adapter X holds
-2 x (slots from X to Q) + 1 molecules, which {mirror_rule_overall|pct1} of single-junction reads match exactly; and R1-R1 molecules, which receive the lower-index adapter twice,
+one molecule per slot from X to Q on each of its 2 arms, plus 1 TSO-TSO molecule (five in all with the junction at G, whose arms each span G to H and H to Q),
+a count that {mirror_rule_overall|pct1} of single-junction reads match exactly; and R1-R1 molecules, which receive the lower-index adapter twice,
 make mirrors whose halves run to A, with junctions at A to H but never at Q. TSO-TSO and R1-R1 molecules of the same letter can also pair with each other, giving long double mirrors
 (Supplementary Table 5).</p>
 <p>Why the junctions pile up at H. The adapter at a junction tells which of the eight PCRs made the TSO-TSO molecule, and all eight PCRs start from the same cDNA. An ordinary
@@ -184,7 +186,7 @@ H: such a read holds one TSO-TSO molecule, and the ones that remain are longer (
 the other letters), as expected if short SMRTbells are lost in the bead cleanups (inferred). B is more common than C in both ordinary and double mirrors, a slot-specific
 difference we cannot explain. ArgenTag shows the same profile (section 6).</p>
 </div>
-<figure id="fig4"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 4</span> TSO-TSO molecules make mirror arrays</figcaption><!--schematic fig4a--><!--figure fig4--><figcaption class="legend"><b>a</b>, Mechanism (schematic). <b>b</b>, Mirror junctions in ND by the adapter on both sides of the junction, coloured by the molecule at the junction. <b>c</b>, Molecules per read for reads with one mirror junction holding a TSO-TSO molecule: observed median against the prediction 2 x (slots from X to Q) + 1.</figcaption></figure>
+<figure id="fig4"><figcaption class="figtitle"><span class="fignum">Supplementary Fig. 4</span> TSO-TSO molecules make mirror arrays</figcaption><!--schematic fig4a--><!--figure fig4--><figcaption class="legend"><b>a</b>, Mechanism (schematic). <b>b</b>, Mirror junctions in ND by the adapter on both sides of the junction, coloured by the molecule at the junction. <b>c</b>, Molecules per read for reads with one mirror junction holding a TSO-TSO molecule: observed median against the prediction 2 x (slots from X to Q) + 1 molecules: one per slot from the junction adapter X to Q on each arm, plus the TSO-TSO molecule (five with the junction at G).</figcaption></figure>
 <p class="tablecap"><span>Supplementary Table 5</span> Molecules at mirror junctions in ND</p><!--table S5-->
 
 <h2 id="s4"><span class="sec">4</span>Effect on yield</h2>
@@ -258,7 +260,7 @@ unless skera passed them; in ND, skera passed {nd_tso_tso_only_skera_pass_share|
 <p>We ran this pipeline's own annotation on these reads (Supplementary Table 7). {arg_mirror_share|pct1} of ArgenTag's HiFi reads are mirror arrays, against
 {nd_mirror_share|pct1} in ND, {hm_mirror_share|small_pct} in HM and {kin_mirror_share|small_pct} in kin. The arrays have the structure of section 3:
 {arg_junctions_tso_tso_share|pct0} of {arg_mirror_junctions|fmt} mirror junctions hold a TSO-TSO molecule, none of them at adapter A, the letters follow the same
-pattern as in ND (Supplementary Fig. 9c), and {arg_single_tt_matching_rule|pct0} of reads with a single TSO-TSO junction hold exactly 2 x (slots from X to Q) + 1 molecules.
+pattern as in ND (Supplementary Fig. 9c), and {arg_single_tt_matching_rule|pct0} of reads with a single TSO-TSO junction hold exactly the predicted number of molecules, one per slot from X to Q on each of the 2 arms plus 1 TSO-TSO molecule.
 ArgenTag cDNA carries {arg_tso_tso_per_1000|f1} TSO-TSO molecules per 1,000 molecules, against {nd_tso_tso_per_1000|f1} in ND, {hm_tso_tso_per_1000|g2} in HM
 and {kin_tso_tso_per_1000|g2} in kin, but hardly any R1-R1 molecules ({arg_r1_r1_per_1000|f3} per 1,000, against {nd_r1_r1_per_1000|f2} in ND), although
 {arg_proper_share_of_molecules|pct0} of its molecules carry Read1 and TSO as expected. A second, independent adapter scan written without this pipeline's code agreed with our

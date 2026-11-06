@@ -249,6 +249,39 @@ def test_passages_a_reader_could_not_follow_are_rewritten_and_listed(html):
     assert changelog[note_entry + 1].startswith("  - Readability edits")
 
 
+def test_passages_a_reader_could_not_follow_in_round_2_are_rewritten_and_listed(html):
+    """Round 2 of the Note's readability edits: the mirror junction defined in the first key finding; how adapters join (Terms);
+    the tenths of the sample, the chimera's real adapter, the reverse-complement reads, the CTCCTCC repeat and why every real
+    adapter sits next to a TSO or Read1 (section 1); the mirror size rule in words in sections 3 and 6 and Supplementary Table
+    7, with the formula of the Fig. 4c plot explained in its legend. No number token changes (tests/test_golden.py); CHANGELOG.md
+    lists the edits in the line after round 1's, and the Note tracked in report/ is rebuilt with them."""
+    text = visible_text(html)
+    tracked = visible_text((render.HERE.parent.parent / "report" / "supplementary_note.html").read_text(encoding="utf-8"))
+    new = ["of their mirror junctions (an adapter followed by its own reverse complement) hold a TSO-TSO molecule.",
+           "An adapter can join only the same adapter on another molecule (the B end of a molecule from the first slot joins the B end of "
+           "one from the second), which keeps the slots in this order.",
+           "across different tenths of the sample.",
+           "a whole molecule, then the real adapter skera did not cut at, then the first part of the cut molecule.",
+           "on reads that cover the array's reverse complement (adapters Q to A) it keeps the Read1 end",
+           "CTCCTCC repeat sequence appears within 10 bp of", "of the false-cut sites, so the look-alike sequences are not one fixed motif.",
+           "next to a TSO or Read1, and so rejects the look-alikes inside cDNA: every real adapter lies between two molecules (or at an end "
+           "of the array), so it sits next to a molecule end.",
+           "holds one molecule per slot from X to Q on each of its 2 arms, plus 1 TSO-TSO molecule (five in all with the junction at G, "
+           "whose arms each span G to H and H to Q), a count that",
+           "hold exactly the predicted number of molecules, one per slot from X to Q on each of the 2 arms plus 1 TSO-TSO molecule.",
+           "against the prediction 2 x (slots from X to Q) + 1 molecules: one per slot from the junction adapter X to Q on each arm, plus the "
+           "TSO-TSO molecule (five with the junction at G).",
+           " Single TSO-TSO junction reads with one molecule per slot from X to Q on each of 2 arms plus 1 at the junction "]
+    assert [s for s in new if s not in text] == [] and [s for s in new if s not in tracked] == []
+    old = ["of their junctions hold", "an adapter joins only its own letter", "between tenths of the sample", "the skipped adapter and the first part",
+           "reads from the other strand (Q to A)", "so the false matches", "where every real adapter sits, and so rejects"]
+    assert [s for s in old if s in text] == [] and [s for s in old if s in tracked] == []
+    assert text.count("2 x (slots from X to Q) + 1") == 1 == tracked.count("2 x (slots from X to Q) + 1")
+    changelog = (render.HERE.parent.parent / "CHANGELOG.md").read_text().splitlines()
+    note_entry = next(i for i, line in enumerate(changelog) if line.startswith("- The Supplementary Note is built by"))
+    assert changelog[note_entry + 2].startswith("  - Readability edits, second round")
+
+
 def test_claims_hold_for_the_golden_data(html):
     render.check_claims(GOLDEN / "v10_tables", NUMBERS)
     assert [claim for claim, _ in CLAIMS if claim not in visible_text(html)] == []
