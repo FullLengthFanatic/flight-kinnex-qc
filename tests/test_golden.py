@@ -3,9 +3,11 @@ numbers.json compute writes from the v10 inputs (tests/golden/v10_numbers.json),
 (tests/golden/v10_text_numbers.txt) apart from the changes listed in tests/golden/allowed_changes.txt, and the figures
 and tables are first cited in order. Fig. 3 draws per-read data, which is not frozen: the test draws two made-up reads
 (its plot is not visible text) and checks the caption's ZMWs, which come from numbers.json.
-The Note built from the full study rerun and tracked in report/ is held to the same files: its tables are v10's byte for
-byte, its numbers.json is v10's but for the keys that name the run and the code, and its text numbers are v10's up to
-allowed_changes.txt."""
+The Note built from the full study rerun and tracked in report/ is held to the same files, apart from the approved number
+changes listed in tests/golden/approved_number_changes.json (only these report/ tests apply them): its tables are v10's
+byte for byte but for the listed cells, its numbers.json is v10's but for the keys that name the run and the code and the
+listed keys, and its text numbers are v10's up to allowed_changes.txt and the listed tokens. Every listed change must
+occur in report/."""
 import difflib
 import json
 import re
@@ -14,7 +16,7 @@ import subprocess
 import pytest
 
 from golden_text import numbers, visible_text
-from pipeline_helpers import EXAMPLE_TRACKS, GOLDEN, REPO
+from pipeline_helpers import APPROVED, EXAMPLE_TRACKS, GOLDEN, REPO, approved_changes, with_approved_cells
 
 import render
 
@@ -81,6 +83,7 @@ def section8_commits(n: dict) -> str:
     return " ".join(render.fill(sentence, n).split())
 
 
+@pytest.mark.skipif(not (REPO / ".git").exists(), reason="the checkout has no .git (an unpacked source archive), so git ls-files cannot list report/")
 def test_report_holds_the_note_built_from_the_full_rerun():
     """The files git tracks under report/, so rebuilding the Note in place (render.py --report-dir report) keeps it green."""
     tracked = subprocess.run(["git", "ls-files", "report"], cwd=REPO, capture_output=True, text=True, check=True).stdout.splitlines()
@@ -90,26 +93,65 @@ def test_report_holds_the_note_built_from_the_full_rerun():
     assert "report/** -diff linguist-generated=true" in (REPO / ".gitattributes").read_text().splitlines()
 
 
-def test_report_tables_are_v10s_byte_for_byte():
+def test_report_tables_are_v10s_byte_for_byte_but_the_approved_cells():
     v10 = sorted((GOLDEN / "v10_tables").iterdir())
     assert sorted(p.name for p in (REPORT / "tables").iterdir()) == [p.name for p in v10]
-    assert [p.name for p in v10 if (REPORT / "tables" / p.name).read_bytes() != p.read_bytes()] == []
+    assert [p.name for p in v10 if (REPORT / "tables" / p.name).read_bytes() != with_approved_cells(p.name, p.read_bytes().decode()).encode()] == []
 
 
-def test_report_numbers_are_v10s_but_the_run_and_code_keys():
+def test_report_numbers_are_v10s_but_the_run_and_code_keys_and_the_approved_keys():
     built, v10 = (json.loads(p.read_text()) for p in (REPORT / "numbers.json", GOLDEN / "v10_numbers.json"))
     assert list(built) == list(v10)
+    approved = v10 | {c["key"]: c["new"] for c in approved_changes("numbers")}
     # json.dumps tells 1 from 1.0
-    assert [k for k in v10 if k not in RUN_KEYS and json.dumps(built[k]) != json.dumps(v10[k])] == []
-    assert built["run_commits"] == ["7d419a4"]
+    assert [k for k in v10 if k not in RUN_KEYS and json.dumps(built[k]) != json.dumps(approved[k])] == []
+    # the full rerun, and its downstream_test step run again with the best_cover fix
+    assert built["run_commits"] == ["7d419a4", "c3f47fb"]
 
 
-def test_report_note_text_numbers_are_v10s_apart_from_the_allowed_changes():
-    """allowed_changes.txt is written against the frozen numbers.json, so section 8's sentence that prints run_commits and
-    kinnex_qc_commit is masked: as report/numbers.json prints it, it is replaced by the sentence the frozen numbers print."""
+def report_text_numbers() -> list[str]:
+    """The text numbers of the Note in report/. allowed_changes.txt is written against the frozen numbers.json, so section
+    8's sentence that prints run_commits and kinnex_qc_commit is masked: as report/numbers.json prints it, it is replaced by
+    the sentence the frozen numbers print."""
     built, frozen = (json.loads(p.read_text()) for p in (REPORT / "numbers.json", GOLDEN / "v10_numbers.json"))
     text = visible_text((REPORT / "supplementary_note.html").read_text(encoding="utf-8"))
     assert text.count(section8_commits(built)) == 1
-    v10, now = V10_TOKENS.read_text().split(), numbers(text.replace(section8_commits(built), section8_commits(frozen)))
+    return numbers(text.replace(section8_commits(built), section8_commits(frozen)))
+
+
+def test_report_note_text_numbers_are_v10s_apart_from_the_allowed_changes_and_the_approved_tokens():
+    v10, now = V10_TOKENS.read_text().split(), report_text_numbers()
+    for c in approved_changes("text"):
+        assert v10[c["token"]] == c["v10"], c
+        v10[c["token"]] = c["new"]
     ops = difflib.SequenceMatcher(None, v10, now, autojunk=False).get_opcodes()
     assert [(tuple(v10[i1:i2]), tuple(now[j1:j2])) for op, i1, i2, j1, j2 in ops if op != "equal"] == allowed_changes()
+
+
+def cell(table, row: str, column: str) -> str:
+    """One cell of a TSV table as text, its row named by the row's first column."""
+    header, *rows = (line.split("\t") for line in table.read_text().splitlines())
+    return next(r[header.index(column)] for r in rows if r[0] == row)
+
+
+def test_every_approved_change_occurs():
+    """No stale entry in approved_number_changes.json: each names a v10 value and a different new value, report/ holds the
+    new value where v10 holds the old one, and exactly one line of CHANGELOG.md holds the entry's changelog quote."""
+    changes = json.loads(APPROVED.read_text())["changes"]
+    assert changes and {c["kind"] for c in changes} <= {"numbers", "table", "text"}
+    changelog = (REPO / "CHANGELOG.md").read_text().splitlines()
+    for c in changes:
+        assert c["v10"] != c["new"] and sum(c["changelog"] in line for line in changelog) == 1, c
+    built, v10 = (json.loads(p.read_text()) for p in (REPORT / "numbers.json", GOLDEN / "v10_numbers.json"))
+    for c in approved_changes("numbers"):
+        assert (json.dumps(v10[c["key"]]), json.dumps(built[c["key"]])) == (json.dumps(c["v10"]), json.dumps(c["new"])), c
+    for c in approved_changes("table"):
+        assert [cell(d / c["table"], c["row"], c["column"]) for d in (GOLDEN / "v10_tables", REPORT / "tables")] == [c["v10"], c["new"]], c
+    # at[i]: the position in report/'s tokens of v10's token i, where a block of the alignment keeps its length
+    v10_tokens, now = V10_TOKENS.read_text().split(), report_text_numbers()
+    at = {}
+    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, v10_tokens, now, autojunk=False).get_opcodes():
+        if i2 - i1 == j2 - j1:
+            at |= {i1 + k: j1 + k for k in range(i2 - i1)}
+    for c in approved_changes("text"):
+        assert (v10_tokens[c["token"]], now[at[c["token"]]]) == (c["v10"], c["new"]), c

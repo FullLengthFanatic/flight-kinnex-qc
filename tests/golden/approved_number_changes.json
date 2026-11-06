@@ -1,0 +1,24 @@
+{
+ "about": "Approved changes since report v10 that move a number of the built Note in report/. tests/golden keeps v10's numbers; only the report/ tests of tests/test_golden.py and the real downstream test apply these. kind numbers: a key of numbers.json, its values as JSON. kind table: a cell of report/tables/<table>, its row named by the row's first column, its values as the TSV text. kind text: a number of the Note's visible text, by its position in v10_text_numbers.txt counting from 0. changelog: words from the CHANGELOG.md line that lists the change.",
+ "changes": [
+  {"kind": "numbers", "key": "downstream_unwritten_molecules", "v10": 8308, "new": 8314, "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "numbers", "key": "downstream_unwritten_lima_5p3p", "v10": 0.9985556090515166, "new": 0.9984363723839307, "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "numbers", "key": "downstream_unwritten_refine", "v10": 0.9985556090515166, "new": 0.9984363723839307, "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "numbers", "key": "downstream_unwritten_mapped", "v10": 0.9908521906596052, "new": 0.9907385133509743, "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "numbers", "key": "downstream_written_molecules", "v10": 9575, "new": 9569, "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "numbers", "key": "downstream_written_lima_5p3p", "v10": 0.9994778067885117, "new": 0.9995819834883478, "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "numbers", "key": "downstream_written_refine", "v10": 0.9991644908616188, "new": 0.9992684711046086, "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "numbers", "key": "downstream_written_mapped", "v10": 0.9901827676240209, "new": 0.9902811161040861, "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "table", "table": "downstream_survival_ND.tsv", "row": "mirror reads, not written by skera", "column": "molecules", "v10": "8308", "new": "8314", "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "table", "table": "downstream_survival_ND.tsv", "row": "mirror reads, not written by skera", "column": "lima_5p3p", "v10": "0.9985556090515166", "new": "0.9984363723839307", "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "table", "table": "downstream_survival_ND.tsv", "row": "mirror reads, not written by skera", "column": "refine", "v10": "0.9985556090515166", "new": "0.9984363723839307", "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "table", "table": "downstream_survival_ND.tsv", "row": "mirror reads, not written by skera", "column": "mapped", "v10": "0.9908521906596052", "new": "0.9907385133509743", "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "table", "table": "downstream_survival_ND.tsv", "row": "mirror reads, written by skera", "column": "molecules", "v10": "9575", "new": "9569", "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "table", "table": "downstream_survival_ND.tsv", "row": "mirror reads, written by skera", "column": "lima_5p3p", "v10": "0.9994778067885117", "new": "0.9995819834883478", "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "table", "table": "downstream_survival_ND.tsv", "row": "mirror reads, written by skera", "column": "refine", "v10": "0.9991644908616188", "new": "0.9992684711046086", "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "table", "table": "downstream_survival_ND.tsv", "row": "mirror reads, written by skera", "column": "mapped", "v10": "0.9901827676240209", "new": "0.9902811161040861", "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "text", "token": 370, "v10": "99.9", "new": "99.8", "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "text", "token": 371, "v10": "8,308", "new": "8,314", "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"},
+  {"kind": "text", "token": 372, "v10": "99.9", "new": "99.8", "changelog": "`kinnex_qc.skera.best_cover` gave cover 1.0 to a molecule whose ZMW has no S-read"}
+ ]
+}

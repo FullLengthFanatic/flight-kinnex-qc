@@ -8,7 +8,8 @@ other outputs of the same run:
   <!--excerpt skera_false_cut-->       ten lines of examples/example_reads.fasta, record skera_false_cut
 The claims the Note pins to the data (render.check_claims) are checked first; build stops on one that no longer holds.
 The docs are built from the Note of the full study rerun, report/numbers.json and report/tables/ (the defaults), which
-tests/test_golden.py holds to the numbers and tables computed from the v10 inputs (tests/golden/).
+tests/test_golden.py holds to the numbers and tables computed from the v10 inputs (tests/golden/), apart from the
+approved number changes in tests/golden/approved_number_changes.json.
 Each generated file starts with a comment naming its source; tests/test_docs.py checks that they are up to date.
 Usage: docs/build_docs.py [--numbers PATH] [--tables DIR]
 """

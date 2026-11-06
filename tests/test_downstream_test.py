@@ -1,6 +1,6 @@
 """Tests for study/analyses/downstream_test.py: the molecules it picks and groups on the synthetic test BAM, the
 scoring of lima, refine and mapping outputs (--score-only), and the full run on the calibration set against the v10
-golden file."""
+golden file with the approved number changes made."""
 import polars as pl
 import pysam
 import pytest
@@ -8,7 +8,7 @@ import pytest
 from kinnex_qc import runner
 from kinnex_qc.io import iter_bam
 from kinnex_qc.patterns import KINNEX8_SC3
-from pipeline_helpers import GOLDEN_INPUTS, REPO, golden_diffs, run_analysis
+from pipeline_helpers import GOLDEN, GOLDEN_INPUTS, REPO, golden_diffs, run_analysis, with_approved_cells
 
 import downstream_test as dt
 
@@ -126,7 +126,8 @@ def test_ref_defaults_to_the_configured_reference(tmp_path, monkeypatch, capsys)
 @pytest.mark.slow
 def test_calibration_set_equals_golden(local, tmp_path):
     """lima, isoseq refine and minimap2 on the molecules of 3,000 mirror and 3,000 complete reads of the calibration set,
-    mapped to the GRCh38 primary assembly: the per-group pass rates equal v10's, and the run log names minimap2 2.30."""
+    mapped to the GRCh38 primary assembly: the per-group pass rates equal v10's with the approved changes made (the cells
+    of downstream_survival_ND.tsv in tests/golden/approved_number_changes.json), and the run log names minimap2 2.30."""
     cal = local["calibration_dir"]
     extra = ["--minimap2", str(local["minimap2"])] if "minimap2" in local else []
     r = run_analysis("downstream_test.py", "--hifi", str(cal / "nd_first200k.hifi.nomod.bam"), "--template", str(cal / "nd_first200k.skera120.bam"),
@@ -134,4 +135,12 @@ def test_calibration_set_equals_golden(local, tmp_path):
                      "--pbtools-env", str(local["pbtools_env"]), *extra, "--out", str(tmp_path / "out"))
     assert "minimap2 2.30-r1287" in r.stderr
     assert "41,873 molecules from 5,839 reads" in r.stderr
-    assert golden_diffs(tmp_path / "out", GOLDEN_INPUTS / "downstream_test", tmp_path / "cmp") == []
+    # compute copies downstream_summary.tsv into the Note's downstream_survival_ND.tsv unchanged, so that table's approved
+    # cells are this file's
+    v10 = (GOLDEN_INPUTS / "downstream_test" / "downstream_summary.tsv").read_bytes()
+    assert v10 == (GOLDEN / "v10_tables" / "downstream_survival_ND.tsv").read_bytes()
+    approved = with_approved_cells("downstream_survival_ND.tsv", v10.decode()).encode()
+    assert approved != v10
+    (tmp_path / "golden").mkdir()
+    (tmp_path / "golden" / "downstream_summary.tsv").write_bytes(approved)
+    assert golden_diffs(tmp_path / "out", tmp_path / "golden", tmp_path / "cmp") == []

@@ -1,9 +1,9 @@
 """Tests for docs/build_docs.py and the documentation it builds. README.md and docs/*.md are generated from their .md.in
 sources, with every number taken from numbers.json (the full rerun's, report/numbers.json, which tests/test_golden.py holds
-to v10's) through the Note's own formatter, and must be up to date. Also: the README's order, length, figure and read
-excerpt; the sections and PacBio quotes of docs/skera_cutting_error.md; the per-library false-cut table; each open item
-in one marked place; no number typed by hand in a source; the text rules on every Markdown file; the CI and CITATION.cff
-details the docs rely on."""
+to v10's apart from the approved number changes) through the Note's own formatter, and must be up to date. Also: the
+README's order, length, figure and read excerpt; the sections and PacBio quotes of docs/skera_cutting_error.md; the
+per-library false-cut table; each open item in one marked place; no number typed by hand in a source; the text rules on
+every Markdown file; the CI and CITATION.cff details the docs rely on."""
 import json
 import re
 import sys

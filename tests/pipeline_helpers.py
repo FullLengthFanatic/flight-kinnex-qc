@@ -18,6 +18,7 @@ CALIBRATION = REPO / "study" / "calibration"
 REPORT = REPO / "study" / "report"
 GOLDEN = Path(__file__).resolve().parent / "golden"
 GOLDEN_INPUTS = GOLDEN / "v10_inputs"
+APPROVED = GOLDEN / "approved_number_changes.json"
 sys.path.insert(0, str(PIPELINE))
 sys.path.insert(0, str(ANALYSES))
 sys.path.insert(0, str(ARGENTAG))
@@ -87,6 +88,28 @@ def run_script(path: Path, *args: str) -> subprocess.CompletedProcess:
     r = subprocess.run([sys.executable, str(path), *args], cwd=REPO, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     return r
+
+
+def approved_changes(kind: str) -> list[dict]:
+    """The entries of one kind ("numbers", "table" or "text") of tests/golden/approved_number_changes.json, the approved
+    changes since v10 that move a number of the built Note."""
+    return [c for c in json.loads(APPROVED.read_text())["changes"] if c["kind"] == kind]
+
+
+def with_approved_cells(table: str, tsv: str) -> str:
+    """tsv, the text of the v10 table named table (a file of tests/golden/v10_tables), with the approved changes to its
+    cells made; an entry names its row by the row's first column."""
+    lines = tsv.split("\n")
+    header = lines[0].split("\t")
+    rows = {line.split("\t")[0]: i for i, line in enumerate(lines[1:], 1) if line}
+    for c in approved_changes("table"):
+        if c["table"] == table:
+            i, j = rows[c["row"]], header.index(c["column"])
+            fields = lines[i].split("\t")
+            assert fields[j] == c["v10"], c
+            fields[j] = c["new"]
+            lines[i] = "\t".join(fields)
+    return "\n".join(lines)
 
 
 def golden_diffs(out: Path, golden: Path, scratch: Path, pattern: str = "*") -> list[str]:

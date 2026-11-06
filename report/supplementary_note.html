@@ -219,8 +219,8 @@ mapped molecules is larger, 0.97 per HiFi read (12.6%), because skera writes onl
 in non_passing.bam (it passes 1.2% of them) and writes 1.95 S-reads per mirror read, mainly from one arm
 of the mirror (section 6; an observation on these reads, not documented skera behaviour).</p>
 <p>The molecules skera never writes are usable. Cut at our coordinates and run through lima, refine and mapping as in the existing pipeline (minimap2 in place of pbmm2),
-99.9% of 8,308 such molecules from ND mirror reads pass lima,
-99.9% refine and 99.1% map, against
+99.8% of 8,314 such molecules from ND mirror reads pass lima,
+99.8% refine and 99.1% map, against
 99.9%, 99.9% and 99.1% for molecules from complete reads.
 Truncated arrays are also marked non-passing (93.2%), but skera writes their molecules (5.51 S-reads
 against 5.65 molecules) and they reach the mapped BAM as often as molecules from complete arrays.</p>
@@ -388,7 +388,7 @@ the adapter and primer search, the chain classes and the S-read checks; it also 
 sample, the false-cut measurement and anatomy, the mirror-arm measurement, the molecule budget and the downstream test), <span class="mono">study/argentag</span> (ArgenTag S-read
 extraction, parent-read annotation and the independent scan), <span class="mono">study/calibration</span> (the calibration set, and the skera version and TSO-end checks on it)
 and <span class="mono">study/report</span> (computes every number and figure in this Note from the run's outputs and builds this page). <span class="mono">study/run_study.sh</span>
-runs the steps in order. The run behind this Note was made at 7d419a4, as its step markers record; its numbers were computed at 3b248f7.
+runs the steps in order. The run behind this Note was made at 7d419a4 and c3f47fb, as its step markers record; its numbers were computed at c3f47fb.
 Next to this page, <span class="mono">tables/</span> holds the source data for every figure and table, <span class="mono">numbers.json</span> every number in the text and
 <span class="mono">figures/</span> each figure as SVG and PDF. See README.md for the order of the steps.</p>
 </div>

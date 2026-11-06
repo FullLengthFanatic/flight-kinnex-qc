@@ -113,4 +113,4 @@ lima --isoseq --peek-guess qc/molecules.bam resources/primers_FlashBD.fasta qc/m
 isoseq refine qc/molecules.isoseq.FlashBD_5p--FlashBD_3p.bam resources/primers_FlashBD.fasta qc/molecules.flnc.bam
 ```
 
-Then map the fltnc reads as usual. In the study's test on ND (`study/analyses/downstream_test.py`, lima 2.13.0, isoseq refine 4.3.0, minimap2 2.30), molecules that skera never wrote, cut at our coordinates from mirror reads, passed lima in 99.9% of cases, refine in 99.9% and mapping in 99.1%, against 99.9%, 99.9% and 99.1% for molecules of complete reads. That test used molecules of mirror and complete reads, not the molecules around false cuts in particular.
+Then map the fltnc reads as usual. In the study's test on ND (`study/analyses/downstream_test.py`, lima 2.13.0, isoseq refine 4.3.0, minimap2 2.30), molecules that skera never wrote, cut at our coordinates from mirror reads, passed lima in 99.8% of cases, refine in 99.8% and mapping in 99.1%, against 99.9%, 99.9% and 99.1% for molecules of complete reads. That test used molecules of mirror and complete reads, not the molecules around false cuts in particular.
