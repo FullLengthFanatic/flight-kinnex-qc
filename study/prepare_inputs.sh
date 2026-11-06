@@ -23,8 +23,8 @@
 
 set -uo pipefail
 
-MIN_FREE_GB="${MIN_FREE_GB:-400}"
-# MIN_FREE_GB (default 400) sets the free-space floor.
+MIN_FREE_GB="${MIN_FREE_GB:-450}"
+# MIN_FREE_GB (default 450, above the 422 GiB the three BD144 cells extract to) sets the free-space floor.
 
 # Size of a member in a `tar -tvv` or `tar -xvv` listing: mode, owner/group, size, date, time, name.
 # The name is everything after the fifth field, so names with spaces match; ENVIRON keeps backslashes as they are.

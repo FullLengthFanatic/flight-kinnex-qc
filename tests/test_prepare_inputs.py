@@ -39,3 +39,18 @@ def test_members_with_spaces_extract_and_resume(tmp_path):
     again = run(table, out)
     assert again.returncode == 0, again.stderr
     assert again.stdout.count("skip (already done") == 6
+
+
+def test_default_free_space_floor_is_above_the_extracted_size(tmp_path):
+    """The three cells extract to 422 GiB: without MIN_FREE_GB the script refuses to start below 450 GiB free (df reports
+    430G here)."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "df").write_text("#!/bin/bash\nprintf 'Avail\\n 430G\\n'\n")
+    (bin_dir / "df").chmod(0o755)
+    table = tmp_path / "members.tsv"
+    table.write_text("\t".join(COLS) + "\n")
+    env = {k: v for k, v in os.environ.items() if k != "MIN_FREE_GB"} | {"PATH": f"{bin_dir}:{os.environ['PATH']}"}
+    r = subprocess.run(["bash", str(SCRIPT), str(table), str(tmp_path / "out")], env=env, capture_output=True, text=True)
+    assert r.returncode == 1
+    assert f"error: only 430G free on the filesystem holding {tmp_path / 'out'}, need at least 450G" in r.stderr

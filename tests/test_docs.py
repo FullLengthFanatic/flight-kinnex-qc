@@ -69,7 +69,7 @@ CONSTANTS = {
     "3:45:04", "4:11:28", "4:11:08", "14,797,320", "17,228,784", "16,728,116", "14.1", "16.4", "16.0",
     # this machine: memory, disk of the archives, the inputs and the mapped BAMs, the free-space floor of
     # prepare_inputs.sh (CPUs, times and the rest are among the numbers above)
-    "117", "438", "422", "135", "146", "44", "400",
+    "117", "438", "422", "135", "146", "44", "450",
     # the full rerun of 2026-11-05 (its log and du -sh of its out root): stage 06 in minutes on BD144_ND and BD144_HM, the
     # calibration set, analyses and ArgenTag in minutes, the out root, its libraries and the calibration set in GiB, and the
     # bound on the rest (BD144_kin's 64 minutes and the whole run's 14 hours are among the numbers above)
