@@ -3,6 +3,7 @@ BAM as it is, is covered with stage 05 in test_s05.py."""
 import os
 import subprocess
 
+import pysam
 import pytest
 
 from kinnex_qc.sampling import in_hash_sample
@@ -45,6 +46,36 @@ def test_pbtools_env_names_the_conda_environment(tmp_path, env, flag):
     calls = log.read_text().splitlines()
     assert len(calls) == 7                                              # lima twice, isoseq refine five times
     assert all(c.startswith(f"run --no-capture-output {flag} ") for c in calls)
+
+
+def test_empty_hash_sample_stops_with_the_bam_and_the_fraction(tmp_path):
+    """Below fraction 1, a segmented BAM with no S-read in the hash sample stops the stage, with a message naming the BAM
+    and the fraction, before lima runs. Stand-in conda and gio record their calls."""
+    from pipeline_helpers import PIPELINE, REPO
+    zms = [zm for zm in range(1, 100) if not in_hash_sample(zm, 0.01)][:3]
+    seg = tmp_path / "segmented.bam"
+    with pysam.AlignmentFile(str(seg), "wb", header={"HD": {"VN": "1.6"}, "RG": [{"ID": "rg1", "PL": "PACBIO"}]}) as out:
+        for zm in zms:
+            a = pysam.AlignedSegment(out.header)
+            a.query_name, a.query_sequence, a.flag = f"m/{zm}/ccs/0_20", "ACGT" * 5, 4
+            a.set_tag("zm", zm)
+            out.write(a)
+    (tmp_path / "bin").mkdir()
+    for tool in ("conda", "gio"):
+        (tmp_path / "bin" / tool).write_text(f'#!/bin/bash\necho "{tool} $*" >> "$CALL_LOG"\n')
+        (tmp_path / "bin" / tool).chmod(0o755)
+    cols = ("sample", "cell", "depletion", "hifi_bam", "fail_bam", "segmented_bam", "non_passing_bam", "zmw_metrics",
+            "skera_report", "fltnc_bam")
+    row = ["toy"] + [str(seg) if c == "segmented_bam" else f"/x/{c}" for c in cols[1:]]
+    (tmp_path / "samples.tsv").write_text("\t".join(cols) + "\n" + "\t".join(row) + "\n")
+    log = tmp_path / "calls.log"
+    r = subprocess.run(["bash", str(PIPELINE / "s04_lima_refine.sh"), "--sample", "toy", "--samples", str(tmp_path / "samples.tsv"),
+                        "--out-root", str(tmp_path / "out"), "--fraction", "0.01", "--pbtools-env", "pbname"], cwd=REPO,
+                       env={**os.environ, "PATH": f"{tmp_path / 'bin'}:{os.environ['PATH']}", "CALL_LOG": str(log)},
+                       capture_output=True, text=True)
+    assert r.returncode != 0
+    assert f"{seg}: no S-read in the hash sample at fraction 0.01\n" in r.stderr
+    assert log.read_text().splitlines() == [f"gio trash {tmp_path / 'out' / 'tmp' / 'toy_hash_0.01'}"]
 
 
 def test_help_exits_0_and_prints_the_usage_line():

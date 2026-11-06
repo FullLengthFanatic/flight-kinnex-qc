@@ -67,7 +67,9 @@ from kinnex_qc.sampling import in_hash_sample
 
 src, fraction, dest = sys.argv[1], float(sys.argv[2]), sys.argv[3]
 records = iter_bam(src, keep=lambda zm: in_hash_sample(zm, fraction))
-first = next(records)
+first = next(records, None)
+if first is None:
+    sys.exit(f"{src}: no S-read in the hash sample at fraction {fraction:g}")
 with pysam.AlignmentFile(dest, "wb", header=first.header) as out:   # keeps the read groups lima needs
     out.write(first)
     for r in records:
