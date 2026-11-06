@@ -309,6 +309,28 @@ def test_a_new_fail_subsample_runs_again_every_step_whose_outputs_sit_under_the_
     assert {k for k, t in m.items() if not t.endswith(" fraction 1 fail_subsample 10\n")} == {f"all/{x}" for x in SHARED_STEPS}
 
 
+def test_a_marker_from_before_fail_subsample_was_recorded_counts_as_the_config_fail_subsample(study):
+    """A marker that ends in "fraction F" alone was written before markers recorded fail_subsample: it counts as made with
+    the config's fail_subsample, so a rerun at the same fraction skips the step and says so; another fraction still runs
+    the step again."""
+    assert study.run().returncode == 0
+    logs = study.out / "logs"
+    for p in logs.glob("*/*.ok"):
+        p.write_text(p.read_text().replace(" fraction 1 fail_subsample 100\n", " fraction 1\n"))
+    (logs / "BD144_ND" / "s07_depletion.ok").write_text("2026-11-05 13:23:41 7d419a4 39 fraction 0.5\n")
+    m = study.markers()
+    r = study.run()
+    assert r.returncode == 0, r.stderr
+    assert study.calls() == [per_sample_calls(study, "BD144_ND", "0")[-1]]
+    assert ("BD144_ND s01_extract_segments skip (ok: " in r.stdout and " fraction 1; written before markers recorded"
+            " fail_subsample, taken as fail_subsample 100)" in r.stdout)
+    assert "all downstream_test skip (ok: " in r.stdout
+    assert "BD144_ND s07_depletion: the .ok marker is not from fraction 1 and fail_subsample 100" in r.stdout
+    assert {k: t for k, t in study.markers().items() if k != "BD144_ND/s07_depletion"} == {
+        k: t for k, t in m.items() if k != "BD144_ND/s07_depletion"}
+    assert study.markers()["BD144_ND/s07_depletion"].endswith(" fraction 1 fail_subsample 100\n")
+
+
 def test_memory_budget_from_the_environment(study):
     """MEM_BUDGET_GB set in the environment is the budget s06 gets, in place of 0.8 x MemAvailable."""
     r = study.run(MEM_BUDGET_GB="7")

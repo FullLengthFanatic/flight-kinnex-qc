@@ -18,8 +18,10 @@
 # measurement: a crash only warns and trashes a stale gate_skera.json, so that no later step reads it, and the run
 # goes on. A step that exits 0 writes <out root>/logs/<sample or all>/<step>.ok (date and time, git HEAD, seconds, and
 # "fraction F fail_subsample N" when the step's outputs sit under <run>); a rerun skips it. A step without .ok, or whose
-# .ok names another fraction or fail_subsample, runs from scratch; the steps that write into <out root>/calibration or
-# <out root>/argentag, shared by every fraction, skip whatever fraction their .ok was written at. Step logs
+# .ok names another fraction or fail_subsample, runs from scratch; a .ok that ends in "fraction F" alone was written
+# before markers recorded fail_subsample and counts as made with the config's fail_subsample (the skip line says so).
+# The steps that write into <out root>/calibration or <out root>/argentag, shared by every fraction, skip whatever
+# fraction their .ok was written at. Step logs
 # <out root>/logs/<sample or all>/<step>.log are appended.
 # INT, TERM or HUP to run_study.sh stops every chain it started. Only one run_study.sh may run at a time per out root;
 # a second one exits 3, naming the lock file it could not take.
@@ -192,6 +194,10 @@ run_stage() {   # run_stage <sample|all> <step>: one step, skipped when its .ok 
     ok=$(<"$log/$st.ok")
     if [[ -z $tag || $ok == *"$tag" ]]; then
       echo "[$(stamp)] $s $st skip (ok: $ok)"
+      return 0
+    fi
+    if [[ $ok == *" fraction $FRACTION_TAG" ]]; then
+      echo "[$(stamp)] $s $st skip (ok: $ok; written before markers recorded fail_subsample, taken as fail_subsample $FAIL_SUBSAMPLE)"
       return 0
     fi
     echo "[$(stamp)] $s $st: the .ok marker is not from fraction $FRACTION_TAG and fail_subsample $FAIL_SUBSAMPLE (ok: $ok), running it again"
