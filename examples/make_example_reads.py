@@ -23,7 +23,7 @@ import polars as pl
 import pysam
 
 from kinnex_qc import skera
-from kinnex_qc.reader_report import at_adapters, clean
+from kinnex_qc.reader_report import at_adapters, chain_as_read, clean
 from kinnex_qc.sampling import in_hash_sample
 from kinnex_qc.viewer import CSS, LABEL, html_sequence
 
@@ -162,13 +162,6 @@ def main(argv: list[str] | None = None) -> None:
     def sread_text(zm: int, lo: int = 0, hi: int = 10**9) -> str:
         return "; ".join(f"{qs - lo + 1}-{qe - lo} ({LET[dl]} to {LET[dr]})" for qs, qe, dl, dr in sreads(zm) if qe > lo and qs < hi) or "none"
 
-    def chain_as_read(zm: int) -> str:
-        mm = seg.filter(pl.col("zm") == zm).select("end_class", "left_token", "right_token").rows()
-        out = [mm[0][1]]
-        for cls, _, right in mm:
-            out += ([{"tso_tso": "[TSO-TSO]", "r1_r1": "[R1-R1]"}[cls]] if cls in ("tso_tso", "r1_r1") else []) + [right]
-        return " ".join(out)
-
     def verdict(zm: int) -> str:
         passing = rs.filter(pl.col("zm") == zm)["skera_passing"][0]
         return "skera passes the read" if passing else "skera puts the whole read in non_passing.bam"
@@ -198,17 +191,15 @@ def main(argv: list[str] | None = None) -> None:
     hseg = (pl.read_parquet(hash_dir / "annot_segments.parquet", columns=["zm", "source", "start", "end", "end_class", "left_token", "right_token"])
             .filter(pl.col("source") == "hifi").drop("source"))
     dms = skera.double_mirrors(hseg)
-    tto = (hseg.filter((pl.col("end_class") == "tso_tso") & pl.col("zm").is_in(dms))
-           .select("zm", pl.col("start").cast(pl.Int64).alias("ts"), pl.col("end").cast(pl.Int64).alias("te")))
+    tto = hseg.filter((pl.col("end_class") == "tso_tso") & pl.col("zm").is_in(dms)).select("zm", "start", "end")
     hsk = pl.read_parquet(hash_dir / "segments.parquet", columns=["zm", "di", "qs", "qe"]).filter(pl.col("zm").is_in(dms))
-    lib = (hsk.join(tto, on="zm").with_columns(((pl.min_horizontal("te", "qe") - pl.max_horizontal("ts", "qs")).clip(0) / (pl.col("te") - pl.col("ts"))).alias("ov"))
-           .filter(pl.col("ov") >= skera.COVER)
+    lib = (skera.sread_overlaps(tto, hsk).filter(pl.col("ov") >= skera.COVER)
            .join(pl.read_parquet(hash_dir / "fate.parquet", columns=["zm", "di", "lima_pass", "refine_asrun", "mapped_fltnc"]), on=["zm", "di"]))
     own = lib.filter(pl.col("zm") == zm).row(0, named=True)
     held = mm.filter((pl.col("start") < own["qe"]) & (pl.col("end") > own["qs"])).height
     fate = ("lima passes it" if own["lima_pass"] else "lima rejects it") + (", isoseq refine keeps it" if own["refine_asrun"] else ", isoseq refine removes it") + \
            (" and it is in the mapped BAM" if own["mapped_fltnc"] else ", so it never reaches the mapped BAM")
-    records.append((f"double_mirror {SAMPLE} zm={zm} len={len(s)} | as sequenced: {chain_as_read(zm)} (reverse complement: A .. {x} [R1-R1] {x}' [TSO-TSO] {x} .. Q): "
+    records.append((f"double_mirror {SAMPLE} zm={zm} len={len(s)} | as sequenced: {chain_as_read(mm)} (reverse complement: A .. {x} [R1-R1] {x}' [TSO-TSO] {x} .. Q): "
                     f"a TSO-TSO molecule ({tt['start'] + 1}-{tt['end']}) and an R1-R1 molecule ({rr['start'] + 1}-{rr['end']}) with the same adapter {x} sit side by side; "
                     f"the arm on the TSO-TSO side grows to Q, the one on the R1-R1 side to A, so the array holds 10 molecules whatever the letter | "
                     f"{verdict(zm)} and writes {len(sreads(zm))} S-reads: {sread_text(zm)}. The one at {own['qs'] + 1}-{own['qe']} holds {held} molecules, the TSO-TSO and "

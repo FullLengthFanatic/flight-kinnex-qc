@@ -90,7 +90,7 @@ def _first_by_hash(zms: pl.Series, n: int, ok=None) -> list[int]:
     return out
 
 
-def _chain_as_read(between: pl.DataFrame) -> str:
+def chain_as_read(between: pl.DataFrame) -> str:
     rows = between.sort("start").select("end_class", "left_token", "right_token").rows()
     if not rows:
         return "no molecule between two adapters"
@@ -117,7 +117,7 @@ def _example(category: str, zm: int, read_summary, molecules, features, order, s
     marks = [(n + ("'" if s == "-" else ""), a, b, KIND[k]) for n, k, s, a, b in feats.select("name", "kind", "strand", "start", "end").iter_rows()]
     sr = (sreads.filter(pl.col("zm") == zm).sort("qs").select("qs", "qe", "dl", "dr").rows() if sreads is not None else None)
     between = mols.filter(pl.col("left_token").is_not_null() & pl.col("right_token").is_not_null())
-    chain, classes = _chain_as_read(between), _classes(between)
+    chain, classes = chain_as_read(between), _classes(between)
     if category == "complete":
         all_proper = (between["end_class"] == "proper").all()
         note = (f"As read: {chain}. {between.height} molecules between adapters, "

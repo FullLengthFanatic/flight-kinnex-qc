@@ -2,18 +2,31 @@
 the calibration set and the hash sample and compares the FASTA byte for byte with the tracked one."""
 import re
 
+import polars as pl
 import pytest
 
 from kinnex_qc import reader_report, viewer
 from pipeline_helpers import REPO, run_script
+from test_render import banned_hits
 
 EXAMPLES = REPO / "examples"
 SCRIPT = EXAMPLES / "make_example_reads.py"
-BANNED = ["leverage", "utilize", "robust", "seamless", "crucial", "delve", "harness", "streamline", "genuinely"]
 
 
-def test_reader_report_exposes_the_clean_and_adapter_rules():
-    assert callable(reader_report.clean) and callable(reader_report.at_adapters)
+def test_chain_as_read_the_examples_share_with_the_reader_report():
+    """The adapter chain as the read runs: the first molecule's left adapter, then each molecule's right adapter in read
+    order, with a TSO-TSO or R1-R1 molecule marked where it sits (a double mirror here, rows out of order)."""
+    between = pl.DataFrame({"start": [900, 0, 2700, 1800], "end_class": ["tso_tso", "proper", "proper", "r1_r1"],
+                            "left_token": ["H'", "Q'", "H'", "H"], "right_token": ["H", "H'", "G'", "H'"]})
+    assert reader_report.chain_as_read(between) == "Q' H' [TSO-TSO] H [R1-R1] H' G'"
+    assert reader_report.chain_as_read(between.clear()) == "no molecule between two adapters"
+
+
+def test_the_example_script_keeps_no_copy_of_the_package_rules():
+    """The chain and the S-read coverage come from kinnex_qc (reader_report.chain_as_read, skera.sread_overlaps)."""
+    source = SCRIPT.read_text()
+    assert "def chain_as_read" not in source and "min_horizontal" not in source
+    assert "chain_as_read(" in source and "skera.sread_overlaps(" in source
 
 
 def test_html_sequence_takes_its_own_labels():
@@ -31,9 +44,9 @@ def test_tracked_example_files_are_five_reads_in_plain_text():
     assert all("BD144_ND" in h for h in heads)
     for p in (SCRIPT, EXAMPLES / "example_reads.fasta", EXAMPLES / "example_reads.html"):
         text = p.read_text()
-        assert "—" not in text and "–" not in text, p.name
+        assert "\u2014" not in text and "\u2013" not in text, p.name
         assert not re.search(r"(?:^|[\s\"'=(])/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", text), p.name
-        assert not [w for w in BANNED if w in text.lower()], p.name
+        assert banned_hits(text) == [], p.name
 
 
 @pytest.mark.real
