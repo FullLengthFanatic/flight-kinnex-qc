@@ -9,6 +9,7 @@ allowed_changes.txt."""
 import difflib
 import json
 import re
+import subprocess
 
 import pytest
 
@@ -20,9 +21,13 @@ import render
 V10_TOKENS = GOLDEN / "v10_text_numbers.txt"
 ALLOWED = GOLDEN / "allowed_changes.txt"
 REPORT = REPO / "report"
-# What report/ holds: the Note, its figures, source tables and numbers, and the track data of the four reads of
-# Supplementary Fig. 3, which render needs to rebuild the Note from a fresh clone. No other per-read file.
+# What report/ tracks: the Note, its figures, source tables and numbers, and the track data of the four reads of
+# Supplementary Fig. 3, which render needs to rebuild the Note from a fresh clone. No other per-read file. render also
+# writes supplementary_note.print.html, the page the PDF is printed from, which .gitignore leaves out.
 REPORT_FILES = ["fig3_reads.json", "figures", "numbers.json", "supplementary_note.html", "supplementary_note.pdf", "tables"]
+# What render writes into figures/: each plotly figure and each drawing, as SVG and as PDF.
+FIGURE_FILES = sorted(f"{name}.{ext}" for name in [*(f"Supplementary_{k}" for k in render.FIGURES), *render.SCHEMATICS.values()]
+                      for ext in ("svg", "pdf"))
 # The numbers.json keys that name the code and the run, not a result: the package version, the commit compute ran at and
 # the commits of the run's step markers.
 RUN_KEYS = {"kinnex_qc_version", "kinnex_qc_commit", "run_commits"}
@@ -77,7 +82,11 @@ def section8_commits(n: dict) -> str:
 
 
 def test_report_holds_the_note_built_from_the_full_rerun():
-    assert sorted(p.name for p in REPORT.iterdir()) == REPORT_FILES
+    """The files git tracks under report/, so rebuilding the Note in place (render.py --report-dir report) keeps it green."""
+    tracked = subprocess.run(["git", "ls-files", "report"], cwd=REPO, capture_output=True, text=True, check=True).stdout.splitlines()
+    assert sorted({p.split("/")[1] for p in tracked}) == REPORT_FILES
+    assert sorted(p.removeprefix("report/figures/") for p in tracked if p.startswith("report/figures/")) == FIGURE_FILES
+    assert subprocess.run(["git", "check-ignore", "-q", "report/supplementary_note.print.html"], cwd=REPO).returncode == 0
     assert "report/** -diff linguist-generated=true" in (REPO / ".gitattributes").read_text().splitlines()
 
 

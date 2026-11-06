@@ -8,5 +8,6 @@ local.toml
 study/samples.local.tsv
 study/study.local.toml
 study/tar_members.local.tsv
+report/supplementary_note.print.html
 build/
 dist/
