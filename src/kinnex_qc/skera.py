@@ -97,15 +97,19 @@ def molecule_coverage(molecules: pl.DataFrame, sreads: pl.DataFrame, cover: floa
 
 
 def best_cover(molecules: pl.DataFrame, sreads: pl.DataFrame) -> pl.DataFrame:
-    """Find, for every molecule, the largest fraction of it that any single S-read of its ZMW covers."""
+    """Find, for every molecule, the largest fraction of it that any single S-read of its ZMW covers (0 when the ZMW has
+    no S-read)."""
     mols = molecules.with_columns(pl.col("start", "end").cast(pl.Int64))
     sr = sreads.with_columns(pl.col("qs", "qe").cast(pl.Int64))
     parts = []
     for c in range(_CHUNKS):
         mc = mols.filter(pl.col("zm") % _CHUNKS == c)
         sc = sr.filter(pl.col("zm") % _CHUNKS == c)
+        # the left join gives a molecule of a ZMW with no S-read null qs and qe, and min_horizontal and max_horizontal skip
+        # nulls, so without the guard its ov would be its whole length; with it, ov stays null and cover is 0
         cov = (mc.join(sc, on="zm", how="left")
-               .with_columns((pl.min_horizontal("end", "qe") - pl.max_horizontal("start", "qs")).clip(0).alias("ov"))
+               .with_columns(pl.when(pl.col("qs").is_not_null())
+                             .then((pl.min_horizontal("end", "qe") - pl.max_horizontal("start", "qs")).clip(0)).alias("ov"))
                .group_by("zm", "start", "end").agg((pl.col("ov").max().fill_null(0) / (pl.col("end") - pl.col("start")).first()).alias("cover")))
         parts.append(cov)
     out = pl.concat(parts)

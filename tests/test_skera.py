@@ -202,6 +202,16 @@ def test_zmw_with_sreads_and_no_molecules_gives_no_coverage_rows():
     assert skera.best_cover(m, s).select("zm", "start").rows() == [(1, 17), (1, 1034)]
 
 
+def test_best_cover_is_zero_for_a_molecule_whose_zmw_has_no_sread():
+    """zm 7 has one molecule and no S-read, so nothing covers it: cover 0. zm 1 has both and keeps its covers (S-read 0
+    covers C-D fully; D-E is covered 47% by S-read 0 and 52% by S-read 1)."""
+    reads = {**complete_with_false_cut(),
+             7: {"adapters": [("C", "+", 0, 17, 0), ("D", "+", 1017, 1034, 0)],
+                 "molecules": [(17, 1017, "proper", False, "C", "D")], "sreads": []}}
+    f, m, s = frames(reads)
+    assert skera.best_cover(m, s).select("zm", "start", "cover").rows() == [(1, 17, 1.0), (1, 1034, 0.52), (7, 17, 0.0)]
+
+
 def test_every_public_function_on_empty_frames():
     """Frames with their columns and no rows give empty results with the documented columns, and the summary dicts NaN
     shares, zero counts and empty letter counts, not a crash."""
