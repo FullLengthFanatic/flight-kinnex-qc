@@ -31,7 +31,7 @@ uv tool install .
 pip install .
 ```
 
-To try it without data, make the six synthetic reads the tests use (three complete arrays, one of them with a false cut, two TSO-TSO mirrors and an R1-R1 mirror, with their S-reads) and check all six:
+To try it without data, make the six synthetic reads the tests use (three complete arrays, one of them with a false cut, two TSO-TSO mirrors and an R1-R1 mirror, with their S-reads) and check all six, from the repository folder (after `pip install .`, plain `python` works in place of `uv run python`):
 
 ```
 uv run python tests/make_test_bam.py qc/test_bam
@@ -76,7 +76,7 @@ It runs the pipeline (stages 01 to 07 and their validation gates) on the three l
 uv run python study/report/render.py --report-dir report
 ```
 
-It prints the PDF with Google Chrome or Chromium, which it calls as `google-chrome`, and needs Inkscape for the PDF copies of the two drawings.
+It prints the PDF with Google Chrome, which it calls as `google-chrome`, and needs Inkscape for the PDF copies of the two drawings.
 
 **Time and disk**, as measured on our machine (32 CPUs, 117 GiB of memory, shared with other jobs). The instrument archives of the three cells take 438 GiB, the extracted files 422 GiB (135 to 146 GiB per cell). `prepare_inputs.sh` refuses to start with less than 450 GiB free (`MIN_FREE_GB`). Extracting the three cells in parallel took about 3 hours. The mapped fltnc BAMs add 37 to 44 GiB each. In our full rerun, the validation gates and stages 01 to 05 took 10 hours with the three libraries in parallel; stage 06 runs one library at a time and took 64, 56 and 69 minutes on BD144_kin, BD144_ND and BD144_HM. The calibration set, the analyses and ArgenTag took 46 minutes more, the report steps under a minute, and the whole `run_study.sh` 14 hours. Its out root takes 151 GiB: 45 to 53 GiB per library, most of it lima and refine BAMs, 2.2 GiB for the calibration set and less than 0.5 GiB for the analyses, ArgenTag and the Note.
 
