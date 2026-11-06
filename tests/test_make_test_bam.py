@@ -1,4 +1,7 @@
-"""Tests for the determinism of tests/make_test_bam.py's fixture builder."""
+"""Tests for the determinism of tests/make_test_bam.py's fixture builder, and its command line."""
+import subprocess
+import sys
+
 import pysam
 
 import make_test_bam
@@ -43,3 +46,19 @@ def test_build_does_not_disturb_shared_rng_state(tmp_path):
     expected_draw = synth.rng.random()
 
     assert after_draw == expected_draw
+
+
+def _records(path):
+    with pysam.AlignmentFile(str(path), "rb", check_sq=False) as bam:
+        return [(r.query_name, r.query_sequence, r.get_tags(with_value_type=True)) for r in bam]
+
+
+def test_command_line_writes_the_bams_build_writes(tmp_path):
+    """`python tests/make_test_bam.py OUT_DIR`, as the README runs it, makes OUT_DIR and writes the same reads as build()."""
+    out = tmp_path / "qc" / "test_bam"
+    r = subprocess.run([sys.executable, make_test_bam.__file__, str(out)], capture_output=True, text=True, check=True)
+    assert r.stdout.split() == [str(out / "hifi.bam"), str(out / "sreads.bam")]
+    ref = tmp_path / "ref"
+    ref.mkdir()
+    for a, b in zip(make_test_bam.build(ref), (out / "hifi.bam", out / "sreads.bam"), strict=True):
+        assert _records(b) == _records(a)

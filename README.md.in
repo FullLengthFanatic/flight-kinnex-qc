@@ -31,7 +31,14 @@ uv tool install .
 pip install .
 ```
 
-Then run it on the HiFi BAM of one SMRT Cell, with skera's S-read BAM if you have it:
+To try it without data, make the six synthetic reads the tests use (three complete arrays, one of them with a false cut, two TSO-TSO mirrors and an R1-R1 mirror, with their S-reads) and check all six:
+
+```
+uv run python tests/make_test_bam.py qc/test_bam
+kinnex-qc run --hifi qc/test_bam/hifi.bam --sreads qc/test_bam/sreads.bam --fraction 1 --out qc/
+```
+
+On your own data, run it on the HiFi BAM of one SMRT Cell, with skera's S-read BAM if you have it:
 
 ```
 kinnex-qc run --hifi hifi_reads.bam --sreads segmented.bam --out qc/
@@ -43,7 +50,7 @@ Scope: single-cell 3' cDNA in Kinnex arrays, with the TSO at one end of each mol
 
 ## Reproduce the study
 
-**Data.** The three BD144 libraries will be deposited under ACCESSION_TBD: per SMRT Cell the HiFi and fail reads, skera's `segmented.bam` and `segmented.non_passing.bam`, the ZMW metrics and skera's report, and per library the mapped fltnc BAM. The ArgenTag S-reads are public. The reference genome is GENCODE's GRCh38 primary assembly. [docs/data.md](docs/data.md) lists every file, where it comes from, the status of ArgenTag's file of non-passing reads, and where each path goes in the configuration.
+**Data.** The proposed deposit of the three BD144 libraries, under ACCESSION_TBD, holds per SMRT Cell the HiFi and fail reads, skera's `segmented.bam` and `segmented.non_passing.bam`, the ZMW metrics and skera's report, and per library the mapped fltnc BAM. The ArgenTag S-reads are public. The reference genome is GENCODE's GRCh38 primary assembly. [docs/data.md](docs/data.md) lists every file, where it comes from, the status of ArgenTag's file of non-passing reads, and where each path goes in the configuration.
 
 **Software.** `uv sync` installs the Python side from `uv.lock`; `study/run_study.sh` runs every step with the interpreter in `.venv`. Three conda environments hold the other tools, under the names `study/study.toml` expects:
 
@@ -62,6 +69,14 @@ study/run_study.sh
 ```
 
 It runs the pipeline (stages 01 to 07 and their validation gates) on the three libraries, then the calibration set, the analyses, the ArgenTag comparison and the report steps, which write the Supplementary Note into the run's `report/` folder. Each finished step leaves a marker, so a rerun resumes where it stopped; `study/run_study.sh --help` lists the options.
+
+**Rebuild the Note.** The render step alone rebuilds the Note in `report/` (the HTML, the PDF and `figures/`) from `report/tables/`, `report/numbers.json` and `report/fig3_reads.json`, without running the study:
+
+```
+uv run python study/report/render.py --report-dir report
+```
+
+It prints the PDF with Google Chrome or Chromium, which it calls as `google-chrome`, and needs Inkscape for the PDF copies of the two drawings.
 
 **Time and disk**, as measured on our machine (32 CPUs, 117 GiB of memory, shared with other jobs). The instrument archives of the three cells take 438 GiB, the extracted files 422 GiB (135 to 146 GiB per cell). `prepare_inputs.sh` refuses to start with less than 450 GiB free (`MIN_FREE_GB`). Extracting the three cells in parallel took about 3 hours. The mapped fltnc BAMs add 37 to 44 GiB each. In our full rerun, the validation gates and stages 01 to 05 took 10 hours with the three libraries in parallel; stage 06 runs one library at a time and took 64, 56 and 69 minutes on BD144_kin, BD144_ND and BD144_HM. The calibration set, the analyses and ArgenTag took 46 minutes more, the report steps under a minute, and the whole `run_study.sh` 14 hours. Its out root takes 151 GiB: 45 to 53 GiB per library, most of it lima and refine BAMs, 2.2 GiB for the calibration set and less than 0.5 GiB for the analyses, ArgenTag and the Note.
 

@@ -3,7 +3,10 @@ three complete arrays (one with a false cut around D), two TSO-TSO mirrors at H 
 B. Sequences come from tests/synth.py's array()/molecule()/rand(), on the shared synth.rng; build() seeds
 it with a fixed constant and restores its prior state afterward, so the BAM content is the same regardless
 of what other tests drew from synth.rng first, and this call leaves their own draws undisturbed.
+Usage, from the repository root: uv run python tests/make_test_bam.py OUT_DIR (writes OUT_DIR/hifi.bam and
+OUT_DIR/sreads.bam, making OUT_DIR if needed).
 """
+import argparse
 from pathlib import Path
 
 import pysam
@@ -121,3 +124,15 @@ def build(out_dir: Path) -> tuple[Path, Path]:
         for r in sread_records:
             bam.write(r)
     return hifi_path, sreads_path
+
+
+def main(argv: list[str] | None = None) -> None:
+    ap = argparse.ArgumentParser(description="Write hifi.bam and sreads.bam, the small synthetic test BAMs, into OUT_DIR.")
+    ap.add_argument("out_dir", type=Path, metavar="OUT_DIR")
+    out = ap.parse_args(argv).out_dir
+    out.mkdir(parents=True, exist_ok=True)
+    print(*build(out), sep="\n")
+
+
+if __name__ == "__main__":
+    main()
