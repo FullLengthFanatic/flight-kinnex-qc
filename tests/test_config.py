@@ -92,3 +92,13 @@ def test_skera_report_reads(tmp_path):
     samples_path = tmp_path / "samples.tsv"
     samples_path.write_text(SAMPLES_HEADER + SAMPLES_ROW.replace("report.json", str(tmp_path / "report.json")))
     assert skera_report_reads(load_samples(samples_path)["BD144_ND"]) == 12345
+
+
+def test_skera_report_without_read_segmentation_reads_names_the_file_and_the_attribute(tmp_path):
+    report = tmp_path / "report.json"
+    report.write_text(json.dumps({"attributes": [{"id": "read_segmentation.s_reads", "value": 7}]}))
+    samples_path = tmp_path / "samples.tsv"
+    samples_path.write_text(SAMPLES_HEADER + SAMPLES_ROW.replace("report.json", str(report)))
+    with pytest.raises(ValueError) as e:
+        skera_report_reads(load_samples(samples_path)["BD144_ND"])
+    assert str(report) in str(e.value) and "read_segmentation.reads" in str(e.value)

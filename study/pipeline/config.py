@@ -107,4 +107,7 @@ def skera_report_reads(sample: Sample) -> int:
     """The cell's HiFi reads: read_segmentation.reads in the sample's skera report. Observed on the three BD144
     cells: equal to the number of records in the cell's HiFi BAM."""
     report = json.loads(sample.skera_report.read_text())
-    return next(a["value"] for a in report["attributes"] if a["id"] == "read_segmentation.reads")
+    for a in report["attributes"]:
+        if a["id"] == "read_segmentation.reads":
+            return a["value"]
+    raise ValueError(f"{sample.skera_report}: the skera report has no read_segmentation.reads attribute")
