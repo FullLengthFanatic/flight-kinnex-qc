@@ -38,6 +38,7 @@ compared with, and is never written.
 import argparse
 import subprocess
 import sys
+import tempfile
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
@@ -72,8 +73,8 @@ def same_zmws(records: Iterable[pysam.AlignedSegment], zms: set[int]) -> Iterato
 def first_records(samtools: list[str], hifi_bam: Path, here: Path, n: int) -> None:
     """nd_first200k.hifi.nomod.bam in here: the first n records of hifi_bam through v10's three samtools commands."""
     full = here / "nd_first200k.hifi.bam"
-    with open(hifi_bam, "rb") as src:
-        view = subprocess.Popen(samtools + ["view", "-h", "-"], stdin=src, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    with open(hifi_bam, "rb") as src, tempfile.TemporaryFile() as err:   # stderr in a file: a pipe nobody reads can fill and stop view
+        view = subprocess.Popen(samtools + ["view", "-h", "-"], stdin=src, stdout=subprocess.PIPE, stderr=err)
         write = subprocess.Popen(samtools + ["view", "-b", "-o", str(full), "-"], stdin=subprocess.PIPE)
         records = 0
         for line in view.stdout:
@@ -84,9 +85,9 @@ def first_records(samtools: list[str], hifi_bam: Path, here: Path, n: int) -> No
             write.stdin.write(line)
         write.stdin.close()
         view.stdout.close()                         # as with head: view stops on the closed pipe
-        err = view.stderr.read()
         if view.wait() and records < n:
-            raise subprocess.CalledProcessError(view.returncode, view.args, stderr=err)
+            err.seek(0)
+            raise subprocess.CalledProcessError(view.returncode, view.args, stderr=err.read())
     if write.wait():
         raise subprocess.CalledProcessError(write.returncode, write.args)
     subprocess.run(samtools + ["view", "-@4", "-b", "-x", "MM", "-x", "ML", "-o", "nd_first200k.hifi.nomod.bam", "nd_first200k.hifi.bam"],
@@ -111,7 +112,11 @@ def main(argv: list[str] | None = None) -> None:
     if not bam.exists():
         run = ["conda", "run", "--no-capture-output", "-p" if "/" in args.samtools_env else "-n", args.samtools_env]
         samtools = [args.samtools] if args.samtools else run + ["samtools"]
-        version = subprocess.run(samtools + ["--version"], capture_output=True, check=True).stdout.decode(errors="replace").splitlines()[:2]
+        printed = subprocess.run(samtools + ["--version"], capture_output=True, check=True).stdout.decode(errors="replace")
+        version = printed.splitlines()[:2]
+        if len(version) < 2:
+            sys.exit(f"build_calibration_set.py: needs samtools 1.13 with htslib 1.13, as v10's calibration BAM; {' '.join(samtools)} --version "
+                     f"printed {printed.strip()!r}, not a samtools and an htslib version line")
         if (version[0], version[1].split("+")[0]) != SAMTOOLS:    # a distribution build may say 1.13+ds
             sys.exit(f"build_calibration_set.py: needs samtools 1.13 with htslib 1.13, as v10's calibration BAM; {' '.join(samtools)} is "
                      + ", ".join(version))

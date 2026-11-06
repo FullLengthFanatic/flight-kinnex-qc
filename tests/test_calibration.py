@@ -5,9 +5,11 @@ import array
 import gzip
 import importlib
 import json
+import os
 import random
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -167,6 +169,16 @@ def test_build_calibration_set_samtools(tmp_path, monkeypatch):
                                    f"conda run --no-capture-output -n kinnex-qc-samtools113 samtools is {found}")
         assert calls == [conda + ["--version"]]
         assert list((tmp_path / "out").iterdir()) == []
+    for printed in (b"", b"samtools 1.13\n"):                # fewer than two lines: the message says what samtools printed
+        calls.clear()
+        monkeypatch.setattr(bcs.subprocess, "run", run(printed))
+        with pytest.raises(SystemExit) as stop:
+            bcs.main(["--out", str(tmp_path / "out")])
+        assert stop.value.code == ("build_calibration_set.py: needs samtools 1.13 with htslib 1.13, as v10's calibration BAM; "
+                                   f"conda run --no-capture-output -n kinnex-qc-samtools113 samtools --version printed {printed.decode().strip()!r}, "
+                                   "not a samtools and an htslib version line")
+        assert calls == [conda + ["--version"]]
+        assert list((tmp_path / "out").iterdir()) == []
     monkeypatch.setattr(bcs.subprocess, "run", run(b"samtools 1.13\nUsing htslib 1.13+ds\n"))
     with pytest.raises(RuntimeError) as used:
         bcs.main(["--out", str(tmp_path / "out"), "--samtools-env", "/envs/samtools113"])
@@ -174,6 +186,38 @@ def test_build_calibration_set_samtools(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError) as used:
         bcs.main(["--out", str(tmp_path / "out"), "--samtools", "/usr/bin/samtools"])
     assert used.value.args[0] == ["/usr/bin/samtools"]
+
+
+FAKE_SAMTOOLS = """#!/usr/bin/env python3
+import shutil
+import sys
+
+args = sys.argv[1:]
+if args[:2] == ["view", "-h"]:          # writes far more to stderr than a pipe holds, before its first record
+    sys.stderr.write("warning\\n" * 200_000)
+    sys.stderr.flush()
+    for line in sys.stdin.buffer:
+        sys.stdout.buffer.write(line)
+else:                                   # view -b [-x ...] -o OUT IN: a copy
+    with open(args[-1], "rb") if args[-1] != "-" else sys.stdin.buffer as src, open(args[args.index("-o") + 1], "wb") as out:
+        shutil.copyfileobj(src, out)
+"""
+
+
+def test_first_records_does_not_block_on_samtools_stderr(tmp_path):
+    """samtools view writes 1.6 MB to stderr before its first record: first_records still finishes (stderr is not a pipe
+    read only after stdout closes) and keeps the header and the first n records."""
+    fake = tmp_path / "samtools"
+    fake.write_text(FAKE_SAMTOOLS)
+    fake.chmod(0o755)
+    sam = tmp_path / "hifi.sam"
+    sam.write_text("@HD\tVN:1.6\n" + "".join(f"r{i}\t4\t*\t0\t0\t*\t*\t0\t0\tACGT\t*\n" for i in range(5)))
+    here = tmp_path / "cal"
+    here.mkdir()
+    code = f"import build_calibration_set as b; from pathlib import Path; b.first_records([{str(fake)!r}], Path({str(sam)!r}), Path({str(here)!r}), 3)"
+    subprocess.run([sys.executable, "-c", code], cwd=REPO, env={**os.environ, "PYTHONPATH": str(CALIBRATION)}, check=True, timeout=60)
+    assert (here / "nd_first200k.hifi.nomod.bam").read_text() == "".join(sam.read_text().splitlines(keepends=True)[:4])
+    assert sorted(p.name for p in here.iterdir()) == ["nd_first200k.hifi.nomod.bam"]
 
 
 def test_skera_split_command(tmp_path, monkeypatch, capsys):
