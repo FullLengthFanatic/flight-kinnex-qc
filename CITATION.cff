@@ -5,12 +5,11 @@ authors:
   - family-names: Picelli
     given-names: Simone
     orcid: "https://orcid.org/0000-0002-1747-614X"
-  # AUTHORS_TBD: the other authors and their affiliations (open item 4)
 version: "0.1.0"
 # No DOI and no release date yet: the Zenodo archive is made at release.
-# Not public yet: nothing has been pushed to this address.
+# The repository is private until the preprint is out.
 repository-code: "https://github.com/FullLengthFanatic/flight-kinnex-qc"
-# Sequencing data of the BD144 libraries: ACCESSION_TBD (open item 1)
+# Sequencing data of the BD144 libraries: ACCESSION_TBD (deposited with the bioRxiv preprint)
 license: MIT
 keywords:
   - PacBio Kinnex

@@ -42,7 +42,7 @@ QUOTES = [
      "For example, if `skera` finds 14 / 15 expected segments(fragments), the 14 expected segments will be output to the segmented read "
      "output _and_ the HiFi input read will be output to the `non_passing` bam."),
 ]
-ARGENTAG_SENTENCE = "segmented.non_passing.bam is not public; ArgenTag shared it with us. ARGENTAG_WORDING_TBD"
+ARGENTAG_SENTENCE = "segmented.non_passing.bam is not public; ArgenTag shared it with us. It is not redistributed here."
 SCOPE = "validated on BD Rhapsody (FLIGHT-seq) Kinnex 8-fold libraries only"
 # Numbers a source may type by hand: definitions, thresholds, parameters, versions, stage numbers, and measurements that
 # are not results of the study's run (the reader's validation runs, this machine's disk and run times). Every other
@@ -346,8 +346,8 @@ def test_open_items_each_in_one_marked_place():
         return {p.relative_to(REPO).as_posix(): n for p in files if (n := p.read_text(errors="replace").count(marker))}
 
     assert where("ACCESSION_TBD") == {"README.md.in": 1, "README.md": 1, "docs/data.md.in": 1, "docs/data.md": 1, "CITATION.cff": 1}
-    assert where("ARGENTAG_WORDING_TBD") == {"docs/data.md.in": 1, "docs/data.md": 1}
-    assert where("AUTHORS_TBD") == {"CITATION.cff": 1}
+    assert where("ARGENTAG_WORDING_TBD") == {}
+    assert where("AUTHORS_TBD") == {}
     assert where("RERUN_TBD") == {}
     assert ARGENTAG_SENTENCE in (REPO / "docs" / "data.md").read_text()
 

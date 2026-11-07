@@ -24,7 +24,7 @@ The instrument delivers the first six inside two archives per SMRT Cell, one wit
 The ArgenTag scripts (`study/argentag/`) read one folder, `argentag_dir` in `study/study.local.toml` (`study/study.toml` holds a placeholder), with two BAMs in `data/`:
 
 - `segmented.bam`: the public S-reads of the 8-fold cell (skera 1.2.0, as the BAM's @PG line says), from https://downloads.pacbcloud.com/public/dataset/Kinnex-single-cell-RNA/DATA-RevioSPRQ-Kinnex-ArgenTag-MDAcellLine/MDA-8fold/0-Sreads/
-- `segmented.non_passing.bam`: skera's file of the reads it did not pass, whole, for the same cell. segmented.non_passing.bam is not public; ArgenTag shared it with us. ARGENTAG_WORDING_TBD It is not redistributed here.
+- `segmented.non_passing.bam`: skera's file of the reads it did not pass, whole, for the same cell. segmented.non_passing.bam is not public; ArgenTag shared it with us. It is not redistributed here.
 
 The scripts only read that folder. They write into the folder given by `--out`, which has no default: `sread_coords.py` and `annotate_non_passing.py` write the per-read tables (`argentag_sread_coords.parquet`, `full_reads/`), `full_read_view.py` and `independent_scan.py` read them from there and add their aggregate tables and `independent_scan.txt`, and `independent_scan.py` adds its per-read disagreement list (`independent_scan_disagreements.tsv`). The per-read tables hold ArgenTag read ids and are never published. `study/run_study.sh` gives all four scripts `<out root>/argentag`. The cell's HiFi read count (1,964,147) comes from Table 1 of the ArgenTag and PacBio technical note.
 
