@@ -221,6 +221,7 @@ CLAIMS = [
     ("ND and HM differ by less than 0.1 percentage point",
      ("fig1_skera_false_cut_anatomy", "\t0.004327740762153879\t", "\t0.005327740762153879\t")),
     ("under 1% of the mean partner", ("S6_concatenation_bias", "\t-11.068129616285432\t", "\t-15.0\t")),
+    ("a third to all of the deficit", ("S6_concatenation_bias", "\t-6.8176047453202955\t", "\t-1.0\t")),
     ("never calls a read a mirror array when it is not one",
      ("S4_chain_classification_benchmark_summary", "0.01\t0.998125\t1.0\t0\t1200", "0.01\t0.998125\t0.999\t1\t1200")),
     ("none of them at adapter A", ("S7_argentag_parent_reads", "\t0.0004591255298390601\t0\t", "\t0.0004591255298390601\t2\t")),

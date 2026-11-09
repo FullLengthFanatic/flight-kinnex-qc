@@ -233,7 +233,7 @@ its total length (M_T) reproduces the partner means within {diff_vs_mt_bp_abs_ma
 <p>We could not tell where along the workflow that limit acts: array formation, size selection, loading or HiFi read calling. HiFi read calling builds the consensus from
 several passes over the molecule and keeps reads accurate enough, so it favours shorter reads, which get more passes from the same polymerase read. We therefore reweighted each
 array by the inverse of its HiFi yield w(T), the chance that a read of total length T becomes a HiFi read, and estimated w(T) in two ways. With the empirical estimate (the HiFi
-share among HiFi and fail reads), the gap to chance becomes {ipw_empirical_diff_min|sf1} to {ipw_empirical_diff_max|sf1} bp, so HiFi calling would explain most or all of the deficit. With the model
+share among HiFi and fail reads), the gap to chance becomes {ipw_empirical_diff_min|sf1} to {ipw_empirical_diff_max|sf1} bp, so HiFi calling would explain a third to all of the deficit, depending on the library. With the model
 estimate (from polymerase read length and pass counts), it stays at {ipw_model_diff_min|sf1} to {ipw_model_diff_max|sf1} bp, so HiFi calling would explain none of it (Supplementary Table 6).
 The two estimates disagree, and the length model cannot tell which step the limit acts at either (technical note below).</p>
 <p>Molecules are joined only to their direct neighbours, so a ligation preference by length would make neighbours more (or less) alike than molecules further apart in the

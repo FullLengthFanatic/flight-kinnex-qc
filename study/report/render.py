@@ -120,10 +120,14 @@ def read(tables: Path, name: str) -> pl.DataFrame:
 def check_claims(tables: Path, numbers: dict) -> None:
     """The template's words that hold only for these data, checked against the source tables and numbers.json. When one
     does not hold, stop with one line naming it: the Note's text then needs a change in template.html. "Alike" is read as
-    within 10% of each other and "slight" as under 1% (thresholds of this check, not of v10)."""
+    within 10% of each other, "slight" as under 1%, and "a third to all" as a lowest share between 0.25 and 0.45 with a
+    highest of 0.95 or more (thresholds of this check, not of v10)."""
     fa = {r["library"]: r for r in read(tables, "fig1_skera_false_cut_anatomy").iter_rows(named=True)}
     lima = max(abs(fa[lib][col] - fa["kin"][col]) for lib in ("ND", "HM") for col in ("fate_fused_lima", "fate_frag_lima"))
-    partner = max(abs(r["diff_vs_P_bp"]) / r["partner_mean"] for r in read(tables, "S6_concatenation_bias").iter_rows(named=True))
+    s6 = list(read(tables, "S6_concatenation_bias").iter_rows(named=True))
+    partner = max(abs(r["diff_vs_P_bp"]) / r["partner_mean"] for r in s6)
+    explained = [1 - r["ipw_empirical_diff"] / r["diff_vs_P_bp"] for r in s6]      # share of each library's deficit gone after reweighting
+    ex_lo, ex_hi = min(explained), max(explained)
     bench = read(tables, "S4_chain_classification_benchmark_summary").filter(pl.col("error_rate") <= 0.01)    # HiFi rates, as bench_hifi_class_min
     false_mirrors = bench["non_mirror_called_mirror"].sum()
     arg_at_a = read(tables, "S7_argentag_parent_reads")["junctions_at_A_tso_tso"].sum()
@@ -135,6 +139,8 @@ def check_claims(tables: Path, numbers: dict) -> None:
          f"their lima pass rates differ from kin's by up to {100 * lima:.3f} percentage point"),
         ("the key findings and section 5", "under 1% of the mean partner", partner < 0.01,
          f"the partners of long molecules differ from chance by {pct(partner, 2)} of the mean partner in one library"),
+        ("section 5", "a third to all of the deficit", 0.25 < ex_lo < 0.45 and ex_hi >= 0.95,
+         f"reweighting by the empirical w(T) removes {pct(ex_lo, 0)} to {pct(ex_hi, 0)} of the deficit, by library"),
         ("section 1", "never calls a read a mirror array when it is not one", false_mirrors == 0,
          f"non-mirror reads called mirror at HiFi error rates in the benchmark: {false_mirrors}"),
         ("section 6", "none of them at adapter A", arg_at_a == 0, f"ArgenTag TSO-TSO junctions at A: {arg_at_a}"),
