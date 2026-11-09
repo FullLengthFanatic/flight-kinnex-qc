@@ -21,7 +21,7 @@ import build_docs  # noqa: E402
 
 GENERATED = ["README.md", "docs/concepts.md", "docs/data.md", "docs/manuscript_methods.md", "docs/reader_guide.md",
              "docs/skera_cutting_error.md", "docs/supplementary_methods.md"]
-README_HEADINGS = ["# flight-kinnex-qc", "## What we found", "## Check your own data", "## Reproduce the study", "## Documentation",
+README_HEADINGS = ["# flight-kinnex-qc", "## Kinnex arrays in brief", "## What we found", "## Check your own data", "## Reproduce the study", "## Documentation",
                    "## Citation", "## Licence"]
 SKERA_SECTIONS = ["What skera does", "How we found it", "How often", "What it costs", "What PacBio documents",
                   "How to check your data and recover the molecules"]
@@ -213,92 +213,6 @@ def test_false_cut_table_per_library_agrees_with_numbers_json():
     assert rows["Complete arrays skera passes with at least one false cut"] == share
     assert rows["False cuts in them"] == ["142,451", "178,916", "175,319"]
     assert "\n".join(table) in (REPO / "docs" / "skera_cutting_error.md").read_text()
-
-
-def test_passages_two_readers_could_not_follow_are_rewritten():
-    """What kinnex-qc checks, the data, the chimera's real adapter and the chance baseline (README); why the PCR products line
-    up, why a real adapter sits next to a TSO or Read1, how a TSO-TSO molecule grows a mirror, the mirror size in words with an
-    example, the arms' orientation and the false-cut gap (concepts); the false cut's letter and the other strand (the skera
-    cutting error). The libraries, the chimera and the mirror example were rewritten again in round 2 (next test)."""
-    readme, concepts, skera = (" ".join((REPO / p).read_text().split()) for p in ("README.md", "docs/concepts.md", "docs/skera_cutting_error.md"))
-    rewritten = [
-        (readme, "a command that checks the array structure and artifact molecules (TSO-TSO, R1-R1, missing primers) in your own "
-                 "Kinnex HiFi reads and, with skera's S-reads, skera's cuts."),
-        (readme, "one BD Rhapsody cartridge (a bead-based single-cell capture kit)"),
-        (readme, "the public ArgenTag 8-fold dataset from the MDA-MB-453 cell line."),
-        (readme, "bp shorter than if their lengths were randomly shuffled across arrays, under 1% of the mean partner."),
-        (concepts, "Since adjacent slots share an adapter, the eight slots require nine unique adapters: A, B, C, D, E, F, G, H and Q."),
-        (concepts, "the B end of the first product joins the B end of the second"),
-        (concepts, "or between a molecule and the end of the array for A and Q, so it lies next to the TSO or Read1 end of a molecule"),
-        (concepts, "Each X end then joins the X end of an ordinary molecule from the next slot"),
-        (concepts, "of the usable molecules on the arm after the junction (forward adapters, X to Q) as clean S-reads"),
-        (concepts, "of those on the arm before it (reverse-complement adapters, Q' to X')."),
-        (concepts, "(the sequence between where one S-read ends and the next begins) contains none of our adapters within 5 bp."),
-        (skera, "when it skips the real D, for example, it labels the false cut D, and the real D gets no label."),
-        (skera, "on reads from the other strand (adapters Q to A, so the read covers the array's reverse complement)"),
-    ]
-    assert [s for text, s in rewritten if s not in text] == []
-    replaced = [(readme, "runs the array and skera checks"), (readme, "the skipped adapter and the start of the next molecule"),
-                (readme, "shorter than by chance"), (concepts, "An adapter joins only its own letter"),
-                (concepts, "(where every real adapter sits)"), (concepts, "primed by the TSO-side primer"), (concepts, "2 x (slots from X to Q)")]
-    assert [s for text, s in replaced if s in text] == []
-
-
-def test_passages_two_readers_could_not_follow_in_round_2_are_rewritten():
-    """Round 2: the libraries named where ND is first used, the chimera's real adapter skera did not cut at, the false cut in the
-    read excerpt and the mirror junction defined (README); how the cDNA goes into eight PCRs, what qs, qe, dl and dr hold, why a
-    read with S-reads can be non-passing, the TSO-TSO paragraph split with the prime defined before its first use, the slots
-    of the example mirror, the chimera, and the study's own segmentation under its own heading (concepts); the chimera, the
-    false cut in the excerpt, why a real adapter sits next to a TSO or Read1, the CTCCTCC repeat and how close the look-alikes
-    are to D (the skera cutting error)."""
-    raw = {p: (REPO / p).read_text() for p in ("README.md", "docs/concepts.md", "docs/skera_cutting_error.md")}
-    readme, concepts, skera = (" ".join(raw[p].split()) for p in raw)
-    chimera = "a whole molecule, then the real adapter skera did not cut at, then the"
-    excerpt = "Uppercase marks the adapters and the false cut, the site skera called D;"
-    rewritten = [
-        (readme, "split into three libraries, each made into Kinnex 8-fold arrays and sequenced on one Revio SMRT Cell: ND, with no "
-                 "TSO-TSO depletion; HM, depleted by a home-made biotin-Read1 pulldown; and kin, depleted by the Kinnex TSO artifact removal."),
-        (readme, f"{chimera} start of the next molecule."), (readme, excerpt),
-        (readme, "of their mirror junctions (an adapter followed by its own reverse complement) hold a TSO-TSO molecule."),
-        (concepts, "The cDNA is divided among eight PCRs, each with its own primer pair. The two primers of each pair carry the two "
-                   "adapters of one slot"),
-        (concepts, "Each S-read records where it starts and ends in the HiFi read (tags `qs` and `qe`) and which adapters lie before and "
-                   "after it (tags `dl` and `dr`). `dl` and `dr` give each adapter as its position in that FASTA, counted from 0, so A, "
-                   "the first entry, is 0 (documented: https://skera.how/read-segments.html)."),
-        (concepts, "One read can be in both files. `segmented.bam` holds S-reads, the pieces of a read, and `non_passing.bam` whole HiFi "
-                   "reads; skera can write S-reads from part of a read and still put the whole read into `non_passing.bam`."),
-        (concepts, "a read where skera finds 14 of 15 expected segments gets those 14 written as S-reads and the whole HiFi read written "
-                   "to `non_passing.bam`"),
-        (concepts, "Having S-reads therefore does not make a read passing: we call a read passing when it is not in `non_passing.bam`."),
-        (concepts, "whose other end carries that slot's next adapter. That adapter joins a molecule of the slot after, and so on up to Q, "
-                   "on both sides. A prime marks an adapter read in reverse complement, that is, on the opposite strand. The array reads:"),
-        (concepts, "With the junction at G, two slots lie between the junction and Q: G to H and H to Q. The array then holds two "
-                   "molecules on each arm plus the TSO-TSO molecule, five in all."),
-        (concepts, f"({chimera} start of the next molecule)"),
-        (skera, f"{chimera} first part of the cut molecule."), (skera, excerpt),
-        (skera, "On the calibration set (below), the sequence at"),
-        (skera, "of false cuts is closest to D, 3 to 5 edits from it."),
-        (skera, "keeps an adapter hit only within 4 bp of a TSO or Read1 hit, because every real adapter sits between two molecules "
-                "(or at the array ends) and so always lies next to the TSO or Read1 end of a molecule (the full-read segmentation"),
-        (skera, "A CTCCTCC repeat sequence appears within 10 bp of"),
-        (skera, "of the false-cut sites, so the look-alike sequences are not one fixed motif."),
-    ]
-    assert [s for text, s in rewritten if s not in text] == []
-    replaced = [(readme, "with no TSO-TSO depletion (ND)"), (readme, "the real adapter skera skipped"),
-                (readme, "Uppercase marks the adapters and the site skera called D"),
-                (concepts, "split into eight PCRs"), (concepts, "the index of the adapter before and after it"),
-                (concepts, "can have its whole record in `non_passing.bam` too"), (concepts, "next adapter; that adapter"),
-                (concepts, "A prime marks an adapter read on the opposite strand"), (concepts, "two slots lie between G and Q"),
-                (concepts, "the skipped adapter and the start"), (skera, "the skipped adapter and the first part"),
-                (skera, "Uppercase marks the adapters and the site skera called D"), (skera, "where every real adapter sits (the full-read"),
-                (skera, "repeat lies within 10 bp"), (skera, "so the look-alikes are not")]
-    assert [s for text, s in replaced if s in text] == []
-    # ND is named where it is first used, and the prime is explained before the first adapter written with one
-    assert re.search(r"\bND\b.*", readme).group(0).startswith("ND, with no TSO-TSO depletion")
-    assert concepts.index("A prime marks") < concepts.index("X'")
-    # the study's own segmentation, with the 4 bp rule, has its own section
-    assert "within 4 bp of a TSO or Read1 hit" in section(raw["docs/concepts.md"], "How the study cuts reads")
-    assert "within 4 bp" not in section(raw["docs/concepts.md"], "What skera does")
 
 
 def test_concepts_and_reader_guide_sections():

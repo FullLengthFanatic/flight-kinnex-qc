@@ -5,11 +5,27 @@
 
 The code and results behind the FLIGHT-seq manuscript's Supplementary Note on Kinnex array integrity: what goes wrong when PacBio's Kinnex 8-fold kit joins single-cell cDNA molecules into arrays, how often, and how many usable molecules it costs. It also installs `kinnex-qc`, a command that checks the array structure and artifact molecules (TSO-TSO, R1-R1, missing primers) in your own Kinnex HiFi reads and, with skera's S-reads, skera's cuts.
 
+## Kinnex arrays in brief
+
+Kinnex joins eight cDNA molecules end to end into one array, so that one HiFi read holds eight of them. Nine adapters, A to H and Q, separate the molecules, always in this order:
+
+```
+A [molecule 1] B [molecule 2] C [molecule 3] D [molecule 4] E [molecule 5] F [molecule 6] G [molecule 7] H [molecule 8] Q
+```
+
+skera, PacBio's tool, cuts each HiFi read at its adapters into S-reads, one per molecule. It sets aside, in `segmented.non_passing.bam`, the reads whose adapters it does not find in order; the others are passing reads. lima then keeps the S-reads with the expected primer at each end.
+
+In single-cell 3' cDNA a usable molecule has the template-switching oligo (TSO) at one end and Read1, followed by the cell label, at the other. A TSO-TSO molecule has the TSO at both ends and no cell label. Built into an array, it gives a mirror array: the same adapters run out to Q on both sides of it (a prime marks the reverse complement).
+
+```
+Q' [molecule] H' [TSO-TSO] H [molecule] Q
+```
+
 ## What we found
 
 The data: FLIGHT-seq full-length cDNA from one BD Rhapsody cartridge (a bead-based single-cell capture kit), split into three libraries, each made into Kinnex 8-fold arrays and sequenced on one Revio SMRT Cell: ND, with no TSO-TSO depletion; HM, depleted by a home-made biotin-Read1 pulldown; and kin, depleted by the Kinnex TSO artifact removal. For comparison, the public ArgenTag 8-fold dataset from the MDA-MB-453 cell line. The terms are explained in [docs/concepts.md](docs/concepts.md).
 
-**1. skera cuts some arrays in the wrong place.** Observed with skera 26.1.0, the version that wrote our S-reads: in complete arrays that skera passes, 8.6% to 8.8% of reads carry at least one false cut, in all three libraries alike. skera skips a real adapter, most often D (75% of the skipped adapters we find in ND), and cuts instead at a similar sequence a median 891 bp into the next molecule. Two S-reads come out wrong. The one before the cut is a chimera: a whole molecule, then the real adapter skera did not cut at, then the start of the next molecule. The one after it is a fragment, the rest of that molecule. lima passes 0.0% of the fragments and 0.3% to 0.4% of the chimeras, so each false cut costs two molecules. skera's documentation does not say how closely a sequence must match an adapter, and `skera split` has no option for it. Details, numbers per library and PacBio's own words: [docs/skera_cutting_error.md](docs/skera_cutting_error.md).
+**1. skera cuts some arrays in the wrong place.** Observed with skera 26.1.0, the version that wrote our S-reads: in complete arrays that skera passes, 8.6% to 8.8% of reads carry at least one false cut, in all three libraries alike. skera skips a real adapter, most often D (75% of the skipped adapters we find in ND), and cuts instead at a similar sequence a median 891 bp into the next molecule. Two S-reads come out wrong. The one before the cut is a chimera: a whole molecule, then the real adapter skera did not cut at, then the start of the next molecule. The one after it is a fragment, the rest of that molecule. lima passes 0.0% of the fragments and 0.3% to 0.4% of the chimeras, so each false cut costs two molecules. In kin that comes to 0.17 molecules per HiFi read, most of what cutting every read at our own adapters wins back: 7.86 molecules kept per read, against 7.68 with the standard workflow. skera's documentation does not say how closely a sequence must match an adapter, and `skera split` has no option for it. Details, numbers per library and PacBio's own words: [docs/skera_cutting_error.md](docs/skera_cutting_error.md).
 
 ![Supplementary Fig. 1: how one skera false cut breaks two molecules](report/figures/Supplementary_fig1.svg)
 
@@ -38,12 +54,15 @@ The Supplementary Note has every figure and table: `report/supplementary_note.ht
 
 ## Check your own data
 
-`kinnex-qc` needs Python 3.12 and none of the PacBio tools. From a copy of this repository, install the command with either of:
+`kinnex-qc` needs Python 3.12 and none of the PacBio tools. Get the repository and install the command:
 
 ```
+git clone https://github.com/FullLengthFanatic/flight-kinnex-qc
+cd flight-kinnex-qc
 uv tool install .
-pip install .
 ```
+
+Without uv, `pip install .` does the same. Use a fresh Python 3.12 environment for it: the package pins exact versions of numpy, polars, pysam and its other dependencies, and pip would change them in an environment you already use.
 
 To try it without data, make the six synthetic reads the tests use (three complete arrays, one of them with a false cut, two TSO-TSO mirrors and an R1-R1 mirror, with their S-reads) and check all six, from the repository folder (after `pip install .`, plain `python` works in place of `uv run python`):
 
@@ -58,7 +77,7 @@ On your own data, run it on the HiFi BAM of one SMRT Cell, with skera's S-read B
 kinnex-qc run --hifi hifi_reads.bam --sreads segmented.bam --out qc/
 ```
 
-By default it checks a hash sample of 10% of the ZMWs (`--fraction`) and writes `qc/report.html`, a page that explains each number it shows: the share of complete, truncated and mirror arrays, the molecule at each mirror junction, artifact molecules per 1,000 and a few example reads from your data. With `--sreads` it adds skera's false cuts, what skera writes from mirror arrays, and how many usable molecules per read skera does not write cleanly. The same numbers are in `qc/summary.json`, one row per checked read in `qc/reads.tsv.gz`. With `--write-molecules` it also writes `qc/molecules.bam`: every usable molecule of every read, cut at our adapters, ready for lima in place of skera's `segmented.bam`. How to read the report: [docs/reader_guide.md](docs/reader_guide.md).
+By default it checks a hash sample of 10% of the ZMWs (`--fraction`) and writes `qc/report.html`, a page that explains each number it shows: the share of complete, truncated and mirror arrays, the molecule at each mirror junction, artifact molecules per 1,000 and a few example reads from your data. With `--sreads` it adds skera's false cuts, what skera writes from mirror arrays, and how many usable molecules per read skera does not write cleanly. The same numbers are in `qc/summary.json`, one row per checked read in `qc/reads.tsv.gz`. With `--write-molecules` it also writes `qc/molecules.bam`: every usable molecule of every read, cut at our adapters, ready for lima in place of skera's `segmented.bam`. For that it searches every read, not only the sample, so the run takes several times longer. How to read the report, and what a run on a whole SMRT Cell took in time and memory: [docs/reader_guide.md](docs/reader_guide.md).
 
 Scope: single-cell 3' cDNA in Kinnex arrays, with the TSO at one end of each molecule and Read1 with the cell label at the other (BD Rhapsody and FLIGHT-seq, 10x 3', ArgenTag). It is not for bulk Iso-Seq, where both cDNA ends carry the same primer. So far it is validated on BD Rhapsody (FLIGHT-seq) Kinnex 8-fold libraries only.
 

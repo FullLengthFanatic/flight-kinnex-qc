@@ -1,10 +1,15 @@
 import os
+import sys
 import tomllib
 from pathlib import Path
 
 import pytest
 
 import make_test_bam
+
+# The tests call the `kinnex-qc` command: this interpreter's own scripts folder goes first on PATH, so they run the
+# command of the package under test and not another kinnex-qc installed earlier on PATH.
+os.environ["PATH"] = str(Path(sys.executable).parent) + os.pathsep + os.environ["PATH"]
 
 
 @pytest.fixture(scope="session")

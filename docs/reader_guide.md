@@ -11,7 +11,7 @@
 uv tool install .
 ```
 
-or, inside a Python 3.12 environment,
+or, inside a fresh Python 3.12 environment (the package pins exact versions of its dependencies, which pip would change in an environment you already use),
 
 ```
 pip install .
@@ -74,17 +74,23 @@ Without `--sreads`, section 4 is left out and the last two sections are numbered
 
 `kinnex-qc run` is validated on BD Rhapsody (FLIGHT-seq) Kinnex 8-fold libraries only. No 10x Kinnex HiFi dataset has been checked against it yet.
 
-The check: `study/validate_reader.py` ran commit `1a33bbf` (package version 0.1.0) against three BD Rhapsody libraries, BD144_ND, BD144_HM and BD144_kin, at `--fraction 0.18` and `--threads 10`, and compared 229 numbers from each run's `summary.json` (129 for BD144_ND, 50 each for BD144_HM and BD144_kin) against the frozen tables from the same study's own, independent analysis (`tests/golden`): patterns, artifact rates, false cut letters and the molecule budget in all three libraries, plus BD144_ND's mirror junction letters, junction composition, array size rule and mirror arm tables. BD144_HM and BD144_kin have no v10 tables for those last four, so they are not compared; `skera.complete_reads`, `skera.budget.artifact` and `skera.budget.usable_clean` also have no v10 counterpart and are not compared in any library. Later commits changed how `--write-molecules` streams its output and stopped defaulting `--fraction` to 1 when it is set without an explicit `--fraction`, added progress lines to `run.log`, changed row order on ties, and changed how `mirror_size_rule` is computed (it now goes through `skera.single_tso_tso_mirrors`); none of them touch `summary.json`'s numbers, which their own tests confirm against a fixed calibration BAM.
+Two things were checked.
 
-Across the three libraries, 33,628,976 HiFi reads were read from the BAMs and 6,054,028 of them fell in the 0.18 hash sample the summary and report describe.
+The method (the adapter and primer search and the chain classes) is the study's own, and the Supplementary Note tests it: recall and precision on synthetic arrays, agreement with skera's adapter letters and with lima's primer pairs (Supplementary Table 3), and the chain classes on synthetic reads of known structure (Supplementary Table 4).
+
+The command was then checked to give the study's numbers. `study/validate_reader.py` ran `kinnex-qc run` on the three BD144 libraries at `--fraction 0.18`, the study's sample, and compared 229 numbers of their `summary.json` files with the study's tables, frozen in `tests/golden`. Those tables come from v10, the build of the Note made by the study's analysis code before it was ported into this package. The comparison therefore shows that the command reproduces the study; it is not a second opinion on the method. All but one of the 229 numbers match exactly.
+
+What was compared: patterns, artifact rates, false cut letters and the molecule budget in all three libraries, and for BD144_ND also the mirror junction letters, junction composition, array size rule and mirror arm tables, which v10 has for that library only (129 numbers for BD144_ND, 50 each for BD144_HM and BD144_kin). `skera.complete_reads`, `skera.budget.artifact` and `skera.budget.usable_clean` have no v10 counterpart and are not compared. Across the three libraries the runs read 33,628,976 HiFi reads, 6,054,028 of them in the hash sample.
+
+The runs were made at commit `1a33bbf` (package version 0.1.0). Later commits changed how `--write-molecules` streams its output, stopped it from setting `--fraction` to 1 when no `--fraction` is given, added progress lines to `run.log`, changed row order on ties, and changed how `mirror_size_rule` is computed (it now goes through `skera.single_tso_tso_mirrors`). None of them touch `summary.json`'s numbers, which their own tests confirm against a fixed calibration BAM.
 
 ### The one known difference from v10
 
-One of the 229 compared numbers differs from v10: BD144_ND's mirror junction composition "TSO-TSO only" bucket's `skera_pass_share` is 0.0034570434472299045 against v10's 0.0034602296623886418, one read out of 313,852. The cause is that the reader has no `--non-passing` option, so it derives skera's pass or fail verdict from the S-read labels alone (`kinnex_qc.skera.passing_from_labels`), which disagrees with skera's own verdict on 20 of BD144_ND's 1,969,703 sampled reads (19 truncated, 1 mirror, none of the complete arrays); that one mirror read falls in this bucket. This difference was reviewed and accepted: `study/validate_reader.py` pins both values and prints the line as KNOWN, not a failure, and `tests/test_reader_validation.py` passes. Every other compared number matches v10 exactly. See `CHANGELOG.md` for the entry.
+In BD144_ND, the share of mirror reads with only TSO-TSO junctions that skera passes (`skera_pass_share` of the "TSO-TSO only" row) is 0.0034570434472299045, against v10's 0.0034602296623886418: one read out of 313,852. The study took skera's verdict from `segmented.non_passing.bam`. The command reads only `segmented.bam`, so it derives the verdict from the S-read labels (`kinnex_qc.skera.passing_from_labels`), and the two disagree on 20 of BD144_ND's 1,969,703 sampled reads (19 truncated, 1 mirror, none of the complete arrays). That one mirror read is the difference. `study/validate_reader.py` pins both values and prints the line as KNOWN, and `CHANGELOG.md` has the entry.
 
 ### Time and memory
 
-Run time and peak memory, as measured on the machine that ran these three checks (a machine shared with other jobs at the time, load 37 to 57 on 32 CPUs), at `--fraction 0.18` and `--threads 10`, from `/usr/bin/time -v`: this is what these three runs cost on that machine, not a benchmark.
+What the three validation runs cost, from `/usr/bin/time -v`, at `--fraction 0.18` and `--threads 10` on a machine with 32 CPUs that other jobs kept at load 37 to 57. This is what these runs cost on that machine, not a benchmark. `--write-molecules` searches every read instead of the sample, so it takes several times longer; it has not been timed on a whole SMRT Cell.
 
 | library | wall time | peak memory |
 | --- | --- | --- |
