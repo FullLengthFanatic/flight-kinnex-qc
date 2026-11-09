@@ -1,6 +1,6 @@
 [project]
 name = "kinnex-qc"
-version = "0.1.0"
+version = "1.0.0"
 description = "QC of PacBio Kinnex arrays of single-cell cDNA: mirror arrays, TSO-TSO molecules and skera's cutting errors"
 readme = "README.md"
 license = { text = "MIT" }

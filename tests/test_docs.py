@@ -412,7 +412,7 @@ def test_ci_installs_the_dev_extra_and_runs_pytest_from_the_venv():
 
 def test_citation_cff():
     cff = (REPO / "CITATION.cff").read_text()
-    for line in ['cff-version: 1.2.0', 'version: "0.1.0"', 'license: MIT', 'family-names: Picelli', 'given-names: Simone',
+    for line in ['cff-version: 1.2.0', 'version: "1.0.0"', 'date-released: "2026-11-09"', 'license: MIT', 'family-names: Picelli', 'given-names: Simone',
                  'orcid: "https://orcid.org/0000-0002-1747-614X"', 'repository-code: "https://github.com/FullLengthFanatic/flight-kinnex-qc"']:
         assert line in cff, line
     assert not re.search(r"^doi:", cff, flags=re.M)

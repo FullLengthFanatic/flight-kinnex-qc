@@ -1,0 +1,22 @@
+{
+  "title": "flight-kinnex-qc: Kinnex array integrity in FLIGHT-seq libraries",
+  "version": "1.0.0",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "mit",
+  "creators": [
+    {"name": "Picelli, Simone", "orcid": "0000-0002-1747-614X"}
+  ],
+  "description": "The code and results behind the FLIGHT-seq manuscript's Supplementary Note on Kinnex array integrity: what goes wrong when PacBio's Kinnex 8-fold kit joins single-cell cDNA molecules into arrays, how often, and how many usable molecules it costs. It also installs kinnex-qc, a command that checks the array structure and artifact molecules (TSO-TSO, R1-R1, missing primers) in Kinnex HiFi reads and, with skera's S-reads, skera's cuts.",
+  "keywords": [
+    "PacBio Kinnex",
+    "skera",
+    "MAS-Seq",
+    "TSO artifacts",
+    "single-cell RNA-seq",
+    "FLIGHT-seq",
+    "BD Rhapsody",
+    "long-read sequencing"
+  ],
+  "language": "eng"
+}
