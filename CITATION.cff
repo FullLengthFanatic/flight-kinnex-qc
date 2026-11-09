@@ -7,6 +7,11 @@ authors:
     orcid: "https://orcid.org/0000-0002-1747-614X"
 version: "1.0.0"
 date-released: "2026-11-09"
+doi: "10.5281/zenodo.24092254"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.24092255"
+    description: "The Zenodo archive of version 1.0.0"
 repository-code: "https://github.com/FullLengthFanatic/flight-kinnex-qc"
 # Sequencing data of the BD144 libraries: ACCESSION_TBD (deposited with the bioRxiv preprint)
 license: MIT

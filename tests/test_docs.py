@@ -415,6 +415,6 @@ def test_citation_cff():
     for line in ['cff-version: 1.2.0', 'version: "1.0.0"', 'date-released: "2026-11-09"', 'license: MIT', 'family-names: Picelli', 'given-names: Simone',
                  'orcid: "https://orcid.org/0000-0002-1747-614X"', 'repository-code: "https://github.com/FullLengthFanatic/flight-kinnex-qc"']:
         assert line in cff, line
-    assert not re.search(r"^doi:", cff, flags=re.M)
+    assert 'doi: "10.5281/zenodo.24092254"' in cff and 'value: "10.5281/zenodo.24092255"' in cff
     assert "https://skera.how" in cff and "https://github.com/PacificBiosciences/pbbioconda/issues/608" in cff
     assert "\u2013" not in cff and "\u2014" not in cff and banned_hits(cff) == []
