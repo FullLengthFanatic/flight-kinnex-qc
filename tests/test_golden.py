@@ -112,11 +112,14 @@ def test_report_numbers_are_v10s_but_the_run_and_code_keys_and_the_approved_keys
 
 def report_text_numbers() -> list[str]:
     """The text numbers of the Note in report/. allowed_changes.txt is written against the frozen numbers.json, so section
-    8's sentence that prints run_commits and kinnex_qc_commit is masked: as report/numbers.json prints it, it is replaced by
-    the sentence the frozen numbers print."""
+    8's sentence that prints run_commits and kinnex_qc_commit, and its package version, are masked: as report/numbers.json
+    prints them, they are replaced by what the frozen numbers print."""
     built, frozen = (json.loads(p.read_text()) for p in (REPORT / "numbers.json", GOLDEN / "v10_numbers.json"))
     text = visible_text((REPORT / "supplementary_note.html").read_text(encoding="utf-8"))
     assert text.count(section8_commits(built)) == 1
+    version = "the package kinnex-qc {}:"
+    assert text.count(version.format(built["kinnex_qc_version"])) == 1
+    text = text.replace(version.format(built["kinnex_qc_version"]), version.format(frozen["kinnex_qc_version"]))
     return numbers(text.replace(section8_commits(built), section8_commits(frozen)))
 
 

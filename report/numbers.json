@@ -350,8 +350,8 @@
  "skera120_ligations_same_letter": 0,
  "skera120_ligations_total": 1469864,
  "skera_versions_share_diff_max": 0.000615539391211728,
- "kinnex_qc_version": "0.1.0",
- "kinnex_qc_commit": "c3f47fb",
+ "kinnex_qc_version": "1.0.0",
+ "kinnex_qc_commit": "ff8111b",
  "run_commits": [
   "7d419a4",
   "c3f47fb"
